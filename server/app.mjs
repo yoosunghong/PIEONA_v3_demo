@@ -1,0 +1,296 @@
+import express from 'express';
+import helmet from 'helmet';
+import { rateLimit } from 'express-rate-limit';
+import { createServer } from 'node:http';
+import { Server } from 'socket.io';
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual, createHash } from 'node:crypto';
+import { promisify } from 'node:util';
+import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
+import { z } from 'zod';
+import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, defaultSettings } from './store.mjs';
+import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
+
+const scrypt = promisify(scryptCallback);
+const hashToken = value => createHash('sha256').update(value).digest('hex');
+const cookieToken = header => (header || '').split(';').map(s => s.trim()).find(s => s.startsWith('pieona_session='))?.slice(15);
+const fail = (status, message) => { const e = new Error(message); e.status = status; throw e; };
+const nickname = z.string().trim().min(1).max(20);
+const visibility = z.enum(['private','close','public']);
+const categories = z.enum(['취향','가치관','경험','말투','일상']);
+export const questions = [
+  { id: 'weekend', title: '나만의 완벽한 주말은?', a: '포근한 집에서 충전', b: '새로운 곳으로 모험', category: '취향' },
+  { id: 'friend', title: '친구가 힘든 하루를 보냈다면?', a: '먼저 마음을 들어주기', b: '함께 해결책 찾아보기', category: '가치관' },
+  { id: 'cafe', title: '작은 카페에서 고르고 싶은 자리는?', a: '햇살 드는 조용한 창가', b: '사람들이 모이는 큰 테이블', category: '취향' },
+  { id: 'gift', title: '더 마음이 가는 선물은?', a: '진심이 담긴 손편지', b: '취향에 꼭 맞는 작은 물건', category: '가치관' },
+  { id: 'talk', title: '우리의 대화는 어떤 느낌이면 좋을까?', a: '다정하고 차분한 대화', b: '장난스럽고 활기찬 대화', category: '말투' }
+];
+
+export function createApp(options = {}) {
+  const store = options.store || openStore(process.env.DATABASE_PATH);
+  const app = express(); const server = createServer(app);
+  const origins = new Set([process.env.PUBLIC_ORIGIN || 'https://pieona.yoosung.dev', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173']);
+  const io = new Server(server, { maxHttpBufferSize: 16384, allowRequest: (req, done) => done(null, !req.headers.origin || origins.has(req.headers.origin)) });
+  const online = new Map(); const locks = new Set(); const villageVisitors = new Map();
+  app.set('trust proxy', 'loopback');
+  app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'blob:', 'data:'], connectSrc: ["'self'", 'ws:', 'wss:'], workerSrc: ["'self'", 'blob:'], upgradeInsecureRequests: null } }, crossOriginEmbedderPolicy: false }));
+  app.use(express.json({ limit: '20kb' }));
+  app.use('/api', (req, res, next) => { res.set('Cache-Control','no-store'); if (!['GET','HEAD','OPTIONS'].includes(req.method) && req.headers.origin && !origins.has(req.headers.origin)) return res.status(403).json({ error: '허용되지 않은 요청 출처입니다.' }); next(); });
+  app.use('/api', rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '요청이 많아요. 잠시 후 다시 시도해 주세요.' } }));
+  const authLimiter = rateLimit({ windowMs: 15*60_000, limit: options.testing ? 500 : 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '로그인 시도가 많아요. 15분 후 다시 시도해 주세요.' } });
+  const aiLimiter = rateLimit({ windowMs: 60_000, limit: options.testing ? 500 : 15, keyGenerator: req => req.user.id, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '잠시 숨을 고르고 다시 이야기해 주세요.' } });
+  function userById(userId) { const user = store.one('SELECT * FROM users WHERE id=?', userId); if (!user) fail(404, '아바타를 찾을 수 없어요.'); return user; }
+  function sessionUser(headers) { const token = cookieToken(headers.cookie); if (!token) return null; return store.one('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?', hashToken(token), Date.now()); }
+  function auth(req, res, next) { req.user = sessionUser(req.headers); if (!req.user) return res.status(401).json({ error: '로그인이 필요해요.' }); next(); }
+  const profile = (user, viewer) => publicUser(store, user, viewer, new Set(online.keys()));
+  function emitUpdate(userId) { io.to(`user:${userId}`).emit('refresh'); }
+  function emitWorld() { io.emit('world:changed'); }
+  function villageMembers(villageId) {
+    const members=Array.from(villageVisitors.get(villageId)?.values() || []);
+    if(!members.some(member=>member.userId===villageId)){const owner=store.one('SELECT nickname FROM users WHERE id=?',villageId);if(owner)members.unshift({userId:villageId,nickname:owner.nickname,x:-1.4,z:0});}
+    return members;
+  }
+  function leaveVillage(socket) {
+    const current = socket.data.village;
+    if (!current) return;
+    socket.leave(`village:${current.villageId}`);
+    const members = villageVisitors.get(current.villageId);
+    members?.delete(current.userId);
+    if (members && !members.size) villageVisitors.delete(current.villageId);
+    socket.data.village = null;
+    io.to(`village:${current.villageId}`).emit('village:members', villageMembers(current.villageId));
+  }
+  function activity(ownerId, actorId, type, detail='', anonymous=false) { store.run('INSERT INTO activities VALUES(?,?,?,?,?,?,?)', id(), ownerId, actorId, type, detail, Number(anonymous), now()); emitUpdate(ownerId); }
+  function event(userId, name, detail={}) { store.run('INSERT INTO events VALUES(?,?,?,?,?)', id(), userId, name, JSON.stringify(detail), now()); }
+  function checkTarget(req, targetId, kind='visit') {
+    const target = userById(targetId); if (isBlocked(store, req.user.id, targetId)) fail(403, '차단된 사용자와 교류할 수 없어요.');
+    if (targetId !== req.user.id && !settingsOf(target).allowVisitors) fail(403, '지금은 방문을 쉬고 있는 마을이에요.');
+    if (kind==='topic' && !settingsOf(target).allowTopics) fail(403, '스페셜 토픽을 허용하지 않은 아바타예요.');
+    return target;
+  }
+  function rewardVisit(ownerId, actorId, anonymous) {
+    if (ownerId===actorId) return;
+    const total = store.one("SELECT COALESCE(SUM(amount),0) total FROM rewards WHERE user_id=? AND type='visit' AND day=?", ownerId, day()).total;
+    if (total >= 200) return;
+    const change = store.run("INSERT OR IGNORE INTO rewards VALUES(?,?,'visit',?,10)", ownerId, actorId, day());
+    if (change.changes) { store.run('UPDATE users SET gold=gold+10 WHERE id=?', ownerId); activity(ownerId, actorId, 'greeting', '아바타에게 인사를 남겼어요', anonymous); }
+  }
+  function newSession(res, req, user) {
+    const token = randomBytes(32).toString('hex');
+    store.run('INSERT INTO sessions VALUES(?,?,?)', hashToken(token), user.id, Date.now()+30*86400000);
+    const secure = process.env.COOKIE_SECURE==='true' || (process.env.COOKIE_SECURE!=='false' && req.secure);
+    res.cookie('pieona_session', token, { httpOnly: true, sameSite: 'lax', secure, maxAge: 30*86400000, path: '/' });
+  }
+
+  app.get('/api/health', (req,res) => res.json({ ok:true, app:'pieona', ai: aiMode(), version:'1.0.0' }));
+  app.post('/api/auth/register', authLimiter, async (req,res) => {
+    const data = z.object({ username: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,24}$/), password: z.string().min(8).max(128) }).parse(req.body);
+    if (store.one('SELECT id FROM users WHERE username=?', data.username)) fail(409, '이미 사용 중인 아이디예요.');
+    const salt = randomBytes(16).toString('hex'); const digest = await scrypt(data.password, salt, 64);
+    const userId = id();
+    try { store.run('INSERT INTO users(id,username,password,created_at) VALUES(?,?,?,?)', userId, data.username, `${salt}:${digest.toString('hex')}`, now()); } catch (e) { if (String(e).includes('UNIQUE')) fail(409, '이미 사용 중인 아이디예요.'); throw e; }
+    const user = userById(userId); newSession(res,req,user); event(user.id,'register'); emitWorld(); res.status(201).json({ user: profile(user,user.id) });
+  });
+  app.post('/api/auth/login', authLimiter, async (req,res) => {
+    const data = z.object({ username:z.string().trim().toLowerCase().max(24), password:z.string().max(128) }).parse(req.body);
+    const user = store.one('SELECT * FROM users WHERE username=?', data.username);
+    const [salt, digest] = (user?.password || `${'0'.repeat(32)}:${'0'.repeat(128)}`).split(':');
+    const candidate = await scrypt(data.password,salt,64);
+    if (!user || !timingSafeEqual(candidate,Buffer.from(digest,'hex'))) fail(401,'아이디 또는 비밀번호를 확인해 주세요.');
+    newSession(res,req,user); event(user.id,'login'); res.json({ user: profile(user,user.id) });
+  });
+  app.post('/api/auth/logout', auth, (req,res) => {
+    const token = cookieToken(req.headers.cookie); if (token) store.run('DELETE FROM sessions WHERE token=?', hashToken(token));
+    // Logout closes every socket authenticated by this particular session, including other tabs.
+    for (const socket of io.sockets.sockets.values()) if (socket.data.token === hashToken(token || '')) socket.disconnect(true);
+    res.clearCookie('pieona_session',{path:'/'}); res.json({ok:true});
+  });
+  app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
+  app.patch('/api/me', auth, (req,res) => {
+    const schema = z.object({ nickname:nickname.optional(), intro:z.string().trim().max(180).optional(), theme:z.enum(['sage','rose','ocean','sunset']).optional(), settings:z.object({ allowVisitors:z.boolean().optional(),receiveTranscripts:z.boolean().optional(),allowTopics:z.boolean().optional(),stageVisible:z.boolean().optional(),questionFrequency:z.enum(['daily','often','off']).optional(),questionTopic:z.string().max(30).optional(),publicTags:z.array(z.string().trim().min(1).max(20)).max(6).optional(),speechStyle:z.string().max(80).optional(),scene:z.enum(['garden','cafe','campfire']).optional() }).optional() });
+    const data = schema.parse(req.body); const user=userById(req.user.id);
+    store.run('UPDATE users SET nickname=?,intro=?,theme=?,settings=?,revision=revision+1 WHERE id=?', data.nickname??user.nickname,data.intro??user.intro,data.theme??user.theme,JSON.stringify({...settingsOf(user),...data.settings}),user.id);
+    emitWorld(); res.json({ user:profile(userById(user.id),user.id) });
+  });
+  app.get('/api/users', auth, (req,res) => { const users=store.all('SELECT * FROM users ORDER BY created_at'); res.json({ users:users.filter(u=>!isBlocked(store,req.user.id,u.id)).map(u=>profile(u,req.user.id)) }); });
+  app.get('/api/users/:id', auth, (req,res) => { const target=checkTarget(req,req.params.id); res.json({user:profile(target,req.user.id), memories:visibleMemories(store,target.id,req.user.id).map(m=>({id:m.id,content:m.content,category:m.category,visibility:m.visibility}))}); });
+  app.get('/api/questions', auth, (req,res) => {
+    const s=settingsOf(req.user); const date=day(); const seed=[...date].reduce((a,c)=>a+c.charCodeAt(0),0);
+    const prompts=[`오늘 너에게 작은 행복을 준 순간이 있었어?`, `${s.questionTopic} 이야기를 들려줄래? 요즘 가장 마음이 가는 건 뭐야?`, '요즘 너만의 충전 방법은 뭐야?', '절대 잃고 싶지 않은 너만의 가치는 뭐야?', '일 년 뒤의 너에게 한마디를 남긴다면?'];
+    const period=s.questionFrequency==='often'?Math.floor(Date.now()/(4*3600000)):date;
+    const answered=store.one("SELECT 1 FROM events WHERE user_id=? AND name='question_answered' AND detail=?", req.user.id,JSON.stringify({period}));
+    const skipped=store.one("SELECT 1 FROM events WHERE user_id=? AND name='question_skipped' AND detail=?", req.user.id,JSON.stringify({period}));
+    res.json({balance:questions,daily:s.questionFrequency==='off'||answered||skipped?null:prompts[seed%prompts.length],period});
+  });
+  app.post('/api/questions/status', auth, (req,res) => { const data=z.object({action:z.enum(['answered','skipped','reset'])}).parse(req.body); const s=settingsOf(req.user); const period=s.questionFrequency==='often'?Math.floor(Date.now()/(4*3600000)):day(); if(data.action==='reset') store.run("DELETE FROM events WHERE user_id=? AND name IN ('question_answered','question_skipped') AND detail=?",req.user.id,JSON.stringify({period})); else event(req.user.id,`question_${data.action}`,{period}); res.json({ok:true}); });
+  app.post('/api/balance', auth, (req,res) => {
+    const answers=z.array(z.object({id:z.string(),choice:z.enum(['a','b'])})).length(5).parse(req.body.answers);
+    if(new Set(answers.map(a=>a.id)).size!==5||answers.some(a=>!questions.find(q=>q.id===a.id))) fail(400,'다섯 질문에 모두 답해주세요.');
+    store.transaction(()=>{
+      store.run("DELETE FROM memories WHERE owner_id=? AND source='balance'",req.user.id);
+      for(const answer of answers){const q=questions.find(q=>q.id===answer.id); const time=now(); store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',id(),req.user.id,`${q.title} → ${q[answer.choice]}`,q.category,'private',1,'balance',time,time);}
+      store.run('UPDATE users SET balance=?,revision=revision+1 WHERE id=?',JSON.stringify(answers),req.user.id); event(req.user.id,'balance_completed');
+    }); emitWorld(); res.json({user:profile(userById(req.user.id),req.user.id)});
+  });
+  app.get('/api/memories', auth, (req,res)=>res.json({memories:store.all('SELECT * FROM memories WHERE owner_id=? ORDER BY created_at DESC',req.user.id)}));
+  app.post('/api/memories', auth, (req,res)=>{
+    const data=z.object({content:z.string().trim().min(1).max(400),category:categories,visibility:visibility.default('private')}).parse(req.body);const time=now();const mid=id();
+    store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',mid,req.user.id,data.content,data.category,data.visibility,1,'owner',time,time);store.run('UPDATE users SET revision=revision+1 WHERE id=?',req.user.id);event(req.user.id,'memory_added');emitWorld();res.status(201).json({id:mid});
+  });
+  app.patch('/api/memories/:id', auth, (req,res)=>{
+    const data=z.object({content:z.string().trim().min(1).max(400).optional(),category:categories.optional(),visibility:visibility.optional(),confirmed:z.boolean().optional()}).parse(req.body);
+    const m=store.one('SELECT * FROM memories WHERE id=? AND owner_id=?',req.params.id,req.user.id);if(!m)fail(404,'기억을 찾을 수 없어요.');
+    store.run('UPDATE memories SET content=?,category=?,visibility=?,confirmed=?,updated_at=? WHERE id=?',data.content??m.content,data.category??m.category,data.visibility??m.visibility,data.confirmed===undefined?m.confirmed:Number(data.confirmed),now(),m.id);
+    store.run('UPDATE users SET revision=revision+1 WHERE id=?',req.user.id);event(req.user.id,'memory_edited');emitWorld();res.json({ok:true});
+  });
+  app.delete('/api/memories/:id',auth,(req,res)=>{const result=store.run('DELETE FROM memories WHERE id=? AND owner_id=?',req.params.id,req.user.id);if(!result.changes)fail(404,'기억을 찾을 수 없어요.');store.run('UPDATE users SET revision=revision+1 WHERE id=?',req.user.id);event(req.user.id,'memory_deleted');emitWorld();res.json({ok:true});});
+
+  // The account has one publicly active avatar; independent persona slots can be switched for free.
+  const slotSnapshot=user=>({nickname:user.nickname,intro:user.intro,theme:user.theme,settings:settingsOf(user),balance:JSON.parse(user.balance),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id)});
+  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);});return userById(user.id);}
+  app.get('/api/slots',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));res.json({active:user.active_slot,slots:store.all('SELECT * FROM avatar_slots WHERE owner_id=? ORDER BY created_at',user.id).map(s=>{const snap=s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot);return{id:s.id,nickname:snap.nickname,theme:snap.theme,memoryCount:snap.memories.length,balanceComplete:!!snap.balance.length,active:s.id===user.active_slot};})});});
+  app.post('/api/slots',auth,(req,res)=>{const data=z.object({nickname,theme:z.enum(['sage','rose','ocean','sunset']).default('sage')}).parse(req.body);ensureSlot(userById(req.user.id));if(store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',req.user.id).n>=8)fail(400,'프로토타입에서는 최대 8개의 자아를 키울 수 있어요.');const sid=id();store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,req.user.id,JSON.stringify({nickname:data.nickname,intro:'',theme:data.theme,settings:{...defaultSettings},balance:[],memories:[]}),now());event(req.user.id,'slot_created');res.status(201).json({id:sid});});
+  app.post('/api/slots/:id/activate',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));if(locks.has(`owner:${user.id}`))fail(409,'내 아바타의 답변이 끝난 뒤 자아를 전환해주세요.');const slot=store.one('SELECT * FROM avatar_slots WHERE id=? AND owner_id=?',req.params.id,user.id);if(!slot)fail(404,'나의 자아 슬롯을 찾을 수 없어요.');if(slot.id!==user.active_slot){const snapshot=JSON.parse(slot.snapshot);store.transaction(()=>{store.run('UPDATE avatar_slots SET snapshot=? WHERE id=?',JSON.stringify(slotSnapshot(user)),user.active_slot);store.run('DELETE FROM memories WHERE owner_id=?',user.id);for(const m of snapshot.memories)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',m.id,user.id,m.content,m.category,m.visibility,m.confirmed,m.source,m.created_at,m.updated_at);store.run('UPDATE users SET nickname=?,intro=?,theme=?,settings=?,balance=?,active_slot=?,revision=revision+1 WHERE id=?',snapshot.nickname,snapshot.intro,snapshot.theme,JSON.stringify(snapshot.settings),JSON.stringify(snapshot.balance),slot.id,user.id);event(user.id,'slot_activated');});emitWorld();}res.json({user:profile(userById(user.id),user.id)});});
+
+  app.post('/api/visits',auth,(req,res)=>{const data=z.object({targetId:z.string().uuid(),anonymous:z.boolean().default(false)}).parse(req.body);checkTarget(req,data.targetId);if(data.targetId!==req.user.id){const recent=store.one("SELECT 1 FROM activities WHERE owner_id=? AND actor_id=? AND type='visit' AND created_at>?",data.targetId,req.user.id,new Date(Date.now()-60000).toISOString());if(!recent)activity(data.targetId,req.user.id,'visit','마을에 놀러 왔어요',data.anonymous);event(req.user.id,'visit',{targetId:data.targetId});}res.json({ok:true});});
+  app.post('/api/cheer',auth,(req,res)=>{const data=z.object({targetId:z.string().uuid(),message:z.string().trim().max(100).default('오늘도 너답게 피어나길!'),anonymous:z.boolean().default(false)}).parse(req.body);checkTarget(req,data.targetId);if(data.targetId===req.user.id)fail(400,'이웃에게 응원을 보내보세요.');const prior=store.one("SELECT 1 FROM activities WHERE owner_id=? AND actor_id=? AND type='cheer' AND created_at>=?",data.targetId,req.user.id,new Date(Date.now()-86400000).toISOString());if(prior)fail(409,'오늘의 응원은 이미 전달했어요.');activity(data.targetId,req.user.id,'cheer',data.message,data.anonymous);rewardVisit(data.targetId,req.user.id,data.anonymous);event(req.user.id,'cheer');res.json({ok:true});});
+  app.get('/api/activities',auth,(req,res)=>res.json({activities:store.all('SELECT a.*,u.nickname FROM activities a JOIN users u ON u.id=a.actor_id WHERE a.owner_id=? ORDER BY a.created_at DESC LIMIT 100',req.user.id).map(a=>({...a,actor_id:a.anonymous?null:a.actor_id,nickname:a.anonymous?'익명의 이웃':a.nickname}))}));
+
+  app.post('/api/conversations',auth,(req,res)=>{
+    const data=z.object({targetId:z.string().uuid(),share:z.boolean().default(false),anonymous:z.boolean().default(false)}).parse(req.body);const target=checkTarget(req,data.targetId);
+    const cid=id();store.run('INSERT INTO conversations(id,viewer_id,target_id,share,anonymous,context_key,created_at,avatar_slot) VALUES(?,?,?,?,?,?,?,?)',cid,req.user.id,target.id,Number(data.share),Number(data.anonymous),'',now(),target.active_slot);
+    event(req.user.id,'conversation_started',{targetId:target.id,owner:target.id===req.user.id});res.status(201).json({id:cid,shared:!!(data.share&&settingsOf(target).receiveTranscripts)});
+  });
+  function conversationFor(req,cid,write=false){const c=store.one('SELECT * FROM conversations WHERE id=?',cid);if(!c)fail(404,'대화를 찾을 수 없어요.');const target=userById(c.target_id);if(isBlocked(store,c.viewer_id,c.target_id))fail(403,'차단된 대화예요.');if(c.viewer_id!==req.user.id&&(write||c.target_id!==req.user.id||!c.share||!settingsOf(target).receiveTranscripts))fail(403,'공유 동의가 없는 대화는 열람할 수 없어요.');return c;}
+  app.get('/api/conversations',auth,(req,res)=>{
+    const targetId=req.query.targetId===undefined?null:z.string().uuid().parse(req.query.targetId);
+    const target=targetId?checkTarget(req,targetId):null;
+    const records=store.all(`SELECT c.*,u.nickname viewer_name,t.nickname target_name,t.active_slot,
+      COALESCE((SELECT MAX(m.created_at) FROM messages m WHERE m.conversation_id=c.id),c.created_at) updated_at,
+      (SELECT content FROM messages m WHERE m.conversation_id=c.id AND m.role='user' ORDER BY m.rowid LIMIT 1) first_message,
+      (SELECT COUNT(*) FROM messages m WHERE m.conversation_id=c.id) message_count
+      FROM conversations c JOIN users u ON u.id=c.viewer_id JOIN users t ON t.id=c.target_id
+      WHERE ${target?'c.viewer_id=? AND c.target_id=? AND c.avatar_slot=?':'(c.viewer_id=? OR c.target_id=?)'}
+      ORDER BY updated_at DESC,c.rowid DESC LIMIT 150`,...(target?[req.user.id,target.id,target.active_slot]:[req.user.id,req.user.id]));
+    res.json({conversations:records.filter(c=>!isBlocked(store,c.viewer_id,c.target_id)).map(c=>{const ownerView=c.viewer_id!==req.user.id;const canRead=!ownerView||!!(c.share&&settingsOf(userById(c.target_id)).receiveTranscripts);return{id:c.id,target_id:c.target_id,viewer_id:ownerView&&c.anonymous?null:c.viewer_id,viewer_name:ownerView&&c.anonymous?'익명의 이웃':c.viewer_name,target_name:c.target_name,share:!!c.share,anonymous:!!c.anonymous,created_at:c.created_at,updated_at:c.updated_at,title:canRead?Array.from(c.first_message||'새 대화').slice(0,60).join(''):'비공개 대화',activeAvatar:c.avatar_slot===c.active_slot,canRead,count:canRead?c.message_count:null};})});
+  });
+  app.get('/api/conversations/:id',auth,(req,res)=>{const c=conversationFor(req,req.params.id);res.json({conversation:{id:c.id,share:!!c.share,anonymous:!!c.anonymous,activeAvatar:c.avatar_slot===userById(c.target_id).active_slot},messages:store.all('SELECT * FROM messages WHERE conversation_id=? ORDER BY created_at,rowid',c.id)});});
+  app.patch('/api/conversations/:id',auth,(req,res)=>{const c=conversationFor(req,req.params.id,true);const data=z.object({share:z.boolean()}).parse(req.body);store.run('UPDATE conversations SET share=? WHERE id=?',Number(data.share),c.id);emitUpdate(c.target_id);res.json({ok:true});});
+  app.delete('/api/conversations/:id',auth,(req,res)=>{const c=conversationFor(req,req.params.id,true);store.run('DELETE FROM conversations WHERE id=?',c.id);emitUpdate(c.target_id);res.json({ok:true});});
+  app.post('/api/conversations/:id/messages',auth,aiLimiter,async(req,res)=>{
+    const {text,scene}=z.object({text:z.string().trim().min(1).max(1600),scene:z.enum(['garden','cafe','campfire']).default('garden')}).parse(req.body);
+    let c=conversationFor(req,req.params.id,true);let target=checkTarget(req,c.target_id);
+    if(c.avatar_slot!==target.active_slot)fail(409,'다른 자아와 나눈 대화예요. 해당 자아로 전환하거나 새 대화를 시작해주세요.');
+    const lockKey=c.target_id===req.user.id?`owner:${req.user.id}`:c.id;if(locks.has(lockKey))fail(409,'이전 답변을 기다려 주세요.');locks.add(lockKey);
+    try{
+      const context=assembleContext(store,target,req.user.id,text,scene);
+      const history=c.context_key===context.contextKey?store.all('SELECT role,content FROM messages WHERE conversation_id=? ORDER BY rowid DESC LIMIT 12',c.id).reverse():[];
+      const result=await (options.generateAnswer||generateAnswer)(context,text,history);
+      // Recheck after the network wait: privacy edits, friendship changes, logout and deletion revoke in-flight work.
+      c=conversationFor(req,c.id,true);target=checkTarget(req,c.target_id);
+      if(!sessionUser(req.headers))fail(401,'로그인이 만료되었어요.');
+      if(assembleContext(store,target,req.user.id,text,scene).contextKey!==context.contextKey)fail(409,'기억 또는 공개 설정이 변경됐어요. 다시 전송해 주세요.');
+      const added=[];const timestamp=now();
+      store.transaction(()=>{
+        store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',id(),c.id,'user',text,'calm',timestamp);
+        store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',id(),c.id,'assistant',result.reply,result.emotion,now());
+        if(context.own){for(const m of result.memories.slice(0,3)){if(store.one('SELECT 1 FROM memories WHERE owner_id=? AND content=?',req.user.id,m.content))continue;const mid=id();store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',mid,req.user.id,m.content,m.category,'private',0,'conversation',timestamp,timestamp);added.push({id:mid,...m});}if(added.length)store.run('UPDATE users SET revision=revision+1 WHERE id=?',req.user.id);}
+        else {rewardVisit(target.id,req.user.id,!!c.anonymous);if(!history.length)activity(target.id,req.user.id,'conversation',c.share&&settingsOf(target).receiveTranscripts?'공유된 아바타 대화가 도착했어요':'아바타와 대화했어요 · 내용 비공개',!!c.anonymous);}
+        // An owner-approved request may add private drafts itself; keep that turn's history current.
+        store.run('UPDATE conversations SET context_key=? WHERE id=?',assembleContext(store,userById(target.id),req.user.id,text,scene).contextKey,c.id);
+        event(req.user.id,'message_sent',{owner:context.own,provider:result.provider,memories:added.length});
+      });
+      if(added.length)emitWorld();emitUpdate(target.id);
+      res.json({reply:result.reply,emotion:result.emotion,memories:added,provider:result.provider,warning:result.warning,stage:stageOf(store,userById(req.user.id))});
+    }finally{locks.delete(lockKey);}
+  });
+
+  app.post('/api/friends/:id',auth,(req,res)=>{
+    const target=checkTarget(req,req.params.id);if(target.id===req.user.id)fail(400,'내 아바타예요.');
+    const reverse=store.one("SELECT * FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'",target.id,req.user.id);
+    if(reverse){store.run("UPDATE friendships SET status='accepted' WHERE owner_id=? AND friend_id=?",target.id,req.user.id);store.run("INSERT INTO friendships VALUES(?,?,'accepted',0) ON CONFLICT(owner_id,friend_id) DO UPDATE SET status='accepted'",req.user.id,target.id);}
+    else store.run("INSERT OR IGNORE INTO friendships VALUES(?,?,'pending',0)",req.user.id,target.id);
+    emitWorld();res.json({ok:true});
+  });
+  app.patch('/api/friends/:id',auth,(req,res)=>{const data=z.object({close:z.boolean()}).parse(req.body);const r=store.run("UPDATE friendships SET close=? WHERE owner_id=? AND friend_id=? AND status='accepted'",Number(data.close),req.user.id,req.params.id);if(!r.changes)fail(403,'서로 수락한 친구만 절친으로 지정할 수 있어요.');emitWorld();res.json({ok:true});});
+  app.delete('/api/friends/:id',auth,(req,res)=>{store.run('DELETE FROM friendships WHERE (owner_id=? AND friend_id=?) OR (owner_id=? AND friend_id=?)',req.user.id,req.params.id,req.params.id,req.user.id);emitWorld();res.json({ok:true});});
+  app.post('/api/blocks/:id',auth,(req,res)=>{userById(req.params.id);if(req.params.id===req.user.id)fail(400,'자신을 차단할 수 없어요.');store.run('INSERT OR IGNORE INTO blocks VALUES(?,?)',req.user.id,req.params.id);emitWorld();res.json({ok:true});});
+  app.get('/api/blocks',auth,(req,res)=>res.json({blocks:store.all('SELECT b.blocked_id id,u.nickname FROM blocks b JOIN users u ON u.id=b.blocked_id WHERE b.owner_id=?',req.user.id)}));
+  app.delete('/api/blocks/:id',auth,(req,res)=>{store.run('DELETE FROM blocks WHERE owner_id=? AND blocked_id=?',req.user.id,req.params.id);emitWorld();res.json({ok:true});});
+  app.post('/api/reports',auth,(req,res)=>{const data=z.object({targetId:z.string().uuid(),reason:z.string().trim().min(3).max(500)}).parse(req.body);userById(data.targetId);store.run('INSERT INTO reports VALUES(?,?,?,?,?)',id(),req.user.id,data.targetId,data.reason,now());res.status(201).json({ok:true});});
+
+  app.post('/api/games',auth,(req,res)=>{
+    const {targetId,anonymous}=z.object({targetId:z.string().uuid(),anonymous:z.boolean().default(false)}).parse(req.body);checkTarget(req,targetId);
+    const unfinished=store.one('SELECT * FROM games WHERE user_id=? AND finished=0 AND started>?',req.user.id,Date.now()-36000);if(unfinished)fail(409,'진행 중인 카페 게임이 있어요. 잠시 후 다시 시작해 주세요.');
+    const notes=Array.from({length:40},(_,i)=>({time:2500+i*650,lane:randomBytes(1)[0]%4}));const gid=id();const started=Date.now();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous) VALUES(?,?,?,?,?,?,0,?)',gid,req.user.id,targetId,JSON.stringify(notes),'[]',started,Number(anonymous));event(req.user.id,'game_started');res.status(201).json({id:gid,notes,duration:30000,serverTime:started});
+  });
+  app.post('/api/games/:id/hit',auth,(req,res)=>{
+    const {lane}=z.object({lane:z.number().int().min(0).max(3)}).parse(req.body);const g=store.one('SELECT * FROM games WHERE id=? AND user_id=? AND finished=0',req.params.id,req.user.id);if(!g)fail(404,'진행 중인 게임이 아니에요.');
+    const elapsed=Date.now()-g.started;const hits=JSON.parse(g.hits);const notes=JSON.parse(g.notes);const index=notes.findIndex((n,i)=>n.lane===lane&&!hits.some(h=>h.index===i)&&Math.abs(n.time-elapsed)<=300);
+    let rating='miss';if(index>=0){rating=Math.abs(notes[index].time-elapsed)<130?'perfect':'good';hits.push({index,rating});store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(hits),g.id);}res.json({rating,combo:hits.length});
+  });
+  app.post('/api/games/:id/finish',auth,(req,res)=>{
+    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started<30000)fail(400,'연주가 끝나면 정산할 수 있어요.');if(Date.now()-g.started>120000)fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
+    const hits=JSON.parse(g.hits);const score=hits.reduce((n,h)=>n+(h.rating==='perfect'?100:65),0);let gold=0;
+    store.transaction(()=>{
+      store.run('UPDATE games SET finished=1 WHERE id=?',g.id);
+      const total=store.one("SELECT COALESCE(SUM(amount),0) n FROM rewards WHERE user_id=? AND type='game' AND day=?",req.user.id,day()).n;
+      const place=store.one("SELECT COUNT(*) n FROM rewards WHERE user_id=? AND actor_id LIKE ? AND type='game' AND day=?",req.user.id,`${g.target_id}:%`,day()).n;
+      if(hits.length>=8&&total<300&&place<3){gold=Math.min(300-total,30+Math.floor(score/100));store.run("INSERT INTO rewards VALUES(?,?,'game',?,?)",req.user.id,`${g.target_id}:${g.id}`,day(),gold);store.run('UPDATE users SET gold=gold+? WHERE id=?',gold,req.user.id);activity(g.target_id,req.user.id,'minigame',`카페에서 ${score}점으로 연주했어요`,!!g.anonymous);rewardVisit(g.target_id,req.user.id,!!g.anonymous);}
+      event(req.user.id,'game_finished',{score,gold});
+    });emitUpdate(req.user.id);res.json({score,gold,hits:hits.length,total:40});
+  });
+
+  app.post('/api/topics',auth,aiLimiter,async(req,res)=>{
+    const data=z.object({targetId:z.string().uuid(),topic:z.string().trim().min(1).max(120)}).parse(req.body);const target=checkTarget(req,data.targetId,'topic');const me=userById(req.user.id);if(!settingsOf(me).allowTopics)fail(403,'내 아바타의 토픽 허용을 먼저 켜주세요.');if(target.id===me.id)fail(400,'함께할 이웃 아바타를 골라주세요.');
+    // A synthetic viewer receives public-only snapshots of BOTH characters, even for the owner.
+    const a=assembleContext(store,me,'public-topic-viewer',data.topic);const b=assembleContext(store,target,'public-topic-viewer',data.topic);
+    const transcript=[];for(let i=0;i<4;i++){const context=i%2===0?a:b;const text=i===0?`다른 AI 아바타와 ${data.topic} 주제로 대화해줘.`:`상대 아바타: ${transcript.at(-1).text}\n주제: ${data.topic}. 이어서 답해줘.`;const answer=await(options.generateAnswer||generateAnswer)(context,text,[]);transcript.push({speaker:i%2===0?me.nickname:target.nickname,text:answer.reply,emotion:answer.emotion,theme:i%2===0?me.theme:target.theme});}
+    const latestTarget=checkTarget(req,target.id,'topic');const latestMe=userById(me.id);if(!settingsOf(latestMe).allowTopics||!sessionUser(req.headers)||assembleContext(store,latestMe,'public-topic-viewer',data.topic).contextKey!==a.contextKey||assembleContext(store,latestTarget,'public-topic-viewer',data.topic).contextKey!==b.contextKey)fail(409,'공개 설정이 변경됐어요. 다시 시도해주세요.');
+    const tid=id();store.run('INSERT INTO topic_sessions VALUES(?,?,?,?,?,?)',tid,me.id,target.id,data.topic,JSON.stringify(transcript),now());event(req.user.id,'topic_completed');res.json({id:tid,transcript});
+  });
+  app.post('/api/feedback',auth,(req,res)=>{const data=z.object({rating:z.number().int().min(1).max(5),resemblance:z.number().int().min(1).max(5),returnIntent:z.number().int().min(1).max(5),note:z.string().max(1000).default('')}).parse(req.body);event(req.user.id,'playtest_feedback',data);res.status(201).json({ok:true});});
+  app.get('/api/stats',auth,(req,res)=>{const counts=store.all('SELECT name,COUNT(*) count FROM events WHERE user_id=? GROUP BY name',req.user.id);res.json({events:counts,memories:store.one('SELECT COUNT(*) count FROM memories WHERE owner_id=?',req.user.id).count,visitors:store.one("SELECT COUNT(DISTINCT actor_id) count FROM activities WHERE owner_id=? AND actor_id<>?",req.user.id,req.user.id).count,stage:stageOf(store,req.user)});});
+  app.get('/api/export',auth,(req,res)=>{const user=userById(req.user.id);res.set('Content-Disposition','attachment; filename="pieona-my-data.json"');res.json({exportedAt:now(),profile:profile(user,user.id),avatarSlots:store.all('SELECT * FROM avatar_slots WHERE owner_id=?',user.id).map(s=>({id:s.id,snapshot:s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot)})),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id),conversations:store.all('SELECT c.id,c.target_id,c.share,c.created_at,m.role,m.content,m.created_at message_at FROM conversations c LEFT JOIN messages m ON m.conversation_id=c.id WHERE c.viewer_id=?',user.id),events:store.all('SELECT name,detail,created_at FROM events WHERE user_id=?',user.id)});});
+
+  io.use((socket,next)=>{const user=sessionUser(socket.request.headers);if(!user)return next(new Error('로그인이 필요해요.'));socket.data.userId=user.id;socket.data.token=hashToken(cookieToken(socket.request.headers.cookie));next();});
+  io.on('connection',socket=>{
+    const uid=socket.data.userId;socket.join(`user:${uid}`);online.set(uid,(online.get(uid)||0)+1);io.emit('presence',Array.from(online.keys()));
+    socket.on('village:join',(data,ack)=>{
+      try {
+        const villageId=z.string().uuid().parse(data?.villageId);
+        const target=userById(villageId);
+        if(villageId!==uid&&(!settingsOf(target).allowVisitors||isBlocked(store,uid,villageId))) throw new Error('이 마을에 들어갈 수 없어요.');
+        leaveVillage(socket);
+        const members=villageVisitors.get(villageId)||new Map();
+        const previous=members.get(uid);
+        const member={userId:uid,nickname:store.one('SELECT nickname FROM users WHERE id=?',uid).nickname,x:previous?.x??(uid===villageId?-1.4:0),z:previous?.z??(uid===villageId?0:3)};
+        members.set(uid,member);villageVisitors.set(villageId,members);
+        socket.data.village={villageId,userId:uid};socket.join(`village:${villageId}`);
+        io.to(`village:${villageId}`).emit('village:members',villageMembers(villageId));ack?.({ok:true,members:villageMembers(villageId)});
+      } catch { ack?.({ok:false}); }
+    });
+    socket.on('village:leave',()=>leaveVillage(socket));
+    socket.on('village:move',data=>{
+      const current=socket.data.village;if(!current)return;
+      const x=Number(data?.x),z=Number(data?.z);if(!Number.isFinite(x)||!Number.isFinite(z))return;
+      const radius=Math.min(5.8,Math.hypot(x,z));const factor=radius?radius/Math.hypot(x,z):0;
+      const member=villageVisitors.get(current.villageId)?.get(uid);if(!member)return;
+      member.x=x*factor;member.z=z*factor;
+      socket.to(`village:${current.villageId}`).volatile.emit('village:move',{userId:uid,x:member.x,z:member.z});
+    });
+    socket.on('disconnect',()=>{leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
+  });
+  const maintenance=setInterval(()=>{store.run('DELETE FROM sessions WHERE expires<?',Date.now());for(const socket of io.sockets.sockets.values())if(!sessionUser(socket.request.headers))socket.disconnect(true);},60000);maintenance.unref();
+  app.use('/resource',express.static(resolve('resource'),{maxAge:'7d',immutable:true}));
+  const dist=resolve('dist');if(existsSync(dist)){app.use(express.static(dist,{maxAge:'1h'}));app.get('/{*splat}',(req,res,next)=>req.path.startsWith('/api/')?next():res.sendFile(resolve(dist,'index.html')));}
+  app.use('/api',(req,res)=>res.status(404).json({error:'요청한 기능을 찾을 수 없어요.'}));
+  app.use((error,req,res,next)=>{
+    if(res.headersSent)return next(error);
+    const messages={AI_RATE_LIMIT:'Gemini 사용 한도에 도달했어요. 잠시 후 다시 시도해주세요.',AI_UNAVAILABLE:'Gemini 연결에 실패했어요. 서버의 키와 모델 설정을 확인해주세요.',AI_EMPTY:'응답을 만들지 못했어요. 다른 표현으로 다시 이야기해주세요.'};
+    const status=error instanceof z.ZodError?400:error.status&&error.status<500?error.status:error.message?.startsWith('AI_')?502:500;
+    if(status===500)console.error('[server]',error.name,error.message?.slice(0,160));
+    res.status(status).json({error:error instanceof z.ZodError?'입력 형식 또는 길이를 확인해 주세요.':messages[error.message]||(status===500?'처리 중 오류가 발생했어요. 다시 시도해 주세요.':error.message)});
+  });
+  return {app,server,io,store,close:async()=>{clearInterval(maintenance);await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
+}

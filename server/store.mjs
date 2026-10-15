@@ -1,0 +1,101 @@
+import { DatabaseSync } from 'node:sqlite';
+import { mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { randomUUID } from 'node:crypto';
+
+export const id = () => randomUUID();
+export const now = () => new Date().toISOString();
+export const day = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Seoul' });
+export function openStore(filename = './data/pieona.sqlite') {
+  if (filename !== ':memory:') mkdirSync(dirname(resolve(filename)), { recursive: true });
+  const db = new DatabaseSync(filename);
+  db.exec(`PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000;
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY, username TEXT UNIQUE NOT NULL, password TEXT NOT NULL,
+      nickname TEXT NOT NULL DEFAULT '', intro TEXT NOT NULL DEFAULT '', theme TEXT NOT NULL DEFAULT 'sage',
+      settings TEXT NOT NULL DEFAULT '{}', balance TEXT NOT NULL DEFAULT '[]', gold INTEGER NOT NULL DEFAULT 0,
+      revision INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, expires INTEGER NOT NULL);
+    CREATE TABLE IF NOT EXISTS memories (
+      id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      content TEXT NOT NULL, category TEXT NOT NULL, visibility TEXT NOT NULL DEFAULT 'private',
+      confirmed INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS memories_owner ON memories(owner_id);
+    CREATE TABLE IF NOT EXISTS friendships (owner_id TEXT NOT NULL REFERENCES users(id), friend_id TEXT NOT NULL REFERENCES users(id), status TEXT NOT NULL DEFAULT 'pending', close INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(owner_id, friend_id));
+    CREATE TABLE IF NOT EXISTS blocks (owner_id TEXT NOT NULL REFERENCES users(id), blocked_id TEXT NOT NULL REFERENCES users(id), PRIMARY KEY(owner_id, blocked_id));
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY, viewer_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id),
+      share INTEGER NOT NULL DEFAULT 0, anonymous INTEGER NOT NULL DEFAULT 0, context_key TEXT NOT NULL DEFAULT '', created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS conversations_viewer ON conversations(viewer_id,target_id);
+    CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role TEXT NOT NULL, content TEXT NOT NULL, emotion TEXT NOT NULL DEFAULT 'calm', created_at TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id,created_at);
+    CREATE TABLE IF NOT EXISTS activities (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL REFERENCES users(id), type TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', anonymous INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS rewards (user_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL, type TEXT NOT NULL, day TEXT NOT NULL, amount INTEGER NOT NULL, PRIMARY KEY(user_id, actor_id, type, day));
+    CREATE TABLE IF NOT EXISTS games (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), notes TEXT NOT NULL, hits TEXT NOT NULL DEFAULT '[]', started INTEGER NOT NULL, finished INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS topic_sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), topic TEXT NOT NULL, transcript TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), name TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), reason TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS avatar_slots (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), snapshot TEXT NOT NULL, created_at TEXT NOT NULL);
+  `);
+  if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='active_slot'))db.exec("ALTER TABLE users ADD COLUMN active_slot TEXT NOT NULL DEFAULT ''");
+  if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='anonymous'))db.exec('ALTER TABLE games ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');
+  if(!db.prepare('PRAGMA table_info(conversations)').all().some(c=>c.name==='avatar_slot')){
+    db.exec("ALTER TABLE conversations ADD COLUMN avatar_slot TEXT NOT NULL DEFAULT ''; UPDATE conversations SET avatar_slot=COALESCE((SELECT active_slot FROM users WHERE users.id=conversations.target_id),'')");
+  }
+  return {
+    db,
+    one: (sql, ...args) => db.prepare(sql).get(...args),
+    all: (sql, ...args) => db.prepare(sql).all(...args),
+    run: (sql, ...args) => db.prepare(sql).run(...args),
+    transaction(fn) { db.exec('BEGIN IMMEDIATE'); try { const result = fn(); db.exec('COMMIT'); return result; } catch (e) { db.exec('ROLLBACK'); throw e; } },
+    close: () => db.close()
+  };
+}
+
+export const defaultSettings = { allowVisitors: true, receiveTranscripts: true, allowTopics: true, stageVisible: true, questionFrequency: 'daily', questionTopic: '일상', publicTags: [], speechStyle: '다정하고 편안하게', scene: 'garden' };
+export const settingsOf = user => ({ ...defaultSettings, ...JSON.parse(user.settings) });
+export function stageOf(store, user) {
+  const memories = store.all('SELECT category, confirmed, source FROM memories WHERE owner_id=?', user.id);
+  const verified = memories.filter(m => m.confirmed && m.source !== 'balance');
+  const diversity = new Set(verified.map(m => m.category)).size;
+  const balance = JSON.parse(user.balance).length;
+  if (!balance) return 0;
+  if (verified.length >= 16 && diversity >= 4) return 4;
+  if (verified.length >= 8 && diversity >= 3) return 3;
+  if (verified.length >= 3 && diversity >= 2) return 2;
+  return 1;
+}
+export function isBlocked(store, a, b) {
+  return !!store.one('SELECT 1 FROM blocks WHERE (owner_id=? AND blocked_id=?) OR (owner_id=? AND blocked_id=?)', a, b, b, a);
+}
+export function visibleMemories(store, targetId, viewerId) {
+  if (targetId === viewerId) return store.all('SELECT * FROM memories WHERE owner_id=? ORDER BY created_at DESC', targetId);
+  if (isBlocked(store, targetId, viewerId)) return [];
+  const close = store.one("SELECT 1 FROM friendships WHERE owner_id=? AND friend_id=? AND status='accepted' AND close=1", targetId, viewerId);
+  return store.all(`SELECT * FROM memories WHERE owner_id=? AND confirmed=1 AND (visibility='public' ${close ? "OR visibility='close'" : ''}) ORDER BY created_at DESC`, targetId);
+}
+export function publicUser(store, user, viewerId, online = new Set()) {
+  const own = user.id === viewerId;
+  const s = settingsOf(user);
+  const relation = store.one('SELECT status,close FROM friendships WHERE owner_id=? AND friend_id=?', viewerId, user.id);
+  const incoming = store.one("SELECT status FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'", user.id, viewerId);
+  const result = {
+    id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
+    stage: own || s.stageVisible ? stageOf(store, user) : null,
+    tags: s.publicTags, online: online.has(user.id), allowVisitors: s.allowVisitors,
+    allowTopics: s.allowTopics, receiveTranscripts: s.receiveTranscripts,
+    scene: s.scene, relation: relation?.status || null, close: !!relation?.close, incoming: !!incoming,
+    createdAt: user.created_at
+  };
+  if (own) Object.assign(result, { username: user.username, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot });
+  return result;
+}
+// Small-corpus lexical RAG. Scope is applied BEFORE retrieval; no shared vector index or cache.
+export function retrieve(memories, query, limit = 10) {
+  const grams = text => new Set((text.toLowerCase().match(/[\p{L}\p{N}]+/gu) || []).flatMap(w => w.length < 3 ? [w] : [w, ...Array.from({ length: w.length - 1 }, (_, i) => w.slice(i, i + 2))]));
+  const q = grams(query);
+  return memories.map((m, i) => ({ ...m, score: [...grams(m.content)].filter(w => q.has(w)).length * 3 + (m.confirmed ? 1 : 0) + 1 / (i + 1) })).sort((a,b) => b.score - a.score).slice(0, limit);
+}

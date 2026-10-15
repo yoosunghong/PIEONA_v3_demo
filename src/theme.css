@@ -1,0 +1,200 @@
+/* Shared white / powder-blue palette. Layout and player-selected accents stay independent. */
+:root {
+  color-scheme: light;
+  color: #304c68;
+  background: #f4f9fe;
+  --mint: #acd2f0;
+  --ink: #304c68;
+  --panel: #ffffff;
+  --line: #dce8f3;
+  --muted: #70869d;
+  --gold: #ad8752;
+}
+
+body, .boot { background: #f4f9fe; }
+input, textarea, select, option { color: #365674; background: #f8fbff; border-color: #d3e2ef; }
+input::placeholder, textarea::placeholder { color: #657382; }
+input:focus, textarea:focus, select:focus { border-color: #99c2e5; box-shadow: 0 0 0 3px #b9dbf332; }
+label { color: #536e89; }
+.eyebrow, .text-button { color: #57758f; }
+.primary, .send-button { color: #315c80; background: #c1dff5; }
+.primary:hover:not(:disabled) { background: #afd5f2; }
+.secondary { color: #557594; background: #f6faff; border-color: #d5e4f0; }
+.icon-button { color: #5b768d; }
+.icon-button:hover, .rail-item:hover { background: #eaf3fb; color: #4a7699; }
+.danger { color: #a25e72; background: #fff1f5; border-color: #f0d6e0; }
+.form-error, .chat-line.error p { color: #a55c72; }
+.tag-row > span { color: #5a748c; background: #edf5fc; border-color: #dceaf5; }
+.spinner { border-color: #dceaf5; border-top-color: #80b1d9; }
+.boot { color: #507592; }
+
+.rail { background: #ffffff; }
+.rail-logo { color: #54758f; background: #edf6ff; border-color: #dceaf7; }
+.rail-item { color: #637484; }
+.rail-item.active { color: #4d7597; background: #e9f3fc; }
+.rail-item.active:before { background: #8ab8df; }
+.rail-item span { background: #fff; color: #547596; box-shadow: 0 5px 20px #8eafca20; }
+.rail-profile { color: #637484; }
+.topbar { background: #ffffffed; }
+.brand { color: #47779a; }
+.brand small, .topbar-caption { color: #617383; }
+.header-divider { background: #dce8f3; }
+.playtest-badge { color: #5c7488; border-color: #d7e6f2; background: #f5faff; }
+.gold { color: #8b6d42; }
+.gold small { color: #836e53; }
+.avatar-badge { background: color-mix(in srgb, var(--avatar-color) 13%, white); color: color-mix(in srgb, var(--avatar-color) 60%, #426f94); border-color: color-mix(in srgb, var(--avatar-color) 35%, #e3edf5); }
+.world-panel { background: #eaf4fc; }
+.scene-vignette { background: linear-gradient(180deg, #eff7fc33, transparent 30%, transparent 65%, #f4f9fe60 85%, #f4f9fe); }
+.scene-loading, .scene-error { color: #58748c; background: #fffffff2; border-color: #dbe8f3; box-shadow: 0 10px 35px #7c9bb51a; }
+.scene-error { color: #9b6273; }
+.breadcrumbs, .world-subtitle { color: #5d7589; }
+.breadcrumbs > span:last-child { color: #527593; }
+.world-title h1 { color: #355773; }
+.live-pill { background: #ffffffa8; border-color: #d6e7f5; color: #54768f; }
+.live-pill > span { background: #89b8d6; }
+.weather { background: #ffffff99; border-color: #dce9f4; color: #617483; }
+.weather > span { color: #58748c; }
+.weather small { color: #657481; }
+.avatar-card, .daily-card { background: #ffffffdb; border-color: #d9e7f3; box-shadow: 0 12px 40px #6f9ab011; }
+.avatar-card-heading div > span, .avatar-card > p { color: #617483; }
+.tiny-flower, .stage-line { color: #56748c; }
+.stage-line small { color: #627381; }
+.growth-track i { background: #e3eef8; }
+.growth-track i.filled { background: #a9cee9; }
+.daily-card > .eyebrow { color: #5f7486; }
+.daily-card p { color: #59758e; }
+.avatar-speech { background: #ffffffed; color: #526f87; box-shadow: 0 8px 30px #7296b01a; border: 1px solid #e0ebf4; }
+.avatar-speech i { background: #ffffffed; }
+.avatar-nameplate { text-shadow: 0 2px 9px #ffffffd9; }
+.avatar-nameplate strong { color: #496e8e; }
+.avatar-nameplate small { color: #5d7586; }
+.nameplate-star { color: #5c7488; }
+.scene-tools .icon-button { background: #ffffffc9; border-color: #d9e7f2; }
+
+.chat-dock { background: linear-gradient(130deg, #ffffffed, #f5fafff5); border-color: #d4e5f2; box-shadow: 0 12px 40px #7198b51a; }
+.conversation-status { background: #95bedb; box-shadow: 0 0 9px #b8d9ef33; }
+.ai-label { color: #5c7387; background: #edf5fc; border-color: #dae9f5; }
+.privacy-note, .chat-body > footer { color: #63727f; }
+.chat-welcome p { color: #617483; }
+.chat-spark { color: #5f7585; }
+.chat-line small { color: #517692; }
+.chat-line p { color: #49667f; }
+.chat-line.user small, .chat-line.user p { color: #617485; }
+.chat-messages, .people-list, .panel-body { scrollbar-color: #c4dbea transparent; }
+.starter-row button { color: #5d7386; background: #f2f8fd; border-color: #deebf5; }
+.starter-row button:hover { border-color: #b4d3eb; }
+.chat-input-wrap { background: #f8fcff; border-color: #cbdfee; }
+.chat-input-wrap:focus-within { border-color: #99c2e5; }
+.input-flower, .chat-input-wrap .mic { color: #607585; }
+.chat-input-wrap input { background: transparent; }
+.chat-input-wrap input::placeholder { color: #63727f; }
+.send-button:disabled { background: #deedf8; color: #63737f; opacity: 1; }
+.ai-provider { color: #5c7486; }
+.ai-provider i, .typing-indicator i { background: #92bad8; }
+.ai-provider.local { color: #7f6e56; }
+.ai-provider.local i { background: #c7b18e; }
+
+.people-sidebar { background: #fbfdff; }
+.people-sidebar > header > .eyebrow { color: #667581; }
+.people-sidebar > header p { color: #607384; }
+.people-search { background: #f5faff; border-color: #e0eaf4; color: #627380; }
+.people-search input { background: transparent; }
+.people-tabs > button { color: #657482; }
+.people-tabs > button.active { color: #537492; }
+.people-tabs > button.active:after { background: #97c1e2; }
+.people-tabs span { color: #5d7485; background: #edf5fc; }
+.people-group-label { color: #637584; }
+.people-group-label span { background: #a4c6df; }
+.people-group-label small { color: #67737d; }
+.person-row:hover, .person-row.selected { background: #edf6fd; border-color: #d6e7f4; }
+.person-info strong { color: #4d6e8a; }
+.person-info small { color: #637583; }
+.person-info > span { color: #67737d; }
+.person-row > svg { color: #62737f; }
+.presence-dot { background: #c6d5e1; }
+.presence-dot.online, .person-avatar > i.online { background: #89b7d7; box-shadow: 0 0 6px #badcf133; }
+.person-avatar > i { background: #ccdbe6; border-color: #fbfdff; }
+.offline-note { border-color: #dce9f4; background: linear-gradient(110deg, #eff7fd, #f9fcff); }
+.offline-note > span { color: #607382; }
+.offline-note strong { color: #5e7587; }
+.offline-note p { color: #65737e; }
+.sidebar-feedback, .sidebar-feedback > span, .server-status { color: #637483; }
+.server-status small { color: #68737c; }
+.people-empty { color: #607381; }
+.people-empty p { color: #637380; }
+.village-label > button, .village-footer { color: #527592; background: #ffffffed; border-color: #d2e4f2; box-shadow: 0 8px 30px #7d9fb51a; }
+.village-label small, .village-footer > span { color: #637583; }
+
+.auth-page { background: #fafcff; }
+.auth-world .scene-vignette { background: linear-gradient(180deg, transparent 28%, #f3f9fc44 58%, #f4f9fdeb); }
+.auth-shade { background: linear-gradient(90deg, transparent 70%, #fafcff); }
+.auth-story h1 { color: #3b6688; }
+.auth-story p { color: #59758a; }
+.auth-tags > span { color: #5a758a; }
+.auth-caption { color: #64737f; }
+.auth-form-side { background: radial-gradient(ellipse at top right, #e8f4fe99, transparent 68%); }
+.small-flower { background: #eef7ff; color: #5a768b; border-color: #dcecf8; }
+.auth-note { color: #617483; }
+.auth-version { color: #67737d; }
+
+.modal-backdrop { background: #6f90ae38; }
+.modal { background: linear-gradient(130deg, #ffffff, #f7fbff); border-color: #dbe8f3; box-shadow: 0 30px 120px #6a8ba733; }
+.modal > header > .icon-button { color: #627482; }
+.info-strip, .edit-memory { color: #5b7487; background: #f0f7fd; border-color: #dcebf6; }
+.chip { color: #5e7384; border-color: #d9e8f3; }
+.chip.active { color: #527591; background: #e9f4fc; border-color: #bbd9ef; }
+.memory-card { background: #ffffffbd; border-color: #dce8f2; }
+.memory-card.draft { background: #fffaf3; border-color: #eadccb; }
+.memory-card.draft .tiny { color: #7f6f5b; }
+.category, .scope-select, .scope-select select { color: #59748a; }
+.delete-confirm { background: #fffffff5; }
+.settings-form h3 { color: #4b6c87; }
+.free-label { color: #58768c; background: #edf6fd; border-color: #d5e7f5; }
+.theme-option { color: #5e7384; border-color: #dce8f2; }
+.theme-option.selected { color: #4e7597; background: #f0f7fd; border-color: #adcfe8; }
+.toggle-row strong { color: #55758e; }
+.toggle-row small { color: #647581; }
+.switch { background: #e6eef5; border-color: #d4e3ef; }
+.switch:after { background: #b4c8d8; }
+.toggle-row input:checked + .switch { background: #a7cfea; }
+.toggle-row input:checked + .switch:after { background: #fff; }
+.tab-row > button { color: #657481; }
+.tab-row > button.active { color: #557691; }
+.tab-row > button.active:after { background: #9bc2df; }
+.activity-icon { color: #5b7487; background: #f0f7fd; border-color: #e0edf7; }
+.activity-row p, .social-info p { color: #5f7484; }
+.activity-row small { color: #65727c; }
+.conversation-row { color: #59748a; }
+.conversation-row small, .social-info small { color: #63737f; }
+.message, .message.user { background: #f4f9fe; border-color: #dce9f4; }
+.message small { color: #5c7486; }
+.stat-grid > div { background: #f3f9fe; }
+.stat-grid strong { color: #56748b; }
+.stat-grid span { color: #637584; }
+.rating-row button { color: #5e7486; border-color: #d8e7f3; }
+.rating-row button.selected { color: #507592; background: #e7f3fc; border-color: #accfe8; }
+.onboard-flower { color: #5c7384; border-color: #dbeaf6; background: radial-gradient(circle, #edf7ff, transparent); }
+.balance-options > button { background: #f5faff; border-color: #dce9f4; }
+.balance-options > button:hover { background: #eaf5fd; border-color: #b9d8ee; }
+.balance-options > button > span { color: #5c7385; border-color: #cfe2f1; }
+.stage-pill { color: #5a7487; background: #edf6fd; border-color: #d4e7f5; }
+.consent-panel > p, .check-row { color: #59748b; }
+.topic-pair { color: #647581; }
+.topic-transcript article { background: #f4f9fe; border-color: #dceaf5; }
+.toast { color: #56758d; background: #fffffff7; border-color: #d3e6f4; box-shadow: 0 8px 35px #7b9ab52b; }
+.big-icon { color: #7d6f57; background: #fffbf4; border-color: #eee3d1; }
+.rhythm-track { background: linear-gradient(#edf7ff, #e1effa); border-color: #c8deee; }
+.rhythm-lane { border-color: #c6deef; }
+.rhythm-lane.pressed { background: linear-gradient(transparent, #c1def566); }
+.note { background: linear-gradient(90deg, #b4d9f4, #d1e8f8); color: #547591; box-shadow: 0 0 12px #a7cee955; }
+.rhythm-lane:nth-child(2n) .note { background: linear-gradient(90deg, #d1d4f1, #dce9fa); }
+.lane-key { color: #597589; }
+.hit-line { background: #90badb; box-shadow: 0 0 18px #a6d0ef66; }
+.progress-bar { background: #e1edf7; }
+.progress-bar > span { background: #a0c8e7; }
+.game-result .reward { color: #826e4e; background: #fffbf3; border-color: #eee0c9; }
+
+@media (max-width: 570px) {
+  .auth-world .scene-vignette { background: linear-gradient(transparent 30%, #fafcff); }
+  .people-sidebar.mobile-open { box-shadow: -25px 0 60px #7599b326; }
+}

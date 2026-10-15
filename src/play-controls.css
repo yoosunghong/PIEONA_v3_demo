@@ -1,0 +1,47 @@
+.music-controls { position: relative; display: inline-flex; align-items: center; gap: 2px; border: 1px solid #d5e5f2; background: #f4faff; border-radius: 9px; padding: 2px; color: #557995; flex-shrink: 0; z-index: 25; }
+.music-toggle, .music-settings { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 6px 8px; border-radius: 6px; color: #607f98; }
+.music-toggle { font-size: 12px; }
+.music-toggle.playing { color: #416f94; background: #e4f2fc; }
+.music-settings { width: 28px; padding: 5px; }
+.music-toggle:hover, .music-settings:hover { background: #e8f3fc; }
+.music-popover { position: absolute; top: calc(100% + 10px); right: 0; width: 252px; padding: 17px; border: 1px solid #d5e5f2; border-radius: 12px; background: #fff; box-shadow: 0 12px 40px #6e96b52b; color: #4c6d87; }
+.music-popover > strong { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+.music-popover > p { font-size: 12px; margin: 8px 0 15px; color: #70899e; }
+.music-popover label { font-size: 13px; }
+.music-popover label > span { display: flex; align-items: center; gap: 7px; }
+.music-popover output { margin-left: auto; font-variant-numeric: tabular-nums; }
+.music-popover input { padding: 0; width: 100%; height: 30px; box-shadow: none; accent-color: #83b7df; }
+.music-popover small { display: block; margin-top: 12px; font-size: 12px; line-height: 1.7; }
+.music-popover .music-error { color: #a55c72; font-size: 12px; margin-bottom: 0; }
+.auth-music-controls { position: absolute; right: 28px; top: 24px; z-index: 10; }
+.chat-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.chat-actions .text-button { font-size: 13px; }
+.chat-toggle { display: inline-flex; gap: 6px; align-items: center; justify-content: center; min-height: 36px; padding: 7px 10px; border-radius: 7px; border: 1px solid #cfdfed; background: #edf6fd; color: #527797; font-size: 13px; }
+.chat-toggle:hover { background: #e0effb; }
+.chat-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.chat-body[hidden] { display: none; }
+.chat-dock.is-collapsed { max-height: none; min-height: 0; padding: 11px 18px; }
+.world-panel.chat-is-collapsed { --chat-clearance: 78px; }
+.chat-fold-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #6b859a; }
+
+@media (max-width: 800px) {
+  .topbar-right { gap: 10px; }
+  .chat-actions { gap: 8px; }
+}
+@media (max-width: 570px) {
+  .music-controls { border-radius: 7px; padding: 1px; }
+  .music-toggle { min-height: 30px; padding: 5px; gap: 3px; }
+  .music-toggle > span { display: none; }
+  .music-toggle > svg:last-child { width: 10px; }
+  .music-settings { width: 23px; min-height: 30px; }
+  .music-popover { position: fixed; top: 69px; right: 12px; width: min(260px, calc(100vw - 72px)); }
+  .auth-music-controls { top: 18px; right: 18px; }
+  .auth-music-controls .music-popover { top: 62px; }
+  .topbar-right { gap: 8px; }
+  .chat-dock > header { gap: 8px; }
+  .chat-actions { margin-left: auto; gap: 10px; }
+  .chat-actions .text-button { font-size: 12px; }
+  .chat-toggle { font-size: 13px; min-height: 36px; padding: 6px 9px; }
+  .chat-dock.is-collapsed { padding: 10px 12px; }
+  .chat-dock.is-collapsed .ai-label { display: none; }
+}

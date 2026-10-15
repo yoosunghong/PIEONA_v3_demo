@@ -1,0 +1,6 @@
+tunnel: 0339e6c9-1d85-46c4-8b78-c4aecd4ef7fe
+credentials-file: ./data/cloudflare/credentials.json
+ingress:
+  - hostname: pieona.yoosung.dev
+    service: http://127.0.0.1:3000
+  - service: http_status:404
