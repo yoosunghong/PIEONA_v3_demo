@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newRun,runAction,jumpHeight,JUMP_MS} from '../shared/runner.mjs';
+import {newRun,runAction,jumpHeight,JUMP_MS,RUN_DURATION} from '../shared/runner.mjs';
 import {reconcileRun,runTime,predictRunInput,acknowledgeJump,visualJumpTime,runnerPose} from '../shared/runnerSync.mjs';
 
 test('one unacknowledged jump lands even through many delayed broadcasts',()=>{
@@ -20,9 +20,9 @@ test('one unacknowledged jump lands even through many delayed broadcasts',()=>{
 
 test('airborne jump presses are ignored without queuing another jump, while lanes remain usable',()=>{
   const jumping=predictRunInput(newRun(),[],4100,'jump');
-  for(const elapsed of [4220,4340,4700,5049])assert.equal(predictRunInput(jumping,[],elapsed,'jump'),null);
+  for(const offset of [120,240,JUMP_MS-1])assert.equal(predictRunInput(jumping,[],4100+offset,'jump'),null);
   assert.equal(predictRunInput(jumping,[],4220,'left').lane,0);
-  assert.equal(predictRunInput(jumping,[],5050,'jump').jumpAt,5050);
+  assert.equal(predictRunInput(jumping,[],4100+JUMP_MS,'jump').jumpAt,4100+JUMP_MS);
   assert.equal(predictRunInput({...jumping,lives:0},[],5200,'right'),null);
 });
 
@@ -44,7 +44,7 @@ test('remote running, lane changes and jump keep animating after local game over
   assert.equal(runnerPose(remote,[],6500).jump,0);
   const moved=runAction(remote,[],5800,'left');
   assert.equal(runnerPose(moved,[],5900).state.lane,0);
-  assert.equal(runnerPose(moved,[],46000).moving,false);
+  assert.equal(runnerPose(moved,[],RUN_DURATION+1000).moving,false);
 });
 
 test('delayed snapshots preserve unacknowledged lane and jump inputs',()=>{

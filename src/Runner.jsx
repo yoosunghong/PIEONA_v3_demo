@@ -1,26 +1,38 @@
 import React,{useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
-import {ArrowLeft,ArrowRight,ArrowUp,Play,RotateCcw,Flag,Timer,Flower2,Volume2,VolumeX} from 'lucide-react';
+import {ArrowLeft,ArrowRight,ArrowUp,Play,RotateCcw,Flag,Timer,Flower2,Volume2,VolumeX,Sprout} from 'lucide-react';
 import {api} from './api';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
 import {dressAvatar,disposeObject} from './worldAssets';
 import {useBackgroundMusic} from './BackgroundMusic';
 import {createRunnerWorld} from './runnerWorld';
-import {newRun,runScore,RUN_DURATION} from '../shared/runner.mjs';
+import {createRunnerAudio} from './runnerAudio.mjs';
+import {newRun,runScore,runDistance,runSpeed,RUN_DISTANCE,RUN_DURATION,RUN_MAX_SPEED,RUN_SPEED_INTERVAL,RUN_SPEED_STEP,SEED_POINTS} from '../shared/runner.mjs';
 import {reconcileRun,runTime,predictRunInput,acknowledgeJump,visualJumpTime,runnerPose} from '../shared/runnerSync.mjs';
 import './runner.css';
 
 export default function Runner({target,me,notify,onReward,anonymous,socket,race}){
   const [status,setStatus]=useState('ready'),[game,setGame]=useState(null),[hud,setHud]=useState(newRun()),[result,setResult]=useState(null),[ready,setReady]=useState(false),[error,setError]=useState(''),[snapshot,setSnapshot]=useState(null),[audioBlocked,setAudioBlocked]=useState(false),[ending,setEnding]=useState(null),[spectating,setSpectating]=useState(false);
   const music=useBackgroundMusic(),audio=useRef(),mount=useRef(),selfTag=useRef(),otherTag=useRef(),resultTitle=useRef();
+  const [pickups,setPickups]=useState([]),pickupCount=useRef(0),effects=useRef();
+  useEffect(()=>{effects.current=createRunnerAudio(window.AudioContext||window.webkitAudioContext);return()=>effects.current?.dispose();},[]);
+  useEffect(()=>{
+    const count=hud.collectedSeeds||0,previous=pickupCount.current;
+    if(count<=previous)return;
+    pickupCount.current=count;
+    const next=Array.from({length:count-previous},(_,i)=>previous+i+1);
+    setPickups(current=>[...current,...next].slice(-8));
+    if(musicRef.current?.enabled!==false)effects.current?.seed(musicRef.current?.volume??.3);
+  },[hud.collectedSeeds]);
   useEffect(()=>{if(ending&&!spectating)resultTitle.current?.focus();},[!!ending,spectating]);
   const raceRef=useRef(race);raceRef.current=race;
   const musicRef=useRef(music);musicRef.current=music;
   const ref=useRef({active:true,state:newRun(),authoritative:newRun(),pending:[],seq:0,requests:new Set(),queue:Promise.resolve(),lastInput:-200,clock:{start:0,time:0,correction:0},lastSnapshot:0});
   function begin(g,start){
     Object.assign(ref.current,{game:g,state:newRun(),authoritative:newRun(),pending:[],seq:0,requests:new Set(),queue:Promise.resolve(),lastInput:-200,finished:false,finishing:false,ended:false,visualJump:null,clock:{start,time:0,correction:0}});
+    pickupCount.current=0;setPickups([]);
     setResult(null);setEnding(null);setSpectating(false);setHud(newRun());setGame(g);setStatus('playing');
   }
   useEffect(()=>{ref.current.active=true;return()=>{const s=ref.current;s.active=false;if(raceRef.current)socket?.emit('runner:leave',{});if(s.game&&!s.finished)api(`/games/${s.game.id}/abandon`,{method:'POST'}).catch(()=>{});};},[]);
@@ -43,7 +55,7 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
     socket.on('runner:snapshot',receive);return()=>socket.off('runner:snapshot',receive);
   },[race?.id,socket,me.id]);
   const latestSnapshot=useRef();latestSnapshot.current=snapshot;
-  async function start(){setStatus('loading');setResult(null);try{const sent=performance.now();const g=await api('/games',{method:'POST',body:{targetId:target.id,kind:'runner',anonymous}});if(!ref.current.active){api(`/games/${g.id}/abandon`,{method:'POST'}).catch(()=>{});return;}begin(g,(sent+performance.now())/2);}catch(e){if(ref.current.active){notify(e.message);setStatus('ready');}}}
+  async function start(){effects.current?.unlock();setStatus('loading');setResult(null);try{const sent=performance.now();const g=await api('/games',{method:'POST',body:{targetId:target.id,kind:'runner',anonymous}});if(!ref.current.active){api(`/games/${g.id}/abandon`,{method:'POST'}).catch(()=>{});return;}begin(g,(sent+performance.now())/2);}catch(e){if(ref.current.active){notify(e.message);setStatus('ready');}}}
   function playMusic(){if(!audio.current||!musicRef.current?.enabled)return;audio.current.play().then(()=>setAudioBlocked(false)).catch(e=>{if(e.name==='NotAllowedError')setAudioBlocked(true);});}
   useEffect(()=>{
     if(status!=='playing')return;
@@ -52,6 +64,7 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
   },[status,music?.interrupt]);
   useEffect(()=>{if(audio.current)audio.current.volume=music?.volume??.3;if(status==='playing'){if(music?.enabled)playMusic();else audio.current?.pause();}},[music?.volume,music?.enabled,status]);
   function input(action){
+    effects.current?.unlock();
     const s=ref.current,now=performance.now();if(!s.game||s.ended||s.finished||s.finishing||now-s.lastInput<120)return;
     const elapsed=runTime(s.clock,now,s.game.duration),predicted=predictRunInput(s.state,s.game.notes,elapsed,action);if(!predicted)return;
     s.lastInput=now;playMusic();const entry={seq:++s.seq,action,elapsed};s.pending.push(entry);s.state=predicted;
@@ -109,7 +122,7 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
       if(s.game!==currentGame){currentGame=s.game;environment.setNotes(currentGame?.notes||[]);}
       const pose=runnerPose(s.state,s.game?.notes||[],matchTime,{finished:s.ended||s.finished,jumpAt:visualJumpTime(s.visualJump,s.state)});
       const predicted=pose.state,moving=!!s.game&&pose.moving;
-      environment.update(t,Math.max(0,t-3000)*.011);
+      environment.update(t,runDistance(t),predicted.resolved);
       const blend=1-Math.exp(-18*dt);
       player.position.x+=((predicted.lane-1)*2.4-(raceRef.current ? .45 : 0)-player.position.x)*blend;
       player.position.y=pose.jump+(runMotion?.update(time,moving)||0);
@@ -128,18 +141,19 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
     const observer=new ResizeObserver(()=>{const {width,height}=el.getBoundingClientRect();if(width&&height){renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();}});observer.observe(el);
     return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();for(const model of [avatar,opponentAvatar])model?.traverse(o=>{if(o.userData.generated)disposeObject(o);if(o.isSkinnedMesh)o.skeleton.dispose();});environment.dispose();shadowGeo.dispose();shadowMat.dispose();renderer.dispose();renderer.domElement.remove();};
   },[me.id,JSON.stringify(me.appearance),race?.id]);
-  const other=race?.players.find(p=>p.userId!==me.id),progress=Math.min(100,Math.max(0,hud.elapsed-3000)/42000*100),seconds=Math.max(0,(RUN_DURATION-hud.elapsed)/1000);
+  const distance=runDistance(hud.elapsed),other=race?.players.find(p=>p.userId!==me.id),progress=distance/RUN_DISTANCE*100,seconds=Math.max(0,((game?.duration||RUN_DURATION)-hud.elapsed)/1000);
   const players=race?race.players:[{userId:me.id,nickname:me.nickname}];
   const ranked=players.map(p=>({...p,live:snapshot?.players.find(v=>v.userId===p.userId)})).sort((a,b)=>(b.live?.score??(b.userId===me.id?runScore(hud):0))-(a.live?.score??(a.userId===me.id?runScore(hud):0)));
-  return <div className="panel-body runner sky-runner">
+  return <div className="panel-body runner sky-runner" onPointerDownCapture={()=>effects.current?.unlock()}>
     <audio ref={audio} src="/audio/splash-and-play.mp3" preload="auto" loop onError={()=>notify('달리기 음악을 불러오지 못했어요. 재생을 다시 시도해주세요.')}/>
     <div className="runner-stage">
       <div className="runner-viewport" ref={mount} aria-label="하늘섬 구름 달리기 3D 트랙"/>
       <div className="sky-top"><div className="sky-brand"><Flower2/><div><b>PIEONA</b><small>미니게임 · 하늘 달리기</small></div></div><div className="sky-timer"><Timer size={19}/>{String(Math.floor(seconds/60)).padStart(2,'0')}:{(seconds%60).toFixed(1).padStart(4,'0')}</div></div>
-      <div className="sky-progress"><div><span style={{width:`${progress}%`}}/></div><Flag size={19}/><small>{Math.round(progress)}%</small></div>
+      <div className="sky-progress" aria-label={`완주 거리 ${Math.floor(distance)} / ${RUN_DISTANCE}m`}><div><span style={{width:`${progress}%`}}/></div><Flag size={19}/><small>{Math.floor(distance).toLocaleString()} / {RUN_DISTANCE.toLocaleString()}m</small></div>
       <div className="sky-standings"><strong>{ranked.findIndex(p=>p.userId===me.id)+1}<small> / {players.length}</small></strong><ol>{ranked.map(p=><li key={p.userId} className={p.userId===me.id?'is-me':''}><Flower2 size={16}/><span>{p.nickname}{p.userId===me.id?' · 나':''}</span><small>{p.live?.left?'나감':(p.userId===me.id?runScore(hud):p.live?.score||0).toLocaleString()}</small></li>)}</ol></div>
-      <div className="sky-hint">조금만 더!<br/><strong>분홍 울타리는 점프해요.</strong></div>
+      <div className="sky-hint"><span>{runSpeed(hud.elapsed).toFixed(1)} m/s · {runSpeed(hud.elapsed)>=RUN_MAX_SPEED?'최고 속도!':`${RUN_SPEED_INTERVAL/1000}초마다 +${RUN_SPEED_STEP} m/s`}</span><br/><strong>분홍 울타리는 점프해요.</strong><br/><span>초록 링 씨앗을 모으면 +{SEED_POINTS}점!</span><div className="sky-seeds" aria-label={`씨앗 ${hud.collectedSeeds||0}개 수집`}><Sprout size={19}/><b key={hud.collectedSeeds||0}>{hud.collectedSeeds||0}개</b><small>+{((hud.collectedSeeds||0)*SEED_POINTS).toLocaleString()}점</small></div></div>
       <span className="sky-name self" ref={selfTag}>{me.nickname} · 나</span>{other&&<span className="sky-name" ref={otherTag}>{other.nickname}</span>}
+      <div className="sky-pickups" aria-live="polite" aria-atomic="false">{pickups.map(id=><span key={id} className="sky-pickup" style={{'--pickup-x':`${(id%3-1)*46}px`}} onAnimationEnd={()=>setPickups(current=>current.filter(value=>value!==id))}><Sprout size={23}/>+{SEED_POINTS}점</span>)}</div>
       <div className="sky-lives" aria-label={`남은 목숨 ${hud.lives}개`}>{'♥'.repeat(hud.lives)}<span>{'♥'.repeat(3-hud.lives)}</span></div>
       {status==='playing'&&hud.elapsed<3000&&<div className="sky-countdown" role="status"><b>{Math.max(1,Math.ceil((3000-hud.elapsed)/1000))}</b><span>하늘을 향해, 준비!</span></div>}
       {!ready&&!error&&<div className="sky-message" role="status">하늘섬과 캐릭터를 준비하고 있어요…</div>}
@@ -152,7 +166,7 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
           <div className="sky-result-copy"><span className="eyebrow">{ending.lives?'RUN COMPLETE':'GAME OVER'}</span>
             <h3 ref={resultTitle} tabIndex={-1}>{ending.lives?'하늘섬 완주!':'잠깐 쉬어가도 괜찮아'}</h3>
             <strong>{(result?.score??runScore(ending)).toLocaleString()}<small> SCORE</small></strong>
-            <p>{result?`장애물 ${result.hits} / ${result.total}개 통과 · +${result.gold} 골드`:status==='settle'?'기록 저장을 다시 시도해주세요.':'달린 기록을 저장하고 있어요…'}</p>
+            <p>{result?`장애물 ${result.hits} / ${result.total}개 통과 · 씨앗 ${result.collectedSeeds}개 (+${(result.collectedSeeds*SEED_POINTS).toLocaleString()}점) · +${result.gold} 골드`:status==='settle'?'기록 저장을 다시 시도해주세요.':'달린 기록을 저장하고 있어요…'}</p>
             {status==='finished'&&!race&&<button className="primary" onClick={start}><RotateCcw size={16}/>다시 달리기</button>}
             {status==='settle'&&<button className="primary" onClick={finish}>기록 저장 다시 시도</button>}
             {race&&<button className="secondary" onClick={()=>setSpectating(true)}>상대 달리기 지켜보기</button>}
@@ -161,6 +175,6 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
       </div>}
     </div>
     <div className="sky-footer"><div><span className="eyebrow">CLOUD RUN · SKY KINGDOM</span><h3>구름 위로, 함께 달려요</h3><p>{target.nickname}의 마을 · {race?'이웃과 함께하는 2인 달리기':'나의 캐릭터로 떠나는 하늘섬'}</p></div>{status==='playing'?<strong className="sky-score">{runScore(hud).toLocaleString()}<small> SCORE</small></strong>:!race&&status!=='finished'&&status!=='settle'?<button className="primary" disabled={!ready||status==='loading'} onClick={start}><Play size={17}/>{status==='loading'?'출발 준비 중…':'달리기 시작'}</button>:null}</div>
-    {race&&!game?<p className="runner-guide" role="status">{ready?'두 사람의 준비가 끝나면 함께 출발해요…':'캐릭터와 트랙을 준비하고 있어요…'}</p>:ending?<div className="runner-end-summary"><span>{result?`${result.score.toLocaleString()}점 · +${result.gold} 골드 · 마을 기록 저장 완료`:'달리기 종료 · 기록 저장 중'}</span>{spectating&&<button className="text-button" onClick={()=>setSpectating(false)}>내 결과 보기</button>}</div>:<p className="runner-guide"><strong>← → / A · D</strong> 길 바꾸기 <span>·</span> <strong>스페이스 / ↑ / W</strong> 점프 <span>·</span> 목숨 3개로 45초 달려요. 장애물 8개 통과부터 보상.</p>}
+    {race&&!game?<p className="runner-guide" role="status">{ready?'두 사람의 준비가 끝나면 함께 출발해요…':'캐릭터와 트랙을 준비하고 있어요…'}</p>:ending?<div className="runner-end-summary"><span>{result?`${result.score.toLocaleString()}점 · +${result.gold} 골드 · 마을 기록 저장 완료`:'달리기 종료 · 기록 저장 중'}</span>{spectating&&<button className="text-button" onClick={()=>setSpectating(false)}>내 결과 보기</button>}</div>:<p className="runner-guide"><strong>← → / A · D</strong> 길 바꾸기 <span>·</span> <strong>스페이스 / ↑ / W</strong> 점프 <span>·</span> 목숨 3개로 {RUN_DISTANCE.toLocaleString()}m를 완주해요. 속도가 점점 올라가요! 씨앗 1개당 +{SEED_POINTS}점 · 장애물 8개 통과부터 보상.</p>}
   </div>;
 }

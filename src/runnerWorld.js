@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js';
+import {runDistance,RUN_DISTANCE} from '../shared/runner.mjs';
 
 // Original procedural assets. Repeated track pieces share geometry and draw calls.
 export function createRunnerWorld(scene) {
@@ -10,6 +11,11 @@ export function createRunnerWorld(scene) {
   const stone=mat('#fff0d2'),gold=mat('#edc975'),grass=mat('#a9cd7e'),leaf=mat('#81b88c'),rose=mat('#eebbd4'),blue=mat('#7cdbff',{emissive:'#36baf1',emissiveIntensity:.45}),cloud=mat('#ffffff');
   const cube=geo(new THREE.BoxGeometry(1,1,1)),sphere=geo(new THREE.SphereGeometry(1,12,8));
   const rounded=geo(new RoundedBoxGeometry(1,1,1,2,.09));
+  // Saturated, self-lit pickups remain distinct from the pale track and fences.
+  const seedGold=mat('#ffb829',{emissive:'#ff9b08',emissiveIntensity:.9,roughness:.3});
+  const seedLeaf=mat('#36ef74',{emissive:'#17ad45',emissiveIntensity:.6});
+  const seedRingGeo=geo(new THREE.TorusGeometry(.85,.065,8,24));
+  const seedRingMat=new THREE.MeshBasicMaterial({color:'#77ffb0',toneMapped:false});materials.push(seedRingMat);
   function mesh(g,m,x,y,z,sx=1,sy=1,sz=1,parent=root){const o=new THREE.Mesh(g,m);o.position.set(x,y,z);o.scale.set(sx,sy,sz);parent.add(o);return o;}
   const dummy=new THREE.Object3D();
   function instances(g,m,count){const o=new THREE.InstancedMesh(g,m,count);o.instanceMatrix.setUsage(THREE.DynamicDrawUsage);o.receiveShadow=true;o.frustumCulled=false;root.add(o);return o;}
@@ -48,6 +54,16 @@ export function createRunnerWorld(scene) {
   const noteRoot=new THREE.Group();root.add(noteRoot);let notes=[];
   function setNotes(next){for(const n of notes)n.removeFromParent();notes=next.map(note=>{
     const group=new THREE.Group();noteRoot.add(group);group.userData.note=note;
+    group.position.x=(note.lane-1)*2.4;
+    if(note.kind==='seed'){
+      const pickup=new THREE.Group();group.add(pickup);group.userData.pickup=pickup;
+      const seed=mesh(sphere,seedGold,0,1.45,0,.5,.68,.46,pickup);seed.rotation.z=-.3;
+      const sprout=mesh(sphere,seedLeaf,.3,2.06,0,.42,.18,.18,pickup);sprout.rotation.z=.6;
+      const sprout2=mesh(sphere,seedLeaf,-.23,2.03,0,.36,.16,.17,pickup);sprout2.rotation.z=-.6;
+      mesh(sphere,cloud,-.16,1.6,.4,.09,.2,.04,pickup);
+      mesh(seedRingGeo,seedRingMat,0,1.5,0,1,1,1,group);
+      return group;
+    }
     const wide=note.lane===-1,width=wide?7.2:1.65;
     mesh(rounded,wide?rose:gold,0,note.height/2,0,width,note.height,.65,group);
     mesh(cube,stone,0,note.height*.84,.34,width*.88,.1,.035,group);
@@ -56,7 +72,7 @@ export function createRunnerWorld(scene) {
     const emblem=mesh(sphere,wide?stone:leaf,0,note.height*.48,.36,.16,.25,.05,group);emblem.rotation.z=-.5;
     group.position.x=wide?0:(note.lane-1)*2.4;return group;
   });}
-  function update(elapsed,motion){
+  function update(elapsed,motion,resolved=0){
     for(let row=0;row<32;row++){
       const z=10-((row*3.5-motion)%112+112)%112;
       for(let lane=0;lane<3;lane++)put(tiles,row*3+lane,(lane-1)*2.4,-.18,z,2.35,.32,3.43);
@@ -74,9 +90,14 @@ export function createRunnerWorld(scene) {
     }
     for(const o of [tiles,borders,verges,pads,arrows])o.instanceMatrix.needsUpdate=true;
     islands.forEach((o,i)=>o.position.set((i%2?1:-1)*(9+i%3*2),-1,8-((i*12-motion*.65)%120+120)%120));
-    arch.position.z=-Math.min(60,Math.max(0,45000-elapsed)*.011)-2;
+    arch.position.z=motion-RUN_DISTANCE;
     arch.visible=arch.position.z>-100;
-    for(const o of notes){o.position.z=-(o.userData.note.time-elapsed)*.011;o.visible=o.position.z>-85&&o.position.z<5;}
+    notes.forEach((o,i)=>{
+      o.position.z=motion-runDistance(o.userData.note.time);
+      const seed=o.userData.note.kind==='seed';
+      o.visible=o.position.z>-85&&o.position.z<5&&(!seed||i>=resolved);
+      if(seed){o.userData.pickup.rotation.y=elapsed*.002;o.position.y=Math.sin(elapsed*.004+i)*.13;}
+    });
   }
   return {setNotes,update,dispose(){root.removeFromParent();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());banner.dispose();}};
 }

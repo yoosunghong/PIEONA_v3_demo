@@ -4,9 +4,9 @@ import {randomUUID} from 'node:crypto';
 import {io} from 'socket.io-client';
 import {createApp} from '../server/app.mjs';
 import {openStore} from '../server/store.mjs';
-import {newRun,advanceRun,runAction,jumpHeight,RUN_DURATION} from '../shared/runner.mjs';
+import {newRun,advanceRun,runAction,jumpHeight,runScore,RUN_DURATION,RUN_EXPIRY} from '../shared/runner.mjs';
 import {day} from '../server/store.mjs';
-import {mkdtempSync,rmSync} from 'node:fs';
+import {existsSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 
@@ -16,6 +16,14 @@ async function register(username){const r=await request('/auth/register',null,{u
 before(async()=>{runtime=createApp({testing:true,store:openStore(':memory:')});await new Promise(r=>runtime.server.listen(0,'127.0.0.1',r));url=`http://127.0.0.1:${runtime.server.address().port}`;owner=await register('garden_owner');visitor=await register('garden_visitor');third=await register('garden_third');});
 after(async()=>runtime.close());
 const piece=()=>({id:randomUUID(),type:'planter',x:-3,z:3.5,rotation:0});
+
+test('game entry HTML is reloaded instead of keeping an old runner bundle in browser cache',{skip:!existsSync('dist/index.html')&&'Build the client to check served HTML cache headers'},async()=>{
+  for(const path of ['/','/index.html','/runner-preview']){
+    const response=await fetch(url+path);
+    assert.equal(response.status,200);
+    assert.equal(response.headers.get('cache-control'),'no-store');
+  }
+});
 test('world saves are owner scoped, validated and public to visitors',async()=>{
   const village={items:[piece()],theme:'default'},appearance={hat:'crown',accessory:'wings',color:'#d994b6'};
   assert.equal((await request('/me/world',null,{village},'PATCH')).status,401);
@@ -186,7 +194,7 @@ test('closed villages and blocks reject live entry while the owner can still ent
 
 test('runner jump, lane, collision, cooldown and terminal state are deterministic',()=>{
   const obstacles=[{time:5000,lane:-1,height:.9},{time:7000,lane:1,height:1.15},{time:9000,lane:-1,height:.9}];
-  let state=runAction(newRun(),obstacles,4550,'jump');assert.ok(jumpHeight(5000,state.jumpAt)>2);
+  let state=runAction(newRun(),obstacles,4750,'jump');assert.ok(jumpHeight(5000,state.jumpAt)>1.15);
   state=advanceRun(state,obstacles,5100);assert.equal(state.lives,3);assert.equal(state.dodged,1);
   state=runAction(state,obstacles,6500,'left');assert.equal(state.lane,0);state=runAction(state,obstacles,6550,'right');assert.equal(state.lane,0);
   state=advanceRun(state,obstacles,10000);assert.equal(state.lives,2);assert.equal(state.dodged,2);
@@ -195,6 +203,7 @@ test('runner jump, lane, collision, cooldown and terminal state are deterministi
 
 test('runner API rejects forged score, cross-user actions and rhythm hits; persists zero-reward records once',async()=>{
   const r=await request('/games',visitor,{targetId:owner.id,kind:'runner',anonymous:true});assert.equal(r.status,201);const gid=r.body.id;
+  assert.equal(r.body.duration,RUN_DURATION);assert.ok(r.body.notes.some(n=>n.kind==='seed'));
   assert.equal((await request(`/games/${gid}/finish`,visitor,{score:999999})).status,400);
   assert.equal((await request(`/games/${gid}/action`,third,{action:'jump'})).status,404);
   assert.equal((await request(`/games/${gid}/hit`,visitor,{lane:1})).status,404);
@@ -208,16 +217,33 @@ test('runner API rejects forged score, cross-user actions and rhythm hits; persi
   assert.equal((await request(`/villages/${third.id}/records?kind=runner`,owner)).body.records.length,0);
 });
 
+test('runner can settle after two minutes and stays busy until its longer expiry',async()=>{
+  const runner=await register('runner_expiry');
+  const start=await request('/games',runner,{targetId:runner.id,kind:'runner'}),gid=start.body.id;
+  runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-RUN_DURATION-30000,'[]',gid);
+  assert.equal((await request('/games',runner,{targetId:runner.id,kind:'runner'})).status,409);
+  const state=await request(`/games/${gid}/state`,runner);
+  assert.equal(state.status,200);assert.equal(state.body.state.elapsed,RUN_DURATION);
+  assert.equal((await request(`/games/${gid}/finish`,runner,{})).status,200);
+  const expired=await request('/games',runner,{targetId:runner.id,kind:'runner'});
+  runtime.store.run('UPDATE games SET started=? WHERE id=?',Date.now()-RUN_EXPIRY-1000,expired.body.id);
+  assert.equal((await request(`/games/${expired.body.id}/state`,runner)).status,400);
+  assert.equal((await request(`/games/${expired.body.id}/finish`,runner,{})).status,400);
+  await request(`/games/${expired.body.id}/abandon`,runner,{});
+});
+
 test('runner completion rewards derive from server progress and obey shared caps; abandon permits replay',async()=>{
   const start=await request('/games',visitor,{targetId:owner.id,kind:'runner'});const gid=start.body.id;
-  runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-46000,JSON.stringify(Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:0,height:1}))),gid);
-  const result=await request(`/games/${gid}/finish`,visitor,{score:999999});assert.equal(result.status,200);assert.equal(result.body.hits,20);assert.ok(result.body.gold>0&&result.body.gold<100);assert.notEqual(result.body.score,999999);
+  const notes=[{kind:'seed',time:4000,lane:1},{kind:'seed',time:4200,lane:0},...Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:0,height:1}))];
+  runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-RUN_DURATION-1000,JSON.stringify(notes),gid);
+  const progress=await request(`/games/${gid}/state`,visitor);assert.equal(progress.body.state.collectedSeeds,1);
+  const result=await request(`/games/${gid}/finish`,visitor,{score:999999});assert.equal(result.status,200);assert.equal(result.body.hits,20);assert.equal(result.body.total,20);assert.equal(result.body.collectedSeeds,1);assert.equal(result.body.score,runScore({...newRun(),elapsed:RUN_DURATION,dodged:20,collectedSeeds:1}));assert.ok(result.body.gold>0&&result.body.gold<100);assert.notEqual(result.body.score,999999);
   const a=await request('/games',visitor,{targetId:owner.id,kind:'rhythm'});assert.equal(a.status,201);assert.equal((await request('/games',visitor,{targetId:owner.id,kind:'runner'})).status,409);
   assert.equal((await request(`/games/${a.body.id}/abandon`,third,{})).status,200);assert.equal((await request('/games',visitor,{targetId:owner.id,kind:'runner'})).status,409);
   await request(`/games/${a.body.id}/abandon`,visitor,{});const b=await request('/games',visitor,{targetId:owner.id,kind:'runner'});assert.equal(b.status,201);await request(`/games/${b.body.id}/abandon`,visitor,{});
   assert.equal((await request(`/villages/${owner.id}/records?kind=runner`,owner)).body.records.length,2);
   runtime.store.run("INSERT INTO rewards VALUES(?,?,'game',?,?)",visitor.id,`${third.id}:cap-test`,day(),300-result.body.gold);
-  const capped=await request('/games',visitor,{targetId:owner.id,kind:'runner'});runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-46000,JSON.stringify(Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:0,height:1}))),capped.body.id);
+  const capped=await request('/games',visitor,{targetId:owner.id,kind:'runner'});runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-RUN_DURATION-1000,JSON.stringify(Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:0,height:1}))),capped.body.id);
   const noReward=await request(`/games/${capped.body.id}/finish`,visitor,{});assert.equal(noReward.body.gold,0);assert.equal((await request(`/villages/${owner.id}/records?kind=runner`,owner)).body.records.length,3);
 });
 
@@ -266,6 +292,7 @@ test('accepted runner uses identical map and clock, waits for both ready, syncs 
     await emit(host,'runner:ready',{id:a.id});assert.equal(runtime.store.one('SELECT COUNT(*) n FROM games WHERE user_id=? AND finished=0',owner.id).n,0);
     const startHost=villageEvent(host,'runner:started'),startGuest=villageEvent(guest,'runner:started');await emit(guest,'runner:ready',{id:a.id});
     const [ah,bh]=await Promise.all([startHost,startGuest]);assert.equal(ah.game.started,bh.game.started);assert.deepEqual(ah.game.notes,bh.game.notes);assert.notEqual(ah.game.id,bh.game.id);
+    assert.equal(ah.game.duration,RUN_DURATION);assert.ok(ah.game.notes.some(n=>n.kind==='seed'));
     // Move the shared clock beyond countdown, then verify the other socket receives server state.
     const started=Date.now()-3500;for(const g of [ah.game,bh.game])runtime.store.run('UPDATE games SET started=? WHERE id=?',started,g.id);
     const moved=villageEvent(guest,'runner:snapshot',s=>s.players.find(p=>p.userId===owner.id)?.state.lane===0);
@@ -281,7 +308,7 @@ test('accepted runner uses identical map and clock, waits for both ready, syncs 
     assert.equal(fallback.body.state.lane,1);
     // Both players finish under identical server-side course rules, each settling once.
     for(const [user,g] of [[owner,ah.game],[visitor,bh.game]]){
-      runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-46000,JSON.stringify(Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:2,height:1}))),g.id);
+      runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-RUN_DURATION-1000,JSON.stringify(Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:2,height:1}))),g.id);
       const result=await request(`/games/${g.id}/finish`,user,{});assert.equal(result.status,200);assert.equal(result.body.hits,20);
       assert.equal((await request(`/games/${g.id}/finish`,user,{})).status,409);
     }

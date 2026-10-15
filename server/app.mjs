@@ -11,7 +11,7 @@ import { z } from 'zod';
 import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, defaultSettings } from './store.mjs';
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
 import { decorations, hats, accessories, colors, validPlacement, villageThemes } from '../shared/world.mjs';
-import { RUN_DURATION, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
+import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
 
 const scrypt = promisify(scryptCallback);
@@ -238,8 +238,8 @@ export function createApp(options = {}) {
   app.delete('/api/blocks/:id',auth,(req,res)=>{store.run('DELETE FROM blocks WHERE owner_id=? AND blocked_id=?',req.user.id,req.params.id);emitWorld();res.json({ok:true});});
   app.post('/api/reports',auth,(req,res)=>{const data=z.object({targetId:z.string().uuid(),reason:z.string().trim().min(3).max(500)}).parse(req.body);userById(data.targetId);store.run('INSERT INTO reports VALUES(?,?,?,?,?)',id(),req.user.id,data.targetId,data.reason,now());res.status(201).json({ok:true});});
 
-  const runnerNotes=()=>Array.from({length:20},(_,i)=>({time:5000+i*1950,lane:i%4===0?-1:randomBytes(1)[0]%3,height:i%4===0?.9:1.15}));
-  const busy=userId=>store.one('SELECT id FROM games WHERE user_id=? AND finished=0 AND started>?',userId,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started);
+  const runnerNotes=()=>createRunnerNotes(()=>randomBytes(1)[0]%3);
+  const busy=userId=>store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started);
   function raceEmit(r,name,data){for(const player of r.players)io.to(player.socketId).emit(name,data);}
   function cancelInvite(invite,reason){invites.delete(invite.id);for(const sid of [invite.fromSocket,invite.toSocket])io.to(sid).emit('runner:invite-ended',{id:invite.id,reason});}
   function leaveRace(socket){
@@ -265,10 +265,10 @@ export function createApp(options = {}) {
   app.post('/api/games',auth,(req,res)=>{
     const {targetId,anonymous,kind}=z.object({targetId:z.string().uuid(),anonymous:z.boolean().default(false),kind:z.enum(['rhythm','runner']).default('rhythm')}).parse(req.body);checkTarget(req,targetId);
     const unfinished=busy(req.user.id);if(unfinished)fail(409,'진행 중인 미니게임이 있어요. 게임을 마치거나 나간 뒤 다시 시작해주세요.');
-    const notes=kind==='rhythm'?Array.from({length:40},(_,i)=>({time:2500+i*650,lane:randomBytes(1)[0]%4})):Array.from({length:20},(_,i)=>({time:5000+i*1950,lane:i%4===0?-1:randomBytes(1)[0]%3,height:i%4===0?.9:1.15}));
+    const notes=kind==='rhythm'?Array.from({length:40},(_,i)=>({time:2500+i*650,lane:randomBytes(1)[0]%4})):runnerNotes();
     const gid=id();const started=Date.now();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous,kind) VALUES(?,?,?,?,?,?,0,?,?)',gid,req.user.id,targetId,JSON.stringify(notes),JSON.stringify(kind==='runner'?newRun():[]),started,Number(anonymous),kind);event(req.user.id,'game_started',{kind});for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.status(201).json({id:gid,kind,notes,duration:kind==='runner'?RUN_DURATION:30000,serverTime:started});
   });
-  function running(req){const g=store.one("SELECT * FROM games WHERE id=? AND user_id=? AND kind='runner' AND finished=0",req.params.id,req.user.id);if(!g)fail(404,'진행 중인 달리기가 아니에요.');checkTarget(req,g.target_id);if(Date.now()-g.started>120000)fail(400,'게임 시간이 만료됐어요.');return g;}
+  function running(req){const g=store.one("SELECT * FROM games WHERE id=? AND user_id=? AND kind='runner' AND finished=0",req.params.id,req.user.id);if(!g)fail(404,'진행 중인 달리기가 아니에요.');checkTarget(req,g.target_id);if(Date.now()-g.started>RUN_EXPIRY)fail(400,'게임 시간이 만료됐어요.');return g;}
   const runnerInput=z.object({action:z.enum(['left','right','jump']),seq:z.number().int().positive().max(10000).optional()}).strict();
   function actOnRun(g,data){
     const {action,seq}=runnerInput.parse(data),previous=JSON.parse(g.hits);
@@ -288,7 +288,7 @@ export function createApp(options = {}) {
     let rating='miss';if(index>=0){rating=Math.abs(notes[index].time-elapsed)<130?'perfect':'good';hits.push({index,rating});store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(hits),g.id);}res.json({rating,combo:hits.length});
   });
   app.post('/api/games/:id/finish',auth,(req,res)=>{
-    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>120000)fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
+    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>(g.kind==='runner'?RUN_EXPIRY:120000))fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
     const state=g.kind==='runner'?advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started):null;
     if(state?state.lives>0&&state.elapsed<RUN_DURATION:Date.now()-g.started<30000)fail(400,'게임이 끝나면 정산할 수 있어요.');
     const hits=state?state.dodged:JSON.parse(g.hits).length;const score=state?runScore(state):JSON.parse(g.hits).reduce((n,h)=>n+(h.rating==='perfect'?100:65),0);let gold=0;
@@ -299,7 +299,7 @@ export function createApp(options = {}) {
       if(hits>=8&&total<300&&place<3){gold=Math.min(300-total,30+Math.floor(score/100));store.run("INSERT INTO rewards VALUES(?,?,'game',?,?)",req.user.id,`${g.target_id}:${g.id}`,day(),gold);store.run('UPDATE users SET gold=gold+? WHERE id=?',gold,req.user.id);rewardVisit(g.target_id,req.user.id,!!g.anonymous);}
       activity(g.target_id,req.user.id,'minigame',`${g.kind==='runner'?'구름 달리기':'별빛 리듬'} ${score}점`,!!g.anonymous);
       event(req.user.id,'game_finished',{kind:g.kind,score,gold});
-    });emitUpdate(req.user.id);emitVillage(g.target_id);io.to([`village:${g.target_id}`,`user:${g.target_id}`]).emit('games:changed',{villageId:g.target_id});res.json({score,gold,hits,total:g.kind==='runner'?20:40,lives:state?.lives});
+    });emitUpdate(req.user.id);emitVillage(g.target_id);io.to([`village:${g.target_id}`,`user:${g.target_id}`]).emit('games:changed',{villageId:g.target_id});res.json({score,gold,hits,total:g.kind==='runner'?JSON.parse(g.notes).filter(n=>n.kind!=='seed').length:40,lives:state?.lives,collectedSeeds:state?.collectedSeeds||0});
   });
   app.get('/api/villages/:id/records',auth,(req,res)=>{
     checkTarget(req,req.params.id);const kind=z.enum(['rhythm','runner']).parse(req.query.kind||'rhythm');
@@ -435,10 +435,10 @@ export function createApp(options = {}) {
     });
     socket.on('disconnect',()=>{leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
   });
-  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(Date.now()-r.started>120000||r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished)){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
+  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(Date.now()-r.started>RUN_EXPIRY||r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished)){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
   const maintenance=setInterval(()=>{store.run('DELETE FROM sessions WHERE expires<?',Date.now());for(const socket of io.sockets.sockets.values())if(!sessionUser(socket.request.headers))socket.disconnect(true);},60000);maintenance.unref();
   app.use('/resource',express.static(resolve('resource'),{maxAge:'7d',immutable:true}));
-  const dist=resolve('dist');if(existsSync(dist)){app.use(express.static(dist,{maxAge:'1h'}));app.get('/{*splat}',(req,res,next)=>req.path.startsWith('/api/')?next():res.sendFile(resolve(dist,'index.html')));}
+  const dist=resolve('dist');if(existsSync(dist)){app.use(express.static(dist,{maxAge:'1h',setHeaders(res,path){if(path.endsWith('.html'))res.set('Cache-Control','no-store');}}));app.get('/{*splat}',(req,res,next)=>req.path.startsWith('/api/')?next():res.set('Cache-Control','no-store').sendFile(resolve(dist,'index.html')));}
   app.use('/api',(req,res)=>res.status(404).json({error:'요청한 기능을 찾을 수 없어요.'}));
   app.use((error,req,res,next)=>{
     if(res.headersSent)return next(error);
