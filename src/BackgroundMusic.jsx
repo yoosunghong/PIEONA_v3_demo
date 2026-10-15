@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Music2, Pause, Play, SlidersHorizontal, Volume2 } from 'lucide-react';
 import './play-controls.css';
 
@@ -11,6 +11,15 @@ const savePreference = (key, value) => { try { localStorage.setItem(key, JSON.st
 
 export function MusicProvider({ children }) {
   const audio = useRef(null);
+  const interruptions = useRef(new Set());
+  const [interruptionVersion, setInterruptionVersion] = useState(0);
+  const interrupt = useCallback(() => {
+    const token = Symbol();
+    interruptions.current.add(token);
+    audio.current?.pause();
+    setInterruptionVersion(v => v + 1);
+    return () => { interruptions.current.delete(token); setInterruptionVersion(v => v + 1); };
+  }, []);
   const [enabled, setEnabled] = useState(() => readPreference('pieona.music.enabled', true) === true);
   const [volume, setVolume] = useState(() => {
     const saved = readPreference('pieona.music.volume', .3);
@@ -21,7 +30,7 @@ export function MusicProvider({ children }) {
   const [error, setError] = useState('');
   const play = () => {
     const player = audio.current;
-    if (!player) return;
+    if (!player || interruptions.current.size) return;
     if (player.error) player.load();
     setError('');
     player.play().catch(e => {
@@ -35,7 +44,7 @@ export function MusicProvider({ children }) {
   }, [volume, ducked]);
   useEffect(() => {
     savePreference('pieona.music.enabled', enabled);
-    if (!enabled) { audio.current?.pause(); return; }
+    if (!enabled || interruptions.current.size) { audio.current?.pause(); return; }
     play();
     const unlock = e => {
       if (e.target instanceof Element && e.target.closest('[data-music-controls]')) return;
@@ -48,12 +57,12 @@ export function MusicProvider({ children }) {
       document.removeEventListener('pointerdown', unlock, true);
       document.removeEventListener('keydown', unlock, true);
     };
-  }, [enabled]);
+  }, [enabled, interruptionVersion]);
   const toggle = () => {
-    if (playing) { setEnabled(false); audio.current.pause(); }
+    if (enabled) { setEnabled(false); audio.current.pause(); }
     else { setEnabled(true); play(); }
   };
-  return <MusicContext.Provider value={{ playing, enabled, volume, setVolume, toggle, error, ducked, setDucked }}>
+  return <MusicContext.Provider value={{ playing, enabled, volume, setVolume, toggle, error, ducked, setDucked, interrupt }}>
     {children}
     <audio ref={audio} src="/audio/S_Vilage_v2.mp3" preload="metadata" loop
       onPlaying={() => setPlaying(true)} onPause={() => setPlaying(false)}

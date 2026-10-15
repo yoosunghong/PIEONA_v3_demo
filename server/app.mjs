@@ -269,7 +269,17 @@ export function createApp(options = {}) {
     const gid=id();const started=Date.now();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous,kind) VALUES(?,?,?,?,?,?,0,?,?)',gid,req.user.id,targetId,JSON.stringify(notes),JSON.stringify(kind==='runner'?newRun():[]),started,Number(anonymous),kind);event(req.user.id,'game_started',{kind});for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.status(201).json({id:gid,kind,notes,duration:kind==='runner'?RUN_DURATION:30000,serverTime:started});
   });
   function running(req){const g=store.one("SELECT * FROM games WHERE id=? AND user_id=? AND kind='runner' AND finished=0",req.params.id,req.user.id);if(!g)fail(404,'진행 중인 달리기가 아니에요.');checkTarget(req,g.target_id);if(Date.now()-g.started>120000)fail(400,'게임 시간이 만료됐어요.');return g;}
-  app.post('/api/games/:id/action',auth,(req,res)=>{const {action}=z.object({action:z.enum(['left','right','jump'])}).strict().parse(req.body);const g=running(req);const state=runAction(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started,action);store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(state),g.id);res.json({state,elapsed:Date.now()-g.started});const race=races.get(raceByGame.get(g.id));if(race)publishRace(race);});
+  const runnerInput=z.object({action:z.enum(['left','right','jump']),seq:z.number().int().positive().max(10000).optional()}).strict();
+  function actOnRun(g,data){
+    const {action,seq}=runnerInput.parse(data),previous=JSON.parse(g.hits);
+    const elapsed=Math.max(0,Date.now()-g.started);
+    if(seq&&seq<=(previous.inputSeq||0))return {state:previous,elapsed};
+    const state=runAction(previous,JSON.parse(g.notes),elapsed,action);
+    if(seq)state.inputSeq=seq;
+    store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(state),g.id);
+    return {state,elapsed};
+  }
+  app.post('/api/games/:id/action',auth,(req,res)=>{const g=running(req);res.json(actOnRun(g,req.body));const race=races.get(raceByGame.get(g.id));if(race)publishRace(race);});
   app.get('/api/games/:id/state',auth,(req,res)=>{const g=running(req);const state=advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started);store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(state),g.id);res.json({state,elapsed:Date.now()-g.started});});
   app.post('/api/games/:id/abandon',auth,(req,res)=>{store.run('UPDATE games SET finished=2 WHERE id=? AND user_id=? AND finished=0',req.params.id,req.user.id);for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.json({ok:true});});
   app.post('/api/games/:id/hit',auth,(req,res)=>{
@@ -342,6 +352,14 @@ export function createApp(options = {}) {
   io.on('connection',socket=>{
     const uid=socket.data.userId;socket.join(`user:${uid}`);online.set(uid,(online.get(uid)||0)+1);io.emit('presence',Array.from(online.keys()));
     const runnerRequest=(name,handler)=>socket.on(name,(data,ack)=>{try{if(!sessionUser(socket.request.headers))fail(401,'로그인이 필요해요.');handler(data,typeof ack==='function'?ack:()=>{});}catch(e){if(typeof ack==='function')ack({ok:false,error:e instanceof z.ZodError?'요청 형식을 확인해주세요.':e.message});}});
+    runnerRequest('runner:action',(data,ack)=>{
+      const {id:gameId,...input}=z.object({id:z.string().uuid(),action:z.enum(['left','right','jump']),seq:z.number().int().positive().max(10000)}).strict().parse(data);
+      const g=running({params:{id:gameId},user:userById(uid)});
+      const race=races.get(raceByGame.get(g.id));
+      if(!race||!race.players.some(p=>p.socketId===socket.id&&p.gameId===g.id&&!p.left))fail(403,'참여 중인 달리기가 아니에요.');
+      ack({ok:true,...actOnRun(g,input)});
+      publishRace(race);
+    });
     runnerRequest('runner:invite',(data,ack)=>{
       const {userId,anonymous}=z.object({userId:z.string().uuid(),anonymous:z.boolean().default(false)}).strict().parse(data);
       const villageId=socket.data.village?.villageId;if(!villageId||userId===uid)fail(400,'같은 마을의 이웃을 선택해주세요.');

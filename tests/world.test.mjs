@@ -271,6 +271,14 @@ test('accepted runner uses identical map and clock, waits for both ready, syncs 
     const moved=villageEvent(guest,'runner:snapshot',s=>s.players.find(p=>p.userId===owner.id)?.state.lane===0);
     assert.equal((await request(`/games/${ah.game.id}/action`,owner,{action:'left'})).status,200);assert.equal((await moved).id,a.id);
     assert.equal((await request(`/games/${ah.game.id}/action`,visitor,{action:'right'})).status,404);
+    // The socket path acknowledges input IDs, preserves ownership, and retries exactly once.
+    assert.equal((await emit(other,'runner:action',{id:ah.game.id,action:'right',seq:1})).ok,false);
+    const jump=await emit(guest,'runner:action',{id:bh.game.id,action:'jump',seq:1});
+    assert.equal(jump.ok,true);assert.equal(jump.state.inputSeq,1);assert.ok(jump.state.jumpAt>=0);
+    const duplicate=await emit(guest,'runner:action',{id:bh.game.id,action:'left',seq:1});
+    assert.equal(duplicate.ok,true);assert.equal(duplicate.state.lane,1);assert.equal(duplicate.state.jumpAt,jump.state.jumpAt);
+    const fallback=await request(`/games/${bh.game.id}/action`,visitor,{action:'right',seq:1});
+    assert.equal(fallback.body.state.lane,1);
     // Both players finish under identical server-side course rules, each settling once.
     for(const [user,g] of [[owner,ah.game],[visitor,bh.game]]){
       runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-46000,JSON.stringify(Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:2,height:1}))),g.id);

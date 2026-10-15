@@ -1,0 +1,5 @@
+Mode: built-in image_gen / imagegen skill
+Asset: public/images/minigames/runner-game-over.webp
+Purpose: game over and run completion overlay illustration, with HTML title and score.
+
+Use case: stylized-concept. Asset type: finished game-over illustration card for a pastel sky-island running minigame. Create a polished charming soft 3D illustration: a small fluffy ivory sprout mascot with two green leaves on its head, sitting safely on a soft cloud cushion beside a tiny cream-and-gold running shoe and a small checkered flag, catching its breath after a race, gentle encouraging expression, rosy cheeks, little stars and soft blue clouds, distant pastel floating castle islands. Warm soft daylight, sky blue, cream, mint and soft pink, cohesive high-quality cozy fantasy game art. Landscape 3:2 composition, mascot centered in lower half, generous uncluttered pale blue sky in upper third for live HTML title overlay. Opaque background. No letters, no text, no UI, no watermark. Friendly and encouraging, never injury or distress.

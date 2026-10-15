@@ -1,0 +1,10 @@
+Cloud Run / Sky Kingdom environment
+Tool: built-in image_gen (imagegen skill). Generated 2026-10-16.
+Runtime asset: public/images/minigames/sky-kingdom.webp (1672 x 941; WebP quality 88).
+Original: C:/Users/Foryoucom/.codex/generated_images/01a14049-381a-78d1-b1fb-117490676470/exec-b9f466aa-6ef2-4807-b71b-1e8c20b05bf7.png
+
+Final prompt:
+Use case: stylized-concept. Asset type: wide 16:9 background panorama for a real playable Three.js sky-running game, environment art only. Primary request: a beautiful high quality soft 3D chibi fantasy world matching the attached reference mood: bright azure sky, enormous fluffy white clouds, floating grassy islands of creamy sandstone, waterfalls falling into the clouds, tiny pastel fairytale castle towers, an elegant windmill on the right, winding little bridges between distant islands, topiary trees, warm sunlight and gentle haze. Composition: wide landscape 16:9, horizon around upper middle; distant islands on left and right with an OPEN EMPTY SKY corridor in the center and lower center so a separate moving 3D track can be rendered over it. Center vanishing point at 50% width 48% height. Bottom third is clouds with no ground. Dreamy pastel blue, mint green, ivory stone, small lilac and gold details. Polished cinematic game art, rich detailed environment, bright inviting daylight, soft ambient occlusion. Constraints: environment background only, NO characters, NO track or foreground road, NO text, NO UI, NO watermarks. User image is a style reference, not an edit target.
+
+Procedural 3D assets: src/runnerWorld.js. Rounded stone track tiles, cyan chevron pads (decorative), floating islands, topiary trees, pastel towers, clouds, leaf-marked obstacles and PIEONA finish arch. Shared geometry and instanced track pieces.
+Audio: public/audio/splash-and-play.mp3 is an unchanged copy of the user-provided Splash & Play.mp3. Pauses village BGM during a run; restores the existing enabled/volume preference on finish or exit.
