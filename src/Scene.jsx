@@ -2,15 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
-import {villageDirection} from './villageMovement.mjs';
+import {villageDirection,villageMovementKey,villagePlayers} from './villageMovement.mjs';
 import {createDecoration,dressAvatar,disposeObject} from './worldAssets';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false}){
-  const mount=useRef();const callbacks=useRef({onInteract,onReady,onPositionChange});callbacks.current={onInteract,onReady,onPositionChange};
+export default function Scene({mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,onWalkRequest,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false}){
+  const mount=useRef();const callbacks=useRef({onInteract,onReady,onPositionChange,onWalkRequest});callbacks.current={onInteract,onReady,onPositionChange,onWalkRequest};
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused]);
   useEffect(()=>{
@@ -78,20 +78,28 @@ export default function Scene({mode='home',theme='sage',emotion='calm',sceneType
     let previousMode;let transitioning=true;let transitionTarget=new THREE.Vector3();let transitionLook=new THREE.Vector3();
     state.current={mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused};
     const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0;
-    function keydown(e){if(!state.current?.inputEnabled||state.current?.paused||state.current?.mode!=='village'||e.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;const key=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();heldKeys.add(key);}}
-    function keyup(e){heldKeys.delete(e.key.toLowerCase());}function clearKeys(){heldKeys.clear();}
+    function keydown(e){
+      const s=state.current,key=villageMovementKey(e);
+      if(!key||!s?.inputEnabled||s.paused)return;
+      if(s.mode!=='village'){
+        if(ownerId!==s.viewerId||!callbacks.current.onWalkRequest)return;
+        callbacks.current.onWalkRequest();
+      }
+      e.preventDefault();heldKeys.add(key);
+    }
+    function keyup(e){heldKeys.delete((e.code?.startsWith('Key')?e.code.slice(3):e.key).toLowerCase());}function clearKeys(){heldKeys.clear();}
     window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);
     const observer=new ResizeObserver(()=>{const {width,height}=el.getBoundingClientRect();if(!width||!height)return;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();});observer.observe(el);
     const clock=new THREE.Clock();
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){heldKeys.clear();return;}
-      if(s.mode!==previousMode){previousMode=s.mode;transitioning=true;heldKeys.clear();if(s.mode==='village'){transitionTarget.set(11,17,14);transitionLook.set(0,0,0);}else{transitionTarget.set(...(portrait?[0,1.65,5.4]:[4.7,3.25,8]));transitionLook.set(0,portrait?1.65:.8,0);}}
+      if(s.mode!==previousMode){previousMode=s.mode;transitioning=true;if(s.mode!=='village')heldKeys.clear();if(s.mode==='village'){transitionTarget.set(11,17,14);transitionLook.set(0,0,0);}else{transitionTarget.set(...(portrait?[0,1.65,5.4]:[4.7,3.25,8]));transitionLook.set(0,portrait?1.65:.8,0);}}
       if(transitioning){const blend=1-Math.exp(-3.4*dt);camera.position.lerp(transitionTarget,blend);controls.target.lerp(transitionLook,blend);if(camera.position.distanceTo(transitionTarget)<.03)transitioning=false;}
       controls.update();
       avatarRoot.visible=s.mode!=='village'||ownerId!==s.viewerId;
       if(hostTag)hostTag.visible=s.mode==='village';avatarRoot.position.set(0,.39,0);avatarRoot.rotation.y=.55+Math.sin(time*.25)*.12;
-      if(!s.inputEnabled)heldKeys.clear();
+      if(!s.inputEnabled||document.activeElement?.isContentEditable||document.activeElement?.closest?.('input,textarea,select,[role="textbox"]'))heldKeys.clear();
       if(characterAsset){
-        const members=s.mode==='village'?s.villageMembers:[];
+        const members=s.mode==='village'?villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance):[];
         const desired=new Set(members.map(m=>m.userId));
         for(const [id,entry] of remoteCharacters){if(!desired.has(id)){world.remove(entry.root);disposeCharacter(entry.root);entry.mixer?.stopAllAction();entry.mixer?.uncacheRoot(entry.mixer.getRoot());remoteCharacters.delete(id);}}
         for(const member of members){

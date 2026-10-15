@@ -2,9 +2,31 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Bone,Group,PerspectiveCamera,Vector3,AnimationMixer,AnimationClip,NumberKeyframeTrack} from 'three';
 import {createRunMotion} from '../src/avatarMotion.mjs';
-import {villageDirection} from '../src/villageMovement.mjs';
+import {villageDirection,villageMovementKey,villagePlayers} from '../src/villageMovement.mjs';
 
 const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-6,`${actual} != ${expected}`);
+
+test('walking ignores text editing, composition and browser shortcuts',()=>{
+  assert.equal(villageMovementKey({key:'W'}),'w');
+  assert.equal(villageMovementKey({key:'ㅈ',code:'KeyW'}),'w');
+  assert.equal(villageMovementKey({key:'ArrowLeft'}),'arrowleft');
+  assert.equal(villageMovementKey({key:'Enter'}),null);
+  for(const flag of ['defaultPrevented','isComposing','ctrlKey','metaKey','altKey']){
+    assert.equal(villageMovementKey({key:'w',[flag]:true}),null);
+  }
+  assert.equal(villageMovementKey({key:'w',target:{isContentEditable:true}}),null);
+  assert.equal(villageMovementKey({key:'w',target:{closest:()=>({})}}),null);
+});
+
+test('owner can walk before connecting and reconnection never duplicates the player',()=>{
+  const look={hat:'beret'},visitor={userId:'visitor',x:1,z:2};
+  const members=villagePlayers([visitor],'owner','owner','나',look);
+  assert.equal(members.length,2);
+  assert.deepEqual(members[1],{userId:'owner',nickname:'나',appearance:look,x:0,z:3});
+  assert.equal(villagePlayers(members,'owner','owner','나',look),members);
+  assert.deepEqual(villagePlayers([],'owner','visitor','손님',look),[]);
+  assert.deepEqual(villagePlayers([],undefined,undefined),[]);
+});
 
 test('single direction keys follow the screen axes at default and orbited camera angles',()=>{
   for(const [x,y,z] of [[11,17,14],[-14,8,11],[0,20,-10]]){
