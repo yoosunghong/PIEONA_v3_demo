@@ -202,3 +202,79 @@ test('village records enforce blocking and closed village settings',async()=>{
   await request('/blocks/'+visitor.id,third,{});const records=await request(`/villages/${owner.id}/records?kind=runner`,third);assert.equal(records.body.records.length,0);await request('/blocks/'+visitor.id,third,undefined,'DELETE');
   await request('/me',owner,{settings:{allowVisitors:false}},'PATCH');assert.equal((await request(`/villages/${owner.id}/records?kind=runner`,visitor)).status,403);assert.equal((await request(`/villages/${owner.id}/records?kind=runner`,owner)).status,200);
 });
+
+
+test('runner invitations require same village, support reject/cancel, and exclude busy players',async()=>{
+  await request('/me',owner,{settings:{allowVisitors:true}},'PATCH');
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor),other=await connectPlayer(third);
+  const emit=(s,event,data)=>s.timeout(2000).emitWithAck(event,data);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);await joinVillage(other,third.id);
+    assert.equal((await emit(host,'runner:invite',{userId:third.id})).ok,false);
+    const received=villageEvent(guest,'runner:invited');const sent=await emit(host,'runner:invite',{userId:visitor.id});assert.equal(sent.ok,true);assert.equal((await received).id,sent.id);
+    assert.equal((await emit(other,'runner:respond',{inviteId:sent.id,accept:true})).ok,false);
+    assert.equal((await emit(guest,'runner:invite',{userId:owner.id})).ok,false);
+    const rejected=villageEvent(host,'runner:invite-ended');assert.equal((await emit(guest,'runner:respond',{inviteId:sent.id,accept:false})).ok,true);await rejected;
+    const second=await emit(host,'runner:invite',{userId:visitor.id});const cancelled=villageEvent(guest,'runner:invite-ended');await emit(host,'runner:cancel-invite',{id:second.id});await cancelled;
+    const solo=await request('/games',visitor,{targetId:owner.id,kind:'runner'});assert.equal(solo.status,201);
+    assert.equal((await emit(host,'runner:invite',{userId:visitor.id})).ok,false);await request(`/games/${solo.body.id}/abandon`,visitor,{});
+  }finally{await closePlayers(host,guest,other);}
+});
+
+test('accepted runner uses identical map and clock, waits for both ready, syncs movement and saves each result',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor),other=await connectPlayer(third);
+  const emit=(s,event,data)=>s.timeout(2000).emitWithAck(event,data);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);await joinVillage(other,third.id);let leaked=0;other.on('runner:snapshot',()=>leaked++);
+    const invitation=await emit(host,'runner:invite',{userId:visitor.id,anonymous:true});
+    const matchedHost=villageEvent(host,'runner:matched'),matchedGuest=villageEvent(guest,'runner:matched');
+    assert.equal((await emit(guest,'runner:respond',{inviteId:invitation.id,accept:true})).ok,true);
+    const [a,b]=await Promise.all([matchedHost,matchedGuest]);assert.equal(a.id,b.id);assert.equal(a.players.length,2);
+    assert.equal((await emit(other,'runner:ready',{id:a.id})).ok,false);
+    await emit(host,'runner:ready',{id:a.id});assert.equal(runtime.store.one('SELECT COUNT(*) n FROM games WHERE user_id=? AND finished=0',owner.id).n,0);
+    const startHost=villageEvent(host,'runner:started'),startGuest=villageEvent(guest,'runner:started');await emit(guest,'runner:ready',{id:a.id});
+    const [ah,bh]=await Promise.all([startHost,startGuest]);assert.equal(ah.game.started,bh.game.started);assert.deepEqual(ah.game.notes,bh.game.notes);assert.notEqual(ah.game.id,bh.game.id);
+    // Move the shared clock beyond countdown, then verify the other socket receives server state.
+    const started=Date.now()-3500;for(const g of [ah.game,bh.game])runtime.store.run('UPDATE games SET started=? WHERE id=?',started,g.id);
+    const moved=villageEvent(guest,'runner:snapshot',s=>s.players.find(p=>p.userId===owner.id)?.state.lane===0);
+    assert.equal((await request(`/games/${ah.game.id}/action`,owner,{action:'left'})).status,200);assert.equal((await moved).id,a.id);
+    assert.equal((await request(`/games/${ah.game.id}/action`,visitor,{action:'right'})).status,404);
+    // Both players finish under identical server-side course rules, each settling once.
+    for(const [user,g] of [[owner,ah.game],[visitor,bh.game]]){
+      runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-46000,JSON.stringify(Array.from({length:20},(_,i)=>({time:5000+i*1900,lane:2,height:1}))),g.id);
+      const result=await request(`/games/${g.id}/finish`,user,{});assert.equal(result.status,200);assert.equal(result.body.hits,20);
+      assert.equal((await request(`/games/${g.id}/finish`,user,{})).status,409);
+    }
+    assert.equal(leaked,0);
+  }finally{await closePlayers(host,guest,other);}
+});
+
+test('leaving cancels pending invitations and readiness before a match can start',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor);
+  const emit=(s,event,data)=>s.timeout(2000).emitWithAck(event,data);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);
+    const invite=await emit(host,'runner:invite',{userId:visitor.id});const ended=villageEvent(host,'runner:invite-ended');await guest.timeout(2000).emitWithAck('village:leave');assert.equal((await ended).id,invite.id);
+    await joinVillage(guest,owner.id);const second=await emit(host,'runner:invite',{userId:visitor.id});const matched=villageEvent(host,'runner:matched');await emit(guest,'runner:respond',{inviteId:second.id,accept:true});const race=await matched;
+    await emit(host,'runner:ready',{id:race.id});const cancelled=villageEvent(host,'runner:cancelled');await emit(guest,'runner:leave',{});assert.equal((await cancelled).id,race.id);
+    assert.equal((await emit(host,'runner:ready',{id:race.id})).ok,false);
+  }finally{await closePlayers(host,guest);}
+});
+
+
+test('disconnect during a race abandons only that player and leaves the other runner playable',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor);
+  const emit=(s,event,data)=>s.timeout(2000).emitWithAck(event,data);
+  let hostGame;
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);
+    const invite=await emit(host,'runner:invite',{userId:visitor.id});const matched=villageEvent(host,'runner:matched');
+    await emit(guest,'runner:respond',{inviteId:invite.id,accept:true});const race=await matched;
+    await emit(host,'runner:ready',{id:race.id});const startHost=villageEvent(host,'runner:started'),startGuest=villageEvent(guest,'runner:started');await emit(guest,'runner:ready',{id:race.id});
+    const [a,b]=await Promise.all([startHost,startGuest]);hostGame=a.game.id;
+    const departure=villageEvent(host,'runner:opponent-left');guest.disconnect();assert.equal((await departure).userId,visitor.id);
+    assert.equal(runtime.store.one('SELECT finished FROM games WHERE id=?',b.game.id).finished,2);
+    assert.equal(runtime.store.one('SELECT finished FROM games WHERE id=?',a.game.id).finished,0);
+    assert.equal((await request(`/games/${a.game.id}/state`,owner)).status,200);
+  }finally{if(hostGame)await request(`/games/${hostGame}/abandon`,owner,{});await closePlayers(host,guest);}
+});

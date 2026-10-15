@@ -18,8 +18,8 @@ export function villagePlayers(members,ownerId,viewerId,nickname,appearance){
 }
 
 // Map input onto the ground relative to the current camera, including after orbiting.
-export function showVillageStandIn(mode,ownerId,members){
-  return mode!=='village'||!members.some(member=>member.userId===ownerId);
+export function showVillageStandIn(mode,ownerId,members,viewerId){
+  return (mode!=='village'&&ownerId!==viewerId)||!members.some(member=>member.userId===ownerId);
 }
 
 export function joystickAxis(x,y,radius=44){

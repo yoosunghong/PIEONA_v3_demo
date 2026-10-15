@@ -1,0 +1,166 @@
+/* Home composition: quiet glass surfaces over the living garden. */
+.app-shell{--home-blue:#234c82;--home-muted:#7b96b9;--friends-width:348px;min-height:620px;color:#23436b}
+.app-shell .rail{width:88px;padding-top:20px;border-color:#dce9f466;background:linear-gradient(180deg,#ffffffed,#f9fcffed)}
+.app-shell .rail-logo{background:none;border:0;border-radius:0;height:39px;color:#4c7198}
+.app-shell .rail-logo svg{height:34px;width:34px;stroke-width:1.5}
+.app-shell .rail-menu{margin-top:26px;gap:9px}
+.app-shell .rail-item{width:62px;height:69px;border-radius:23px;flex-direction:column;gap:7px;box-shadow:none}
+.app-shell .rail-item svg{width:25px;height:25px;stroke-width:1.6}
+.app-shell .rail-item span,.app-shell .rail-item:hover span{display:block;position:static;padding:0;border:0;background:none;color:#6c89ae;font-size:12px;font-weight:500}
+.app-shell .rail-item.active{background:linear-gradient(135deg,#f2f7ff,#dbe9ff);color:#326ab1;box-shadow:none}
+.app-shell .rail-item.active span{color:#326ab1;font-weight:700}
+.app-shell .rail-item.active:before{display:none}
+.app-shell .rail-item i{background:#fb7773;width:7px;height:7px;top:12px;right:10px}
+.app-shell .rail-bottom{gap:3px;padding-bottom:16px}
+.app-shell .rail-bottom .rail-item{height:38px}
+.app-shell .rail-bottom .survey-glow{border:0!important;animation:none;background:none}
+.app-shell .rail-profile{padding-top:9px;margin-top:4px;border-color:#dfeafa}
+.app-shell .topbar{height:76px;min-height:76px;border:0;padding:0 34px;background:linear-gradient(110deg,#fff,#edf6ffb0)}
+.app-shell .brand>span:first-of-type{font-family:Arial,sans-serif;font-size:27px;font-weight:400;letter-spacing:3px;color:#284d7c}
+.app-shell .brand small{font-family:inherit;font-size:13px;color:#7a94b6;letter-spacing:0;margin-left:18px}
+.app-shell .topbar-caption{font-size:14px;color:#8198b5;letter-spacing:0}
+.app-shell .topbar-right{gap:24px}
+.app-shell .top-survey{border:0!important;animation:none;background:#edf5ff99;border-radius:17px;padding:13px 16px;color:#7395c1;box-shadow:none}
+.app-shell .gold{color:#ab824a;font-weight:600;gap:9px}
+.app-shell .gold small{color:inherit}
+.app-shell .top-user{width:234px;border-color:#dfebf7;padding-left:24px;gap:12px;text-align:left;color:#244d81}
+.app-shell .top-user>.avatar-badge{width:49px;height:49px;border-radius:50%;background:#eaf4ff;border-color:#dceaff}
+.app-shell .top-user>span:not(.avatar-badge){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.app-shell .top-user small{display:block;font-size:13px;font-weight:400;margin-top:3px;color:#8199ba}
+.app-shell .world-top{top:36px;left:48px;right:16px;align-items:flex-start;z-index:2}
+.app-shell .world-top>div{max-width:calc(100% - 220px)}
+.app-shell .breadcrumbs{color:#819abc;font-size:13px;margin-bottom:15px}
+.app-shell .breadcrumbs>span:last-child{color:#688bb6}
+.app-shell .world-title{gap:16px;align-items:center}
+.app-shell .world-title h1{font-size:clamp(25px,2.15vw,36px);line-height:1.35;letter-spacing:-1.5px;color:#183e70;overflow-wrap:anywhere}
+.app-shell .live-pill{background:#ffffffa8;border:0;color:#638fca;font-size:10px;padding:7px 10px}
+.app-shell .live-pill>span{background:#85b1ec}
+.app-shell .world-subtitle{font-size:15px;color:#46658e;margin-top:10px;line-height:1.6}
+.app-shell .weather{margin-top:5px;width:194px;min-height:69px;padding:13px 17px;border:0;border-radius:40px;gap:14px;background:#ffffff9c;backdrop-filter:blur(18px);box-shadow:0 8px 25px #84a5cd08;color:#234c82}
+.app-shell .weather>svg:first-child{height:30px;width:30px;stroke-width:1.5;flex-shrink:0}
+.app-shell .weather>svg:last-child{margin-left:auto;flex-shrink:0}
+.app-shell .weather>span{color:#234c82;font-weight:600;font-size:13px;white-space:nowrap}
+.app-shell .weather small{font-size:10px;letter-spacing:1px;color:#758eae;margin-top:5px}
+.app-shell .world-actions{top:128px;right:17px;gap:13px;align-items:stretch;width:190px}
+.app-shell .world-actions button{min-height:61px;padding:0 17px 0 0;gap:14px;border:0;border-radius:36px;box-shadow:none;background:#ffffff80;backdrop-filter:blur(15px);font-size:14px;font-weight:600;color:#254d80;transition:background .18s,transform .18s}
+.app-shell .world-actions button>svg{box-sizing:content-box;width:26px;height:26px;padding:17px;flex-shrink:0;border-radius:50%;background:#ffffff8f;stroke-width:1.6}
+.app-shell .world-actions .walk-button{background:#edf5ff99;color:#254d80;border:0;box-shadow:none}
+.app-shell .world-actions .walk-button>svg{color:#fff;background:linear-gradient(140deg,#b7d2ff,#82aeff)}
+.app-shell .world-actions button:hover,.app-shell .world-actions .walk-button:hover{background:#ffffffe0;color:#254d80;transform:translateX(-3px)}
+.app-shell .avatar-card{left:36px;top:180px;width:275px;padding:25px 28px;border:0;border-radius:27px;background:linear-gradient(135deg,#ffffffd4,#ffffffa3);backdrop-filter:blur(22px);box-shadow:0 12px 40px #7296b51a}
+.app-shell .avatar-card-heading{gap:12px;align-items:center}
+.app-shell .avatar-card-heading>.avatar-badge{width:42px;height:42px;border-radius:50%;background:#e5eff4;border:0;color:#669493}
+.app-shell .avatar-card-heading>div{min-width:0;flex:1}
+.app-shell .avatar-card-heading strong{font-size:18px;line-height:1.4;color:#183f70;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.app-shell .avatar-card-heading div>span{font-size:13px;margin-top:6px;color:#819abc}
+.app-shell .tiny-flower{color:#9acdbb;flex-shrink:0;transform:rotate(20deg)}
+.app-shell .stage-line{margin-top:29px;color:#7592b3;font-size:13px;gap:8px}
+.app-shell .stage-line svg{height:16px;width:16px}
+.app-shell .stage-line small{color:#365e8f;font-weight:600}
+.app-shell .growth-track{gap:0;height:7px;margin:12px 0 21px;border-radius:10px;overflow:hidden;background:#e7eef8}
+.app-shell .growth-track i{height:7px;border-radius:0;background:none}
+.app-shell .growth-track i.filled{background:#bdd5fc}
+.app-shell .growth-track i.filled:first-child{background:#8eb9ff}
+.app-shell .avatar-card>p{font-size:14px;line-height:1.8;color:#6885aa;max-width:190px;margin-bottom:15px}
+.app-shell .avatar-card>.text-button{font-size:14px;gap:10px;color:#6095eb}
+.app-shell .avatar-speech{display:block;transform:translateX(-50%);width:max-content;left:70%;right:auto;top:49%;max-width:290px;border:0;border-radius:34px;padding:17px 25px;background:#ffffffe0;box-shadow:0 8px 25px #7397bf12;color:#2c578b;font-size:16px;line-height:1.6;z-index:2}
+.app-shell .avatar-speech i{display:none}
+.app-shell .village-presence{display:none}
+.app-shell .scene-vignette{background:linear-gradient(180deg,#eff7ff33,transparent 28%,transparent 72%,#eaf3fc30);pointer-events:none}
+.app-shell .chat-dock{width:min(660px,calc(100% - 80px));max-width:660px;left:50%;right:auto;bottom:48px;transform:translateX(-50%);padding:14px 24px 21px;border:0;border-radius:40px;background:linear-gradient(125deg,#ffffff65,#edf4ff70);backdrop-filter:blur(24px);box-shadow:0 12px 42px #6685b30c;max-height:43%;z-index:4}
+.app-shell .chat-dock>header{flex-wrap:nowrap;gap:8px;min-height:26px;margin-bottom:8px}
+.app-shell .chat-dock>header>div:first-child{min-width:0;overflow:hidden;flex:1;flex-wrap:nowrap;gap:6px}
+.app-shell .chat-dock>header strong{font-size:12px;font-weight:500;color:#7891b1;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.app-shell .chat-dock .ai-label,.app-shell .chat-dock .conversation-status{display:none}
+.app-shell .chat-actions{gap:3px;flex-shrink:0;flex-wrap:nowrap}
+.app-shell .chat-actions button,.app-shell .chat-actions .new-chat-button,.app-shell .chat-actions .sessions-button,.app-shell .chat-actions .chat-toggle{border:0;background:none;color:#6483ac;box-shadow:none;border-radius:14px;font-size:11px;padding:5px 7px;min-height:28px;gap:4px;font-weight:500}
+.app-shell .chat-actions button:hover{background:#ffffff70;color:#2f629f}
+.app-shell .chat-actions button svg{width:13px;height:13px}
+.app-shell .chat-dock.is-empty:not(.is-collapsed)>header>div:first-child{visibility:hidden}
+.app-shell .chat-dock.is-empty .chat-messages{display:none}
+.app-shell .chat-dock .starter-row{gap:8px;flex-wrap:nowrap;margin:0 0 16px}
+.app-shell .chat-dock .starter-row button{justify-content:center;flex:1;white-space:nowrap;font-size:13px;font-weight:400;padding:12px 10px;min-height:43px;border:0;border-radius:24px;background:#ffffff88;color:#496895}
+.app-shell .chat-dock .starter-row button:first-child:before{content:'☀';color:#e5be68}
+.app-shell .chat-dock .starter-row button>svg{display:none}
+.app-shell .chat-dock .starter-row button:hover{background:#ffffffe0}
+.app-shell .chat-input-wrap{height:66px;min-height:66px;border:0;border-radius:36px;background:#ffffffd4;gap:12px;padding:6px 7px 6px 20px;box-shadow:none}
+.app-shell .chat-input-wrap:focus-within{box-shadow:0 0 0 3px #a6c7ff60}
+.app-shell .chat-input-wrap input{font-size:15px;outline:none}
+.app-shell .chat-input-wrap input::placeholder{color:#96a9c2}
+.app-shell .input-flower{color:#315c8c}
+.app-shell .chat-input-wrap .mic{width:22px;color:#a0b3cc}
+.app-shell .send-button,.app-shell .send-button:disabled{width:53px;height:53px;border:0;border-radius:50%;color:#fff;background:linear-gradient(145deg,#b6d2ff,#76a5f5);box-shadow:0 3px 12px #82afff22;opacity:1;flex-shrink:0}
+.app-shell .send-button:not(:disabled):hover{background:#7ca9f3}
+.app-shell .send-button:disabled{cursor:default}
+.app-shell .chat-body{min-height:0;display:flex;flex-direction:column}
+.app-shell .chat-body[hidden]{display:none}
+.app-shell .chat-messages{min-height:0;max-height:170px;margin:0 0 12px}
+.app-shell .chat-line{grid-template-columns:minmax(25px,60px) minmax(0,1fr);gap:10px}
+.app-shell .chat-line p{font-size:14px;line-height:1.7}
+.app-shell .chat-body>footer{font-size:10px;color:#8098b6;margin:9px 6px 0;line-height:1.5}
+.app-shell .chat-dock.is-empty .chat-body>footer{display:none}
+.app-shell .chat-dock.is-collapsed{width:340px;padding:10px 17px;bottom:30px;border-radius:28px}
+.app-shell .chat-dock.is-collapsed>header{margin:0}
+.app-shell .people-sidebar{width:var(--friends-width);min-width:var(--friends-width);border:0;background:radial-gradient(ellipse at 80% 25%,#e4f0fc99,transparent 60%),linear-gradient(160deg,#f2f8ffed,#f8fbfff5);z-index:5}
+.app-shell .people-sidebar.is-collapsed{display:none}
+.app-shell .people-sidebar>header{display:flex;align-items:center;gap:10px;padding:24px 20px 20px}
+.app-shell .people-tabs{display:flex;flex:1;gap:0;padding:0;border:0;border-radius:30px;background:#ffffff99}
+.app-shell .people-tabs>button{flex:1;padding:15px 6px;font-size:14px;color:#8aa1c0;border-radius:30px}
+.app-shell .people-tabs>button.active{color:#234d81;background:#ffffff9c}
+.app-shell .people-tabs>button.active:after{height:3px;left:32%;right:32%;bottom:0;border-radius:3px;background:#3e83d4}
+.app-shell .people-tabs>button span{font-size:10px;background:none;padding:0;margin-left:3px;color:#8ba5c4}
+.app-shell .people-sidebar>header>.icon-button{height:30px;width:22px;color:#426893;flex-shrink:0}
+.app-shell .people-search{min-height:47px;margin:0 24px 14px;padding:0 16px;gap:10px;border:0;border-radius:22px;background:#ffffffaa;color:#87a0c0}
+.app-shell .people-search input{min-width:0;font-size:13px;padding:12px 0;outline:0}
+.app-shell .people-search input::placeholder{color:#90a6c3}
+.app-shell .people-list{padding:0 17px 16px}
+.app-shell .people-group-label{padding:16px 8px 10px;font-size:13px;font-weight:600;color:#2c5487}
+.app-shell .people-group-label>span{display:none}
+.app-shell .people-group-label small{background:#e7f0ff;color:#6e9fe9;margin-left:7px;padding:2px 6px;border-radius:9px}
+.app-shell .person-row{padding:12px 8px;gap:13px;border:0;border-radius:22px;margin-bottom:3px;min-height:83px}
+.app-shell .person-row:hover,.app-shell .person-row.selected{background:#ffffffa0;border:0;box-shadow:none}
+.app-shell .person-avatar>.avatar-badge{width:52px;height:52px;border:0;border-radius:50%;background:color-mix(in srgb,var(--avatar-color) 25%,#f4f8ff)}
+.app-shell .person-avatar>.avatar-badge svg{width:26px;height:26px;stroke-width:1.4}
+.app-shell .avatar-portrait{overflow:hidden}
+.app-shell .avatar-portrait img{width:100%;height:100%;object-fit:cover;display:block}
+.app-shell .person-avatar>i{width:7px;height:7px;border:2px solid #f6fbff;bottom:0;right:0}
+.app-shell .person-info{gap:5px}
+.app-shell .person-info strong{font-size:14px;color:#214a7d;white-space:nowrap;display:block;overflow:hidden;text-overflow:ellipsis}
+.app-shell .person-info small{font-size:12px;color:#90a5c0;line-height:1.5}
+.app-shell .person-info .online-text{color:#24876d}
+.app-shell .person-info>span{display:none}
+.app-shell .person-row>.person-chat-icon{box-sizing:content-box;background:#ffffffa8;padding:10px;border-radius:50%;height:16px;width:16px;color:#426995;flex-shrink:0}
+.app-shell .sidebar-bottom{padding:12px 24px 28px}
+.app-shell .offline-note{width:100%;text-align:left;align-items:center;justify-content:space-between;border:0;border-radius:22px;background:linear-gradient(120deg,#e4f2ecb0,#dce8fb);padding:18px 20px;min-height:90px}
+.app-shell .offline-note strong{font-size:13px;font-weight:600;color:#315682}
+.app-shell .offline-note p{font-size:13px;line-height:1.6;color:#456d98;margin-top:4px}
+.app-shell .offline-note>span{display:flex;align-items:center;gap:2px;color:#a6c8a0}
+.app-shell .server-status{margin-top:25px;padding:12px 15px;background:#ffffffad;border:0;border-radius:24px;font-size:12px;color:#829cbd;gap:10px}
+.app-shell .server-status .presence-dot{height:8px;width:8px}
+.app-shell .friend-requests{display:flex;align-items:center;gap:9px;width:100%;border:0;border-radius:22px;padding:12px 5px;margin-bottom:14px;font-size:13px;color:#315682}
+.app-shell .friend-requests b{border-radius:50%;background:#e0edff;color:#4381d2;padding:2px 6px}
+.app-shell .friend-requests>svg:last-child{margin-left:auto}
+.people-reopen{display:none;position:absolute;right:18px;top:94px;z-index:8;align-items:center;gap:7px;border:0;border-radius:24px;background:#ffffffe6;backdrop-filter:blur(16px);padding:11px 15px;color:#416c9a;box-shadow:0 5px 20px #6688b013;font-size:13px}
+.people-is-collapsed .people-reopen{display:flex}
+.people-is-collapsed .world-top{right:140px}
+.people-is-collapsed .world-actions{right:140px}
+@media(min-width:1900px){.app-shell{--friends-width:370px}.app-shell .world-top{left:48px;top:40px}.app-shell .avatar-card{left:44px;top:190px}.app-shell .chat-dock{width:700px;max-width:700px;bottom:48px}.app-shell .world-actions{top:140px;right:30px;width:205px}.app-shell .weather{width:205px}}
+@media(max-width:1350px){.app-shell{--friends-width:300px}.app-shell .rail{width:76px}.app-shell .world-top{left:30px;top:30px}.app-shell .world-top>div{max-width:calc(100% - 170px)}.app-shell .world-title{flex-wrap:wrap;gap:7px}.app-shell .world-title h1{font-size:26px}.app-shell .world-subtitle{font-size:13px}.app-shell .weather{width:165px;min-height:61px;padding:11px 14px;gap:9px}.app-shell .world-actions{width:165px;top:112px;gap:10px}.app-shell .world-actions button{min-height:54px;gap:9px;font-size:12px}.app-shell .world-actions button>svg{width:23px;height:23px;padding:15px}.app-shell .avatar-card{left:26px;top:174px;width:225px;padding:22px}.app-shell .avatar-card-heading strong{font-size:16px}.app-shell .chat-dock{width:min(610px,calc(100% - 48px));bottom:28px;padding:12px 19px 18px}.app-shell .chat-dock .starter-row button{font-size:11px;padding:10px 8px}.app-shell .avatar-speech{left:63%;top:52%;font-size:14px;max-width:240px}.app-shell .top-user{width:210px}.app-shell .topbar-right{gap:15px}.app-shell .people-sidebar>header{padding:20px 16px}.app-shell .people-search{margin-left:18px;margin-right:18px}}
+@media(max-height:800px) and (min-width:801px){.app-shell .rail-item{height:53px;gap:3px}.app-shell .rail-menu{gap:5px;margin-top:18px}.app-shell .rail-item svg{width:22px;height:22px}.app-shell .avatar-card{top:154px;padding:20px 22px;width:230px}.app-shell .stage-line{margin-top:18px}.app-shell .growth-track{margin-bottom:14px}.app-shell .avatar-card>p{font-size:12px;margin-bottom:9px}.app-shell .avatar-speech{top:53%;font-size:14px;padding:12px 20px}.app-shell .chat-dock{bottom:22px;padding:8px 20px 16px;border-radius:32px}.app-shell .chat-dock .starter-row{margin-bottom:10px}.app-shell .chat-dock .starter-row button{min-height:35px;padding:8px;font-size:12px}.app-shell .chat-input-wrap{height:56px;min-height:56px}.app-shell .send-button,.app-shell .send-button:disabled{height:44px;width:44px}.app-shell .world-actions{gap:9px;top:119px}.app-shell .world-actions button{min-height:53px}.app-shell .world-actions button>svg{height:23px;width:23px;padding:15px}.app-shell .sidebar-bottom{padding-bottom:18px}.app-shell .server-status{margin-top:16px}}
+@media(max-width:1050px) and (min-width:801px){.app-shell .world-top>div{max-width:calc(100% - 135px)}.app-shell .weather{width:135px;gap:6px;padding:10px}.app-shell .weather>svg:first-child{width:23px;height:23px}.app-shell .weather>span{font-size:11px}.app-shell .weather>svg:last-child{display:none}.app-shell .world-title h1{font-size:22px}.app-shell .world-actions{width:145px}.app-shell .world-actions button{gap:6px;font-size:11px}.app-shell .avatar-card{width:187px;padding:18px;top:190px}.app-shell .avatar-card-heading>.avatar-badge{display:none}.app-shell .avatar-card>p{font-size:12px}.app-shell .avatar-speech{left:63%;max-width:190px;font-size:13px}.app-shell .topbar-caption,.app-shell .header-divider{display:none}}
+@media(max-width:800px){.app-shell{min-height:600px}.app-shell .rail{width:64px}.app-shell .rail-item{width:50px;height:59px;border-radius:19px;gap:4px}.app-shell .rail-item span{font-size:10px}.app-shell .rail-item svg{height:22px;width:22px}.app-shell .rail-menu{margin-top:20px;gap:5px}.app-shell .topbar{height:66px;min-height:66px;padding:0 20px}.app-shell .brand>span:first-of-type{font-size:23px}.app-shell .topbar .brand small,.app-shell .topbar-caption,.app-shell .header-divider{display:none}.app-shell .top-user{width:auto;padding-left:10px}.app-shell .top-user>span:not(.avatar-badge),.app-shell .top-user>svg{display:none}.app-shell .top-user>.avatar-badge{height:34px;width:34px}.app-shell .top-survey{padding:8px 10px}.app-shell .world-top{top:28px;left:28px;right:18px}.app-shell .world-top>div{max-width:calc(100% - 170px)}.app-shell .avatar-card{top:180px;left:25px;width:210px;padding:22px}.app-shell .world-panel .avatar-speech{top:49%;left:65%}.app-shell .people-sidebar,.app-shell .people-sidebar.is-collapsed{display:none}.app-shell .people-sidebar.mobile-open{display:flex;position:fixed;top:66px;right:0;bottom:0;width:min(348px,calc(100vw - 64px));min-width:0;box-shadow:-20px 0 70px #567aa322;z-index:20}.app-shell .mobile-people-button{display:inline-flex}.app-shell .people-reopen{display:none}.people-is-collapsed .world-top{right:18px}.people-is-collapsed .world-actions{right:17px}.app-shell .chat-dock{width:calc(100% - 40px);bottom:24px}.app-shell .chat-dock.is-collapsed{width:310px}}
+@media(max-width:570px){.app-shell{min-height:560px}.app-shell .rail{width:51px;padding-top:17px}.app-shell .rail-logo svg{width:27px;height:27px}.app-shell .rail-menu{margin-top:16px;gap:4px}.app-shell .rail-item{width:42px;height:49px;border-radius:16px;gap:3px}.app-shell .rail-item svg{width:19px;height:19px}.app-shell .rail-item span{font-size:9px}.app-shell .rail-bottom .rail-item{height:30px}.app-shell .rail-bottom{padding-bottom:12px}.app-shell .topbar{height:60px;min-height:60px;padding:0 13px}.app-shell .brand>span:first-of-type{font-size:20px;letter-spacing:2px}.app-shell .topbar-right{gap:9px}.app-shell .top-survey{display:none}.app-shell .top-user{display:none}.app-shell .world-top{left:18px;top:22px;right:16px}.app-shell .world-top>div{max-width:100%}.app-shell .world-title h1{font-size:23px;letter-spacing:-1px}.app-shell .world-title{gap:7px}.app-shell .live-pill{font-size:8px;padding:5px 7px}.app-shell .breadcrumbs{font-size:10px;margin-bottom:10px}.app-shell .world-subtitle{font-size:11px;max-width:280px;margin-top:7px}.app-shell .weather{display:none}.app-shell .world-actions{top:148px;left:auto;right:12px;width:45px;flex-direction:column;gap:9px}.app-shell .world-actions button{font-size:0;min-height:43px;height:43px;width:43px;padding:0;gap:0;border-radius:50%;overflow:hidden;background:#ffffffa3}.app-shell .world-actions button>svg{height:21px;width:21px;padding:11px;background:none}.app-shell .world-actions .walk-button>svg{background:linear-gradient(145deg,#bed5ff,#88b3ff)}.app-shell .world-panel .avatar-card{left:15px;top:144px;width:148px;padding:14px;border-radius:22px}.app-shell .avatar-card-heading{gap:7px}.app-shell .avatar-card-heading>.avatar-badge{display:none}.app-shell .avatar-card-heading strong{font-size:13px;-webkit-line-clamp:2}.app-shell .avatar-card-heading div>span{font-size:10px}.app-shell .tiny-flower{width:16px;height:16px}.app-shell .stage-line{font-size:10px;gap:4px;margin-top:15px}.app-shell .stage-line svg{width:12px;height:12px}.app-shell .stage-line small{font-size:10px}.app-shell .growth-track{height:5px;margin:9px 0 12px}.app-shell .growth-track i{height:5px}.app-shell .avatar-card>p{display:none}.app-shell .avatar-card>.text-button{font-size:10px;gap:4px}.app-shell .avatar-card>.text-button svg{width:11px}.app-shell .world-panel .avatar-speech{left:52%;top:52%;max-width:230px;font-size:12px;padding:12px 17px;line-height:1.5}.app-shell .chat-dock{bottom:18px;width:calc(100% - 22px);padding:8px 13px 14px;border-radius:29px;max-height:40%}.app-shell .chat-dock>header{margin-bottom:7px;gap:0}.app-shell .chat-dock.is-empty>header>div:first-child{display:none}.app-shell .chat-dock>header .chat-actions{margin-left:auto}.app-shell .chat-actions button,.app-shell .chat-actions .new-chat-button,.app-shell .chat-actions .sessions-button,.app-shell .chat-actions .chat-toggle{font-size:10px;padding:4px 6px}.app-shell .chat-dock .starter-row{overflow-x:auto;gap:6px;margin-bottom:11px;scrollbar-width:none}.app-shell .chat-dock .starter-row button{font-size:10px;padding:9px 10px;min-height:32px;flex:0 0 auto}.app-shell .chat-dock .starter-row button:first-child:before{display:none}.app-shell .chat-input-wrap{height:53px;min-height:53px;gap:8px;padding-left:13px}.app-shell .chat-input-wrap input{font-size:12px}.app-shell .input-flower svg{width:17px}.app-shell .chat-input-wrap .mic{width:19px}.app-shell .send-button,.app-shell .send-button:disabled{height:40px;width:40px}.app-shell .send-button svg{width:18px}.app-shell .chat-body>footer{font-size:9px;margin-top:8px}.app-shell .chat-body>footer .ai-provider{display:none}.app-shell .chat-dock.is-collapsed{width:calc(100% - 35px);bottom:20px;padding:9px 12px}.app-shell .chat-dock.is-collapsed>header>div:first-child{display:flex}.app-shell .chat-dock.is-collapsed>header strong{font-size:10px}.app-shell .chat-line p{font-size:12px}.app-shell .chat-messages{max-height:110px}.app-shell .people-sidebar.mobile-open{top:60px;width:calc(100vw - 51px)}.app-shell .village-mode .avatar-card{top:144px;width:148px!important}.app-shell .village-footer{left:12px;right:12px;bottom:15px}.app-shell .village-footer>span{font-size:10px}}
+@media(prefers-reduced-transparency:reduce){.app-shell .avatar-card,.app-shell .chat-dock,.app-shell .world-actions button{backdrop-filter:none;background:#f1f7ffed}}
+/* Keep the compact rail consistent on phones; earlier typography used a bottom bar. */
+@media(max-width:570px){
+  .app-shell .world-panel .avatar-card{display:block;right:auto}
+  .app-shell .avatar-card-heading strong{max-width:none;white-space:normal}
+  .app-shell .avatar-card>.text-button{white-space:nowrap}
+  .app-shell .rail{position:relative;inset:auto;height:auto;border-top:0;border-right:1px solid #dce9f466;flex-direction:column;justify-content:flex-start;padding:17px 0 0}
+  .app-shell .rail-logo{display:grid}
+  .app-shell .rail-menu{display:flex;flex-direction:column;width:100%;height:auto}
+  .app-shell .rail-bottom{position:static;margin-top:auto;right:auto;bottom:auto;padding:0 0 12px}
+  .app-shell .rail-bottom>.rail-item{display:flex}
+  .app-shell .rail-profile{height:30px;width:30px;padding-top:5px}
+  .app-shell .people-sidebar.mobile-open{bottom:0}
+}

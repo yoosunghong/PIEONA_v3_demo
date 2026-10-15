@@ -1,0 +1,7 @@
+Generated with the built-in image_gen tool, 2026-10-15.
+
+cloud-run.png
+Use case: stylized-concept. Asset type: wide game selection banner for a cozy Korean social village game. Primary request: Cloud Run, two cute rounded 3D toy-like humanoid avatars racing together along a pastel three-lane garden track floating among fluffy clouds, jumping over low pink fences, little planters and lanterns along track. Style: polished soft 3D game illustration, sage green, sky blue, cream and dusty pink, warm sunlight, dynamic joyful action, wide cinematic landscape framing. No text, no letters, no logos, no watermark. Save final generated image as a local file and return its path.
+
+starlight-rhythm.png
+Use case: stylized-concept. Asset type: wide game selection banner for a cozy Korean social village game. Primary request: Starlight Rhythm, a cute rounded 3D toy-like humanoid avatar playing a glowing pastel keyboard in a cozy garden cafe at dusk, luminous musical notes and stars swirling over four keys, flowers, warm cafe lights. Style: polished soft 3D game illustration with lilac, dusty pink, cream and sage, soft magical starlight, playful musical energy, wide cinematic landscape framing. No text, letters, logos or watermark. Save final generated image as a local file and return its path.

@@ -12,8 +12,11 @@ test('the village stand-in disappears while the owner is present and returns on 
   assert.equal(showVillageStandIn('village','owner',[visitor,owner]),false);
   assert.equal(showVillageStandIn('village','owner',[]),true);
   assert.equal(showVillageStandIn('village','owner',villagePlayers([],'owner','owner','나',{})),false);
-  // Close-up conversations keep a single portrait while the local walking model is hidden.
+  // A visitor's conversation keeps the AI; the owner's home uses the walking player.
   assert.equal(showVillageStandIn('home','owner',[owner,visitor]),true);
+  assert.equal(showVillageStandIn('home','owner',[owner,visitor],'owner'),false);
+  assert.equal(showVillageStandIn('home','owner',[owner,visitor],'guest'),true);
+  assert.equal(showVillageStandIn('home','owner',[],'guest'),true);
 });
 
 test('touch stick has a dead zone and bounded analog speed in camera space',()=>{
