@@ -48,17 +48,25 @@ export function createApp(options = {}) {
   function emitUpdate(userId) { io.to(`user:${userId}`).emit('refresh'); }
   function emitWorld() { io.emit('world:changed'); }
   function villageMembers(villageId) {
-    return Array.from(villageVisitors.get(villageId)?.values() || []).map(member=>{const user=userById(member.userId);return {...member,nickname:user.nickname,appearance:profile(user,user.id).appearance};});
+    return Array.from(villageVisitors.get(villageId)?.values() || []).map(({sockets,lastMove,...member})=>{
+      const user=userById(member.userId);
+      return {...member,nickname:user.nickname,appearance:profile(user,user.id).appearance};
+    });
+  }
+  function emitVillage(villageId) {
+    io.to(`village:${villageId}`).emit('village:members',{villageId,members:villageMembers(villageId)});
   }
   function leaveVillage(socket) {
-    const current = socket.data.village;
-    if (!current) return;
+    const current=socket.data.village;
+    if(!current)return;
     socket.leave(`village:${current.villageId}`);
-    const members = villageVisitors.get(current.villageId);
-    members?.delete(current.userId);
-    if (members && !members.size) villageVisitors.delete(current.villageId);
-    socket.data.village = null;
-    io.to(`village:${current.villageId}`).emit('village:members', villageMembers(current.villageId));
+    const members=villageVisitors.get(current.villageId),member=members?.get(current.userId);
+    member?.sockets.delete(socket.id);
+    if(member)member.moving=false;
+    if(member&&!member.sockets.size)members.delete(current.userId);
+    if(members&&!members.size)villageVisitors.delete(current.villageId);
+    socket.data.village=null;
+    emitVillage(current.villageId);
   }
   function activity(ownerId, actorId, type, detail='', anonymous=false) { store.run('INSERT INTO activities VALUES(?,?,?,?,?,?,?)', id(), ownerId, actorId, type, detail, Number(anonymous), now()); emitUpdate(ownerId); }
   function event(userId, name, detail={}) { store.run('INSERT INTO events VALUES(?,?,?,?,?)', id(), userId, name, JSON.stringify(detail), now()); }
@@ -111,7 +119,7 @@ export function createApp(options = {}) {
     const data=z.object({village:z.object({items:z.array(item).max(24)}).strict().optional(),appearance:z.object({hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict().optional()}).strict().parse(req.body);
     if(data.village){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     const user=userById(req.user.id);store.run('UPDATE users SET village=?,appearance=? WHERE id=?',data.village?JSON.stringify(data.village):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,user.id);
-    emitWorld();for(const villageId of villageVisitors.keys())io.to(`village:${villageId}`).emit('village:members',villageMembers(villageId));
+    emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
     res.json({user:profile(userById(user.id),user.id)});
   });
   app.patch('/api/me', auth, (req,res) => {
@@ -280,26 +288,37 @@ export function createApp(options = {}) {
     const uid=socket.data.userId;socket.join(`user:${uid}`);online.set(uid,(online.get(uid)||0)+1);io.emit('presence',Array.from(online.keys()));
     socket.on('village:join',(data,ack)=>{
       try {
-        const villageId=z.string().uuid().parse(data?.villageId);
-        const target=userById(villageId);
-        if(villageId!==uid&&(!settingsOf(target).allowVisitors||isBlocked(store,uid,villageId))) throw new Error('이 마을에 들어갈 수 없어요.');
+        if(!sessionUser(socket.request.headers))throw new Error('로그인이 필요해요.');
+        const villageId=z.string().uuid().parse(data?.villageId),target=userById(villageId);
+        if(villageId!==uid&&(!settingsOf(target).allowVisitors||isBlocked(store,uid,villageId)))throw new Error('이 마을에 들어갈 수 없어요.');
+        if(socket.data.village?.villageId===villageId){
+          ack?.({ok:true,villageId,members:villageMembers(villageId)});return;
+        }
         leaveVillage(socket);
         const members=villageVisitors.get(villageId)||new Map();
-        const previous=members.get(uid);
-        const member={userId:uid,nickname:store.one('SELECT nickname FROM users WHERE id=?',uid).nickname,x:previous?.x??0,z:previous?.z??3};
-        members.set(uid,member);villageVisitors.set(villageId,members);
+        // One avatar per account, retained until its final tab leaves the room.
+        const member=members.get(uid)||{userId:uid,x:uid===villageId?-1:1,z:3,rotation:0,moving:false,sockets:new Set(),lastMove:0};
+        member.sockets.add(socket.id);members.set(uid,member);villageVisitors.set(villageId,members);
         socket.data.village={villageId,userId:uid};socket.join(`village:${villageId}`);
-        io.to(`village:${villageId}`).emit('village:members',villageMembers(villageId));ack?.({ok:true,members:villageMembers(villageId)});
-      } catch { ack?.({ok:false}); }
+        emitVillage(villageId);ack?.({ok:true,villageId,members:villageMembers(villageId)});
+      }catch{ack?.({ok:false});}
     });
-    socket.on('village:leave',()=>leaveVillage(socket));
+    socket.on('village:leave',ack=>{leaveVillage(socket);if(typeof ack==='function')ack({ok:true});});
     socket.on('village:move',data=>{
-      const current=socket.data.village;if(!current)return;
-      const x=Number(data?.x),z=Number(data?.z);if(!Number.isFinite(x)||!Number.isFinite(z))return;
-      const radius=Math.min(5.8,Math.hypot(x,z));const factor=radius?radius/Math.hypot(x,z):0;
+      const current=socket.data.village;if(!current||data?.villageId!==current.villageId)return;
+      const target=userById(current.villageId);
+      if(!sessionUser(socket.request.headers)||uid!==target.id&&(!settingsOf(target).allowVisitors||isBlocked(store,uid,target.id))){leaveVillage(socket);return;}
+      const {x,z,rotation,moving}=data;
+      if(![x,z,rotation].every(value=>typeof value==='number'&&Number.isFinite(value))||typeof moving!=='boolean')return;
       const member=villageVisitors.get(current.villageId)?.get(uid);if(!member)return;
-      member.x=x*factor;member.z=z*factor;
-      socket.to(`village:${current.villageId}`).volatile.emit('village:move',{userId:uid,x:member.x,z:member.z});
+      const time=Date.now();if(moving&&time-member.lastMove<60)return;
+      member.lastMove=time;
+      const radius=Math.hypot(x,z),factor=radius>5.8?5.8/radius:1;
+      member.x=x*factor;member.z=z*factor;member.rotation=Math.atan2(Math.sin(rotation),Math.cos(rotation));member.moving=moving;
+      const update={villageId:current.villageId,userId:uid,x:member.x,z:member.z,rotation:member.rotation,moving};
+      const room=socket.to(`village:${current.villageId}`);
+      // Moving samples can be dropped; the final pose must be delivered reliably.
+      if(moving)room.volatile.emit('village:move',update);else room.emit('village:move',update);
     });
     socket.on('disconnect',()=>{leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
   });

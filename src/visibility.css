@@ -86,11 +86,20 @@ textarea:focus-visible, select:focus-visible {
 .walk-button > span { font-size: 11px; padding: 1px 5px; border: 1px solid #ffffff80; border-radius: 4px; }
 .village-footer > span { color: #344f68; font-weight: 600; }
 .world-panel:not(.village-mode) .daily-card { right: 225px; }
+.village-presence {
+  position: absolute; left: 32px; top: 122px; z-index: 3;
+  display: flex; align-items: center; gap: 6px; max-width: calc(100% - 64px);
+  padding: 4px 9px; border: 1px solid #bdd0e1; border-radius: 7px;
+  color: #294f70; background: #fffffff2; font-size: 12px;
+  overflow-wrap: anywhere; pointer-events: none;
+}
+.village-presence svg { flex-shrink: 0; }
 @media (max-width: 1250px) {
   .world-panel:not(.village-mode) .daily-card { display: none; }
 }
 @media (max-width: 570px) {
   .world-actions .walk-button { min-height: 36px; }
-  .world-actions { top: 120px; }
-  .world-panel .avatar-card { top: 216px; }
+  .village-presence { left: 15px; top: 118px; max-width: calc(100% - 30px); font-size: 11px; max-height: 44px; overflow-y: auto; }
+  .world-actions { top: 170px; }
+  .world-panel .avatar-card { top: 266px; }
 }

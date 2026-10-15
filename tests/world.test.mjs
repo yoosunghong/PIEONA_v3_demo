@@ -36,8 +36,120 @@ test('live visitors receive clothing updates; the host is separate from player p
     const joined=await new Promise(r=>socket.emit('village:join',{villageId:owner.id},r));assert.equal(joined.ok,true);assert.equal(joined.members.length,1);assert.equal(joined.members[0].userId,visitor.id);assert.equal(joined.members[0].z,3);
     const updated=new Promise(resolve=>socket.once('village:members',resolve));
     const appearance={hat:'beret',accessory:'scarf',color:'#a6bc83'};await request('/me/world',visitor,{appearance},'PATCH');
-    assert.deepEqual((await updated)[0].appearance,appearance);
+    assert.equal((await updated).villageId,owner.id);
+    const snapshot=await new Promise(resolve=>socket.emit('village:join',{villageId:owner.id},resolve));
+    assert.deepEqual(snapshot.members[0].appearance,appearance);
   }finally{socket.disconnect();}
+});
+
+async function connectPlayer(user){
+  const socket=io(url,{extraHeaders:{Cookie:user.cookie},transports:['websocket'],forceNew:true});
+  await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
+  return socket;
+}
+const joinVillage=(socket,villageId)=>socket.timeout(2000).emitWithAck('village:join',{villageId});
+async function closePlayers(...sockets){
+  for(const socket of sockets){if(socket.connected)await socket.timeout(2000).emitWithAck('village:leave');socket.disconnect();}
+}
+function villageEvent(socket,event,predicate=()=>true){
+  return new Promise((resolve,reject)=>{
+    const timer=setTimeout(()=>{socket.off(event,receive);reject(new Error(`Timed out waiting for ${event}`));},2000);
+    function receive(value){if(!predicate(value))return;clearTimeout(timer);socket.off(event,receive);resolve(value);}
+    socket.on(event,receive);
+  });
+}
+
+test('owner and visitor share poses, stop reliably, restore snapshots and leave without leaking to another village',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor),other=await connectPlayer(third);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(other,third.id);
+    let unrelatedMoves=0;other.on('village:move',()=>unrelatedMoves++);
+    const arrival=villageEvent(host,'village:members',s=>s.members.length===2);
+    const joined=await joinVillage(guest,owner.id);assert.equal(joined.ok,true);
+    assert.equal((await arrival).villageId,owner.id);assert.equal(joined.members.length,2);
+    const hostStart=joined.members.find(m=>m.userId===owner.id),guestStart=joined.members.find(m=>m.userId===visitor.id);
+    assert.notEqual(hostStart.x,guestStart.x);assert.equal('sockets' in hostStart,false);
+    const hostPose={villageId:owner.id,x:2,z:1,rotation:1.2,moving:true};
+    const seenByGuest=villageEvent(guest,'village:move',m=>m.userId===owner.id);
+    host.emit('village:move',hostPose);assert.deepEqual(await seenByGuest,{...hostPose,userId:owner.id});
+    const guestPose={villageId:owner.id,x:-2,z:2,rotation:-.8,moving:true};
+    const seenByHost=villageEvent(host,'village:move',m=>m.userId===visitor.id);
+    guest.emit('village:move',guestPose);assert.deepEqual(await seenByHost,{...guestPose,userId:visitor.id});
+    const stopped=villageEvent(guest,'village:move',m=>!m.moving);
+    host.emit('village:move',{...hostPose,rotation:2,moving:false});assert.equal((await stopped).rotation,2);
+    const departure=villageEvent(host,'village:members',s=>s.members.length===1);
+    await guest.timeout(2000).emitWithAck('village:leave');assert.equal((await departure).members[0].userId,owner.id);
+    const restored=await joinVillage(guest,owner.id),pose=restored.members.find(m=>m.userId===owner.id);
+    assert.equal(pose.x,2);assert.equal(pose.rotation,2);assert.equal(pose.moving,false);
+    assert.equal(unrelatedMoves,0);
+  }finally{await closePlayers(host,guest,other);}
+});
+
+test('one avatar survives another tab leaving or switching villages and disappears on final disconnect',async()=>{
+  const host=await connectPlayer(owner),first=await connectPlayer(visitor),second=await connectPlayer(visitor);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(first,owner.id);
+    let snapshot=await joinVillage(second,owner.id);assert.equal(snapshot.members.length,2);
+    const move=villageEvent(host,'village:move',m=>m.userId===visitor.id);
+    first.emit('village:move',{villageId:owner.id,x:3,z:1,rotation:0,moving:false});await move;
+    await joinVillage(first,third.id);
+    snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.length,2);
+    assert.equal(snapshot.members.find(m=>m.userId===visitor.id).x,3);
+    const gone=villageEvent(host,'village:members',s=>s.members.length===1);
+    second.disconnect();assert.equal((await gone).members[0].userId,owner.id);
+  }finally{await closePlayers(host,first,second);}
+});
+
+test('a new socket can rejoin after connection loss and receives the remaining player pose',async()=>{
+  const host=await connectPlayer(owner);let guest=await connectPlayer(visitor);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);
+    const moved=villageEvent(guest,'village:move',m=>m.userId===owner.id);
+    host.emit('village:move',{villageId:owner.id,x:-2,z:1,rotation:.4,moving:false});await moved;
+    const departed=villageEvent(host,'village:members',s=>s.members.length===1);
+    guest.disconnect();await departed;
+    guest=await connectPlayer(visitor);
+    const arrived=villageEvent(host,'village:members',s=>s.members.length===2);
+    const rejoined=await joinVillage(guest,owner.id);await arrived;
+    assert.equal(rejoined.members.find(m=>m.userId===owner.id).x,-2);
+    const restored=villageEvent(host,'village:move',m=>m.userId===visitor.id);
+    guest.emit('village:move',{villageId:owner.id,x:2,z:-1,rotation:-.4,moving:false});
+    assert.equal((await restored).z,-1);
+  }finally{await closePlayers(host,guest);}
+});
+
+test('room scoping, pose validation, boundary clamping and movement throttling preserve the final stop',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);
+    for(const bad of [{villageId:third.id,x:4,z:1,rotation:0,moving:false},{villageId:owner.id,x:null,z:1,rotation:0,moving:false},{villageId:owner.id,x:NaN,z:1,rotation:0,moving:false}])guest.emit('village:move',bad);
+    let snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).x,1);
+    const clamp=villageEvent(host,'village:move',m=>m.userId===visitor.id);
+    guest.emit('village:move',{villageId:owner.id,x:100,z:100,rotation:20,moving:false});
+    const bounded=await clamp;assert.ok(Math.abs(Math.hypot(bounded.x,bounded.z)-5.8)<1e-8);assert.ok(Math.abs(bounded.rotation)<=Math.PI);
+    let received=0;host.on('village:move',()=>received++);
+    for(let i=0;i<100;i++)guest.emit('village:move',{villageId:owner.id,x:i/100,z:0,rotation:0,moving:true});
+    const stop=villageEvent(host,'village:move',m=>!m.moving);
+    guest.emit('village:move',{villageId:owner.id,x:1,z:0,rotation:0,moving:false});await stop;
+    assert.ok(received<10,`Movement flood was not bounded: ${received}`);
+    snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).moving,false);
+  }finally{await closePlayers(host,guest);}
+});
+
+test('closed villages and blocks reject live entry while the owner can still enter',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor);
+  try{
+    await request('/me',owner,{settings:{allowVisitors:false}},'PATCH');
+    assert.equal((await joinVillage(guest,owner.id)).ok,false);
+    assert.equal((await joinVillage(host,owner.id)).ok,true);
+    await request('/me',owner,{settings:{allowVisitors:true}},'PATCH');
+    await request('/blocks/'+visitor.id,owner,{});
+    assert.equal((await joinVillage(guest,owner.id)).ok,false);
+  }finally{
+    await request('/blocks/'+visitor.id,owner,undefined,'DELETE');
+    await request('/me',owner,{settings:{allowVisitors:true}},'PATCH');
+    await closePlayers(host,guest);
+  }
 });
 
 test('runner jump, lane, collision, cooldown and terminal state are deterministic',()=>{
