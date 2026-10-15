@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {loadAsset} from './avatar';
+import {createRunMotion} from './avatarMotion.mjs';
+import {villageDirection} from './villageMovement.mjs';
 import {createDecoration,dressAvatar,disposeObject} from './worldAssets';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
@@ -65,25 +67,27 @@ export default function Scene({mode='home',theme='sage',emotion='calm',sceneType
     const avatarRoot=new THREE.Group();avatarRoot.position.set(0,.39,0);avatarRoot.userData.action='avatar';world.add(avatarRoot);let mixer,action,characterAsset,hostTag;const remoteCharacters=new Map();
     function addNameTag(parent,name){const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;const ctx=canvas.getContext('2d');ctx.fillStyle='rgba(255,255,255,.94)';ctx.beginPath();ctx.roundRect(18,18,476,92,34);ctx.fill();ctx.strokeStyle='rgba(120,157,180,.35)';ctx.lineWidth=4;ctx.stroke();ctx.fillStyle='#304e69';ctx.font='bold 42px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(String(name||'이웃').slice(0,20),256,64);const texture=new THREE.CanvasTexture(canvas);const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false}));sprite.scale.set(2.1,.53,1);sprite.position.y=3.25;parent.add(sprite);return sprite;}
     function disposeCharacter(root){root.traverse(o=>{if(o.isSprite){o.material.map?.dispose();o.material.dispose();}if(o.userData.generated)disposeObject(o);});}
-    function buildRemote(member){const root=new THREE.Group();root.position.set(member.x||0,.39,member.z||0);const avatar=clone(characterAsset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);root.add(avatar);dressAvatar(avatar,member.appearance||appearance);addNameTag(root,member.nickname+(member.userId===viewerId?' · 나':''));root.userData.look=JSON.stringify(member.appearance||appearance);let mixer;if(characterAsset.animations.length){mixer=new THREE.AnimationMixer(avatar);const action=mixer.clipAction(characterAsset.animations[0]);action.play();action.timeScale=.45;}world.add(root);return{root,mixer};}
+    function buildRemote(member){const root=new THREE.Group();root.position.set(member.x||0,.39,member.z||0);const avatar=clone(characterAsset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);root.add(avatar);dressAvatar(avatar,member.appearance||appearance);addNameTag(root,member.nickname+(member.userId===viewerId?' · 나':''));root.userData.look=JSON.stringify(member.appearance||appearance);const runMotion=createRunMotion(avatar);let mixer,idleAction;if(characterAsset.animations.length){mixer=new THREE.AnimationMixer(avatar);idleAction=mixer.clipAction(characterAsset.animations[0]);idleAction.play();idleAction.timeScale=.45;}world.add(root);return{root,mixer,idleAction,runMotion,moving:false};}
     loadAsset().then(asset=>{if(disposed)return;characterAsset=asset;const avatar=clone(asset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());const scale=2.65/Math.max(size.y,.001);avatar.scale.setScalar(scale);const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatarRoot.add(avatar);dressAvatar(avatar,ownerAppearance);hostTag=addNameTag(avatarRoot,(ownerNickname||viewerNickname||'피오')+' · AI');if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);action=mixer.clipAction(asset.animations[0]);action.play();action.timeScale=.55;}setLoading(false);callbacks.current.onReady?.();}).catch(()=>{if(!disposed){setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');setLoading(false);}});
     const decorationRoot=new THREE.Group();world.add(decorationRoot);
     for(const item of village.items||[]){const model=createDecoration(item.type);model.position.set(item.x,.15,item.z);model.rotation.y=item.rotation*Math.PI/2;decorationRoot.add(model);}
     const raycaster=new THREE.Raycaster();let pointerDown;
     function down(e){pointerDown={x:e.clientX,y:e.clientY};}
-    function click(e){if(!pointerDown||Math.hypot(pointerDown.x-e.clientX,pointerDown.y-e.clientY)>6)return;const rect=el.getBoundingClientRect();const p=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(p,camera);for(const hit of raycaster.intersectObjects(world.children,true)){let obj=hit.object;while(obj){if(obj.userData.action){callbacks.current.onInteract?.(obj.userData.action);return;}obj=obj.parent;}}}
+    function click(e){if(!pointerDown||Math.hypot(pointerDown.x-e.clientX,pointerDown.y-e.clientY)>6)return;const rect=el.getBoundingClientRect();const p=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);raycaster.setFromCamera(p,camera);for(const hit of raycaster.intersectObjects(world.children,true)){let obj=hit.object;while(obj){if(!obj.visible)break;if(obj.userData.action){callbacks.current.onInteract?.(obj.userData.action);return;}obj=obj.parent;}}}
     renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',click);
     let previousMode;let transitioning=true;let transitionTarget=new THREE.Vector3();let transitionLook=new THREE.Vector3();
     state.current={mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused};
-    const heldKeys=new Set();let lastSent=0;
-    function keydown(e){if(!state.current?.inputEnabled||state.current?.mode!=='village'||e.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;const key=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();heldKeys.add(key);}}
+    const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0;
+    function keydown(e){if(!state.current?.inputEnabled||state.current?.paused||state.current?.mode!=='village'||e.target?.matches?.('input,textarea,select,[contenteditable="true"]'))return;const key=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(key)){e.preventDefault();heldKeys.add(key);}}
     function keyup(e){heldKeys.delete(e.key.toLowerCase());}function clearKeys(){heldKeys.clear();}
     window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);
     const observer=new ResizeObserver(()=>{const {width,height}=el.getBoundingClientRect();if(!width||!height)return;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();});observer.observe(el);
     const clock=new THREE.Clock();
-    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused)return;
+    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){heldKeys.clear();return;}
       if(s.mode!==previousMode){previousMode=s.mode;transitioning=true;heldKeys.clear();if(s.mode==='village'){transitionTarget.set(11,17,14);transitionLook.set(0,0,0);}else{transitionTarget.set(...(portrait?[0,1.65,5.4]:[4.7,3.25,8]));transitionLook.set(0,portrait?1.65:.8,0);}}
       if(transitioning){const blend=1-Math.exp(-3.4*dt);camera.position.lerp(transitionTarget,blend);controls.target.lerp(transitionLook,blend);if(camera.position.distanceTo(transitionTarget)<.03)transitioning=false;}
+      controls.update();
+      avatarRoot.visible=s.mode!=='village'||ownerId!==s.viewerId;
       if(hostTag)hostTag.visible=s.mode==='village';avatarRoot.position.set(0,.39,0);avatarRoot.rotation.y=.55+Math.sin(time*.25)*.12;
       if(!s.inputEnabled)heldKeys.clear();
       if(characterAsset){
@@ -94,19 +98,34 @@ export default function Scene({mode='home',theme='sage',emotion='calm',sceneType
           let entry=remoteCharacters.get(member.userId);
           if(entry&&entry.root.userData.look!==JSON.stringify(member.appearance||appearance)){world.remove(entry.root);disposeCharacter(entry.root);entry.mixer?.stopAllAction();entry.mixer?.uncacheRoot(entry.mixer.getRoot());remoteCharacters.delete(member.userId);entry=null;}
           if(!entry){entry=buildRemote(member);remoteCharacters.set(member.userId,entry);}
+          const previousX=entry.root.position.x,previousZ=entry.root.position.z;
           if(member.userId!==s.viewerId){entry.root.position.x+=(member.x-entry.root.position.x)*Math.min(1,dt*12);entry.root.position.z+=(member.z-entry.root.position.z)*Math.min(1,dt*12);}
           else{
-            const x=(heldKeys.has('d')||heldKeys.has('arrowright')?1:0)-(heldKeys.has('a')||heldKeys.has('arrowleft')?1:0);
-            const z=(heldKeys.has('s')||heldKeys.has('arrowdown')?1:0)-(heldKeys.has('w')||heldKeys.has('arrowup')?1:0);
-            if(x||z){const length=Math.hypot(x,z),speed=3.2*dt;entry.root.position.x+=x/length*speed;entry.root.position.z+=z/length*speed;const radius=Math.hypot(entry.root.position.x,entry.root.position.z);if(radius>5.8){entry.root.position.x*=5.8/radius;entry.root.position.z*=5.8/radius;}entry.root.rotation.y=Math.atan2(x,z);if(time-lastSent>.1){lastSent=time;callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z});}}
+            villageDirection(heldKeys,camera,direction);
+            if(direction.lengthSq()){
+              entry.root.position.addScaledVector(direction,3.2*dt);
+              const radius=Math.hypot(entry.root.position.x,entry.root.position.z);
+              if(radius>5.8){entry.root.position.x*=5.8/radius;entry.root.position.z*=5.8/radius;}
+              entry.root.rotation.y=Math.atan2(direction.x,direction.z);
+            }
+          }
+          const dx=entry.root.position.x-previousX,dz=entry.root.position.z-previousZ;
+          const moving=Math.hypot(dx,dz)>.0001;
+          if(member.userId===s.viewerId&&((moving&&time-lastSent>.1)||(!moving&&entry.moving))){lastSent=time;callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z});}
+          if(member.userId!==s.viewerId&&moving)entry.root.rotation.y=Math.atan2(dx,dz);
+          if(moving!==entry.moving){
+            if(moving)entry.idleAction?.stop();
+            else{entry.runMotion.update(0,false);entry.idleAction?.reset().play();}
+            entry.moving=moving;
           }
           entry.mixer?.update(dt);
+          entry.root.position.y=.39+(moving?entry.runMotion.update(time,true):0);
         }
       }
       if(mixer){mixer.update(dt);if(action)action.timeScale=s.emotion==='excited'||s.emotion==='happy'?.8:.32;}
 
       particles.rotation.y=time*.018;particles.position.y=Math.sin(time*.3)*.3;flame.scale.set(1+Math.sin(time*8)*.12,1+Math.sin(time*11)*.1,1);flameLight.intensity=3+Math.sin(time*9)*.5;
-      controls.update();renderer.render(world,camera);
+      renderer.render(world,camera);
     }render();
     return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);disposeObject(decorationRoot);disposeCharacter(avatarRoot);remoteCharacters.forEach(({root,mixer:remoteMixer})=>{world.remove(root);disposeCharacter(root);remoteMixer?.stopAllAction();remoteMixer?.uncacheRoot(remoteMixer.getRoot());});renderer.domElement.removeEventListener('pointerdown',down);renderer.domElement.removeEventListener('pointerup',click);mixer?.stopAllAction();mixer?.uncacheRoot(mixer.getRoot());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());renderer.dispose();renderer.domElement.remove();state.current=null;};
   },[theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(village)]);

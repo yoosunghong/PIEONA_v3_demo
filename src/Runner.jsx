@@ -4,6 +4,7 @@ import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {ArrowLeft,ArrowRight,ArrowUp,Play,RotateCcw} from 'lucide-react';
 import {api} from './api';
 import {loadAsset} from './avatar';
+import {createRunMotion} from './avatarMotion.mjs';
 import {dressAvatar,disposeObject,createDecoration} from './worldAssets';
 import {newRun,advanceRun,runAction,jumpHeight,runScore} from '../shared/runner.mjs';
 
@@ -37,9 +38,9 @@ export default function Runner({target,me,notify,onReward,anonymous}){
     const stripes=[];for(let i=0;i<24;i++)for(const x of [-1.2,1.2])stripes.push(box(.06,.02,1.3,white,x,.01,-i*4));
     const scenery=[];for(let i=0;i<14;i++){const model=createDecoration(i%3===0?'mushroom':i%3===1?'planter':'lantern');model.position.set((i%2?1:-1)*(5.5+i%3),0,-i*6);owned.add(model);scenery.push(model);}
     const player=new THREE.Group();world.add(player);player.rotation.y=Math.PI;
-    const legs=[],arms=[];
+    let runMotion;
     loadAsset().then(asset=>{if(disposed)return;avatar=clone(asset);const b=new THREE.Box3().setFromObject(avatar),size=b.getSize(new THREE.Vector3());avatar.scale.setScalar(2.3/size.y);const bounds=new THREE.Box3().setFromObject(avatar),center=bounds.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-bounds.min.y,-center.z);player.add(avatar);dressAvatar(avatar,me.appearance);
-      avatar.traverse(o=>{if(!o.isBone)return;if(/thigh|upleg|upperleg/i.test(o.name))legs.push({bone:o,rotation:o.rotation.clone(),sign:/left|\.l|_l|l_/i.test(o.name)?1:-1});if(/upperarm|arm$/i.test(o.name)&&!/fore|lower/i.test(o.name))arms.push({bone:o,rotation:o.rotation.clone(),sign:/left|\.l|_l|l_/i.test(o.name)?1:-1});});setReady(true);
+      runMotion=createRunMotion(avatar);setReady(true);
     }).catch(()=>{if(!disposed)setError('캐릭터를 불러오지 못했어요. 게임 목록으로 돌아가 다시 시도해주세요.');});
     let currentGame,models=[];const clock=new THREE.Clock();let lastHud=0;
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime,s=ref.current;const t=s.game?(s.finished?s.state.elapsed:Math.min(s.game.duration,performance.now()-s.start)):0;
@@ -47,9 +48,7 @@ export default function Runner({target,me,notify,onReward,anonymous}){
         if(currentGame)for(const o of currentGame.notes){const group=new THREE.Group();const m=o.lane===-1?pink:wood;const obstacle=box(o.lane===-1?7:1.7,o.height,.65,m.clone(),0,o.height/2,0,group);for(const x of [-.45,.45])box(.12,o.height+.12,.72,white.clone(),x,o.height/2,0,group);group.position.x=o.lane===-1?0:(o.lane-1)*2.4;group.userData.note=o;obstacles.add(group);models.push(group);}}
       const predicted=s.game?advanceRun(s.state,s.game.notes,t):s.state;
       const moving=s.game&&!s.finished&&predicted.lives>0&&t>3000;const motion=moving?Math.max(0,t-3000)*.011:0;
-      player.position.x+=((predicted.lane-1)*2.4-player.position.x)*Math.min(1,dt*18);player.position.y=jumpHeight(t,predicted.jumpAt)+(moving?Math.abs(Math.sin(t*.018))*.09:0);
-      for(const {bone,rotation,sign} of legs){bone.rotation.copy(rotation);bone.rotation.x+=moving?Math.sin(t*.018)*.7*sign:0;}
-      for(const {bone,rotation,sign} of arms){bone.rotation.copy(rotation);bone.rotation.x+=moving?-Math.sin(t*.018)*.55*sign:0;}
+      player.position.x+=((predicted.lane-1)*2.4-player.position.x)*Math.min(1,dt*18);player.position.y=jumpHeight(t,predicted.jumpAt)+(runMotion?.update(t/1000,moving)||0);
       player.visible=!(predicted.lastCollision&&t-predicted.lastCollision<650&&Math.floor(t/90)%2);
       stripes.forEach((stripe,i)=>{stripe.position.z=8-((Math.floor(i/2)*4-motion)%96+96)%96;});scenery.forEach((model,i)=>{model.position.z=8-((i*6-motion)%84+84)%84;});
       for(const model of models){model.position.z=-(model.userData.note.time-t)*.011;model.visible=model.position.z>-65&&model.position.z<5;}
