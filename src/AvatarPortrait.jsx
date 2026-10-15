@@ -12,7 +12,7 @@ function portraitFor(appearance){
   const key=JSON.stringify(appearance||{});
   if(portraits.has(key))return portraits.get(key);
   const result=queue.then(async()=>{
-    const asset=await loadAsset();
+    const asset=await loadAsset(appearance?.character);
     const textures=new Set();
     asset.traverse(node=>{if(node.isMesh)for(const material of [node.material].flat())for(const map of ['map','normalMap','roughnessMap','metalnessMap'])if(material[map])textures.add(material[map]);});
     await Promise.all([...textures].map(texture=>{

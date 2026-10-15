@@ -21,3 +21,16 @@ export const villageThemes=[
 export const defaultVillage={items:[],theme:'default'};
 // Keep the central host platform and the main path free of furniture.
 export function validPlacement(x,z){return Number.isFinite(x)&&Number.isFinite(z)&&Math.hypot(x,z)>=2.85&&Math.hypot(x,z)<=5.6&&!(Math.abs(x)<.85&&z>0)&&![[-3.65,-.2,1.5],[3.35,1.2,1.65],[2.1,-3.5,.85]].some(([a,b,r])=>Math.hypot(x-a,z-b)<r);}
+
+export const characters=[
+  {id:'pio',name:'피오',folder:'Meshy_AI_biped',animation:'Joyful_Dance_with_Hand_Sway'},
+  {id:'luna',name:'루나',folder:'Meshy_AI_Luna_biped',animation:'Idle_02'},
+  {id:'moa',name:'모아',folder:'Meshy_AI_Moa_biped',animation:'Idle_02'},
+  {id:'tori',name:'토리',folder:'Meshy_AI_Tori_biped',animation:'Idle_02'}
+];
+export function characterLooks(appearance={},saved={}){
+  const looks=Object.fromEntries(characters.map(c=>[c.id,{...defaultAppearance,...saved[c.id],character:c.id}]));
+  const current=appearance.character||'pio';
+  if(looks[current])looks[current]={...looks[current],...appearance};
+  return looks;
+}

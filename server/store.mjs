@@ -45,7 +45,7 @@ export function openStore(filename = './data/pieona.sqlite') {
   `);
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='active_slot'))db.exec("ALTER TABLE users ADD COLUMN active_slot TEXT NOT NULL DEFAULT ''");
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='anonymous'))db.exec('ALTER TABLE games ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');
-  for(const column of ['village','appearance'])if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name===column))db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT '{}'`);
+  for(const column of ['village','appearance','character_looks'])if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name===column))db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT '{}'`);
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='kind'))db.exec("ALTER TABLE games ADD COLUMN kind TEXT NOT NULL DEFAULT 'rhythm'");
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='score'))db.exec('ALTER TABLE games ADD COLUMN score INTEGER');
   // Backfill completed rhythm rounds, including rounds without a gold reward.
@@ -99,7 +99,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
     scene: s.scene, relation: relation?.status || null, close: !!relation?.close, incoming: !!incoming,
     createdAt: user.created_at
   };
-  if (own) Object.assign(result, { username: user.username, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot });
+  if (own) Object.assign(result, { username: user.username, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot, characterLooks:JSON.parse(user.character_looks) });
   return result;
 }
 // Small-corpus lexical RAG. Scope is applied BEFORE retrieval; no shared vector index or cache.

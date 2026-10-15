@@ -345,3 +345,33 @@ test('disconnect during a race abandons only that player and leaves the other ru
     assert.equal((await request(`/games/${a.game.id}/state`,owner)).status,200);
   }finally{if(hostGame)await request(`/games/${hostGame}/abandon`,owner,{});await closePlayers(host,guest);}
 });
+
+
+test('character wardrobes preserve legacy looks and independently persist every character',async()=>{
+  const user=await register('wardrobe_owner');
+  const legacy={hat:'crown',accessory:'wings',color:'#d994b6'};
+  await request('/me/world',user,{appearance:legacy},'PATCH');
+  const looks={};
+  for(const [index,character] of ['luna','moa','tori'].entries()){
+    looks[character]={character,hat:['beret','sprout','none'][index],accessory:['bow','scarf','none'][index],color:['#a6bc83','#c8a0dd','#eee7da'][index]};
+    const saved=await request('/me/world',user,{appearance:looks[character]},'PATCH');
+    assert.equal(saved.status,200);
+    assert.deepEqual(saved.body.user.characterLooks.pio,{...legacy,character:'pio'});
+    for(const [id,look] of Object.entries(looks))assert.deepEqual(saved.body.user.characterLooks[id],look);
+  }
+  const reloaded=(await request('/me',user)).body.user;
+  assert.deepEqual(reloaded.appearance,looks.tori);
+  const edited={...looks.luna,hat:'crown'};
+  const saved=await request('/me/world',user,{appearance:{...legacy,character:'pio'},characterLooks:{luna:edited}},'PATCH');
+  assert.equal(saved.status,200);
+  assert.deepEqual(saved.body.user.characterLooks.luna,edited);
+  assert.deepEqual(saved.body.user.characterLooks.moa,looks.moa);
+  const visible=(await request('/users/'+user.id,visitor)).body.user;
+  assert.equal(visible.appearance.character,'pio');
+  assert.equal(visible.characterLooks,undefined);
+  const before=(await request('/me',user)).body.user;
+  for(const body of [{appearance:{...legacy,character:'unknown'}},{characterLooks:{unknown:legacy}},{characterLooks:{luna:{...legacy,hat:'invalid'}}}]){
+    assert.equal((await request('/me/world',user,body,'PATCH')).status,400);
+  }
+  assert.deepEqual((await request('/me',user)).body.user.characterLooks,before.characterLooks);
+});

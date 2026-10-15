@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, defaultSettings } from './store.mjs';
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
-import { decorations, hats, accessories, colors, validPlacement, villageThemes } from '../shared/world.mjs';
+import { decorations, hats, accessories, colors, validPlacement, villageThemes, characters, characterLooks } from '../shared/world.mjs';
 import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
 
@@ -119,9 +119,14 @@ export function createApp(options = {}) {
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
-    const data=z.object({village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional()}).strict().optional(),appearance:z.object({hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict().optional()}).strict().parse(req.body);
+    const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
+    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     if(data.village?.items){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
-    const user=userById(req.user.id);store.run('UPDATE users SET village=?,appearance=? WHERE id=?',data.village?JSON.stringify({...JSON.parse(user.village),...data.village}):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,user.id);
+    const user=userById(req.user.id);
+    const saved=characterLooks(JSON.parse(user.appearance),JSON.parse(user.character_looks));
+    for(const [character,look] of Object.entries(data.characterLooks||{}))if(look)saved[character]={...look,character};
+    if(data.appearance)saved[data.appearance.character||'pio']={...data.appearance};
+    store.run('UPDATE users SET village=?,appearance=?,character_looks=? WHERE id=?',data.village?JSON.stringify({...JSON.parse(user.village),...data.village}):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,JSON.stringify(saved),user.id);
     emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
     res.json({user:profile(userById(user.id),user.id)});
   });
