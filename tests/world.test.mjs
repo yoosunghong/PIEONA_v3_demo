@@ -17,7 +17,7 @@ before(async()=>{runtime=createApp({testing:true,store:openStore(':memory:')});a
 after(async()=>runtime.close());
 const piece=()=>({id:randomUUID(),type:'planter',x:-3,z:3.5,rotation:0});
 test('world saves are owner scoped, validated and public to visitors',async()=>{
-  const village={items:[piece()]},appearance={hat:'crown',accessory:'wings',color:'#d994b6'};
+  const village={items:[piece()],theme:'default'},appearance={hat:'crown',accessory:'wings',color:'#d994b6'};
   assert.equal((await request('/me/world',null,{village},'PATCH')).status,401);
   assert.equal((await request('/me/world',owner,{village,appearance},'PATCH')).status,200);
   const profile=(await request('/users/'+owner.id,visitor)).body.user;
@@ -28,6 +28,22 @@ test('world saves are owner scoped, validated and public to visitors',async()=>{
   assert.equal((await request('/me/world',visitor,{targetId:owner.id,village:{items:[]}},'PATCH')).status,400);
   assert.deepEqual((await request('/users/'+owner.id,visitor)).body.user.village,village);
   assert.equal((await request('/me/world',owner,{appearance:{...appearance,color:'url(evil)'}},'PATCH')).status,400);
+});
+
+test('village themes persist independently of avatar slots, preserve furniture and reach visitors',async()=>{
+  const before=(await request('/me',owner)).body.user;
+  for(const theme of ['sunset','twilight']){
+    const village={...before.village,theme};
+    assert.equal((await request('/me/world',owner,{village},'PATCH')).status,200);
+    assert.deepEqual((await request('/users/'+owner.id,visitor)).body.user.village,village);
+  }
+  assert.equal((await request('/me/world',owner,{village:{items:before.village.items,theme:'unknown'}},'PATCH')).status,400);
+  // Older clients which only save furniture must retain the persisted theme.
+  await request('/me/world',owner,{village:{items:before.village.items}},'PATCH');
+  assert.equal((await request('/me',owner)).body.user.village.theme,'twilight');
+  const slot=(await request('/slots',owner,{nickname:'theme_test'})).body;
+  await request(`/slots/${slot.id}/activate`,owner,{});
+  assert.equal((await request('/me',owner)).body.user.village.theme,'twilight');
 });
 
 test('live visitors receive clothing updates; the host is separate from player positions',async()=>{
@@ -48,6 +64,22 @@ async function connectPlayer(user){
   return socket;
 }
 const joinVillage=(socket,villageId)=>socket.timeout(2000).emitWithAck('village:join',{villageId});
+
+test('a standing jump reaches neighbours and survives room snapshots without moving horizontally',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);
+    const jumpStarted=Date.now(),pose={villageId:owner.id,x:1,z:3,rotation:0,moving:false,jumpStarted};
+    const seen=villageEvent(host,'village:move',m=>m.userId===visitor.id);
+    guest.emit('village:move',pose);
+    assert.deepEqual(await seen,{...pose,userId:visitor.id});
+    const snapshot=await joinVillage(host,owner.id);
+    assert.equal(snapshot.members.find(m=>m.userId===visitor.id).jumpStarted,jumpStarted);
+    guest.emit('village:move',{...pose,jumpStarted:-1,x:4});
+    const unchanged=await joinVillage(host,owner.id);
+    assert.equal(unchanged.members.find(m=>m.userId===visitor.id).x,1);
+  }finally{await closePlayers(host,guest);}
+});
 async function closePlayers(...sockets){
   for(const socket of sockets){if(socket.connected)await socket.timeout(2000).emitWithAck('village:leave');socket.disconnect();}
 }
@@ -191,7 +223,7 @@ test('runner completion rewards derive from server progress and obey shared caps
 
 test('world and completed game records survive SQLite reopen with additive schema migrations',()=>{
   const dir=mkdtempSync(join(tmpdir(),'pieona-world-')),file=join(dir,'world.sqlite');let store;
-  try{store=openStore(file);const userId=randomUUID(),gid=randomUUID(),village={items:[piece()]},appearance={hat:'crown',accessory:'bow',color:'#eee7da'};
+  try{store=openStore(file);const userId=randomUUID(),gid=randomUUID(),village={items:[piece()],theme:'twilight'},appearance={hat:'crown',accessory:'bow',color:'#eee7da'};
     store.run('INSERT INTO users(id,username,password,created_at,village,appearance) VALUES(?,?,?,?,?,?)',userId,'persist_world','test-hash',new Date().toISOString(),JSON.stringify(village),JSON.stringify(appearance));
     store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,kind,score) VALUES(?,?,?,?,?,?,1,?,?)',gid,userId,userId,'[]',JSON.stringify(newRun()),Date.now(),'runner',1234);
     store.close();store=openStore(file);const user=store.one('SELECT * FROM users WHERE id=?',userId);assert.deepEqual(JSON.parse(user.village),village);assert.deepEqual(JSON.parse(user.appearance),appearance);assert.equal(store.one('SELECT score FROM games WHERE id=?',gid).score,1234);

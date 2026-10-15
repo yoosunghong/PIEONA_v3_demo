@@ -89,7 +89,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
   const incoming = store.one("SELECT status FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'", user.id, viewerId);
   const result = {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
-    village: {items:[],...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
+    village: {items:[],theme:'default',...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
     stage: own || s.stageVisible ? stageOf(store, user) : null,
     tags: s.publicTags, online: online.has(user.id), allowVisitors: s.allowVisitors,
     allowTopics: s.allowTopics, receiveTranscripts: s.receiveTranscripts,

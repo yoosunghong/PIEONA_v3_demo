@@ -2,9 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Bone,Group,PerspectiveCamera,Vector3,AnimationMixer,AnimationClip,NumberKeyframeTrack} from 'three';
 import {createRunMotion} from '../src/avatarMotion.mjs';
-import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,joystickAxis} from '../src/villageMovement.mjs';
+import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,joystickAxis,villageJumpHeight} from '../src/villageMovement.mjs';
 
 const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-6,`${actual} != ${expected}`);
+
+test('village jumps land after one arc and space never interrupts text input',()=>{
+  const started=1000;
+  near(villageJumpHeight(started,1000),0);
+  near(villageJumpHeight(started,1360),1.15);
+  near(villageJumpHeight(started,1720),0);
+  near(villageJumpHeight(started,2000),0);
+  near(villageJumpHeight(undefined,1360),0);
+  assert.equal(villageMovementKey({key:' ',code:'Space'}),' ');
+  assert.equal(villageMovementKey({key:' ',target:{closest:()=>({})}}),null);
+  assert.equal(villageMovementKey({key:' ',target:{closest:selector=>selector.includes('button')?{}:null}}),null);
+});
 
 test('the village stand-in disappears while the owner is present and returns on departure',()=>{
   const visitor={userId:'guest'},owner={userId:'owner'};

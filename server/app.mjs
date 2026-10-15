@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, defaultSettings } from './store.mjs';
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
-import { decorations, hats, accessories, colors, validPlacement } from '../shared/world.mjs';
+import { decorations, hats, accessories, colors, validPlacement, villageThemes } from '../shared/world.mjs';
 import { RUN_DURATION, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
 
 const scrypt = promisify(scryptCallback);
@@ -118,9 +118,9 @@ export function createApp(options = {}) {
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
-    const data=z.object({village:z.object({items:z.array(item).max(24)}).strict().optional(),appearance:z.object({hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict().optional()}).strict().parse(req.body);
+    const data=z.object({village:z.object({items:z.array(item).max(24),theme:z.enum(villageThemes.map(t=>t.id)).optional()}).strict().optional(),appearance:z.object({hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict().optional()}).strict().parse(req.body);
     if(data.village){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
-    const user=userById(req.user.id);store.run('UPDATE users SET village=?,appearance=? WHERE id=?',data.village?JSON.stringify(data.village):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,user.id);
+    const user=userById(req.user.id);store.run('UPDATE users SET village=?,appearance=? WHERE id=?',data.village?JSON.stringify({...JSON.parse(user.village),...data.village}):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,user.id);
     emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
     res.json({user:profile(userById(user.id),user.id)});
   });
@@ -373,13 +373,15 @@ export function createApp(options = {}) {
       const target=userById(current.villageId);
       if(!sessionUser(socket.request.headers)||uid!==target.id&&(!settingsOf(target).allowVisitors||isBlocked(store,uid,target.id))){leaveVillage(socket);return;}
       const {x,z,rotation,moving}=data;
+      if(data.jumpStarted!==undefined&&(!Number.isFinite(data.jumpStarted)||data.jumpStarted<0||data.jumpStarted>Date.now()+5000))return;
       if(![x,z,rotation].every(value=>typeof value==='number'&&Number.isFinite(value))||typeof moving!=='boolean')return;
       const member=villageVisitors.get(current.villageId)?.get(uid);if(!member)return;
-      const time=Date.now();if(moving&&time-member.lastMove<60)return;
+      const time=Date.now();if(moving&&time-member.lastMove<60&&data.jumpStarted===member.jumpStarted)return;
       member.lastMove=time;
       const radius=Math.hypot(x,z),factor=radius>5.8?5.8/radius:1;
       member.x=x*factor;member.z=z*factor;member.rotation=Math.atan2(Math.sin(rotation),Math.cos(rotation));member.moving=moving;
-      const update={villageId:current.villageId,userId:uid,x:member.x,z:member.z,rotation:member.rotation,moving};
+      if(data.jumpStarted!==undefined)member.jumpStarted=data.jumpStarted;
+      const update={villageId:current.villageId,userId:uid,x:member.x,z:member.z,rotation:member.rotation,moving,...(member.jumpStarted!==undefined?{jumpStarted:member.jumpStarted}:{})};
       const room=socket.to(`village:${current.villageId}`);
       // Moving samples can be dropped; the final pose must be delivered reliably.
       if(moving)room.volatile.emit('village:move',update);else room.emit('village:move',update);

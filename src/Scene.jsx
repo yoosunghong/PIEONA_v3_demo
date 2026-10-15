@@ -2,31 +2,34 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
-import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn} from './villageMovement.mjs';
+import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,villageJumpHeight} from './villageMovement.mjs';
+import {villageThemes} from '../shared/world.mjs';
 import {createDecoration,dressAvatar,disposeObject} from './worldAssets';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({movementInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false}){
+export default function Scene({movementInput,jumpInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false}){
   const mount=useRef();const callbacks=useRef({onInteract,onReady,onPositionChange,movementInput});callbacks.current={onInteract,onReady,onPositionChange,movementInput};
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused]);
   useEffect(()=>{
     const el=mount.current;if(!el)return;let disposed=false;let frame;setLoading(true);setError('');
     const palette=themes[theme]||themes.sage;
+    const mood=villageThemes.find(t=>t.id===village.theme)||villageThemes[0];
     let renderer;try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});}catch{setError('3D 화면을 시작할 수 없어요. 브라우저의 하드웨어 가속을 켜주세요.');setLoading(false);return;}
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;el.appendChild(renderer.domElement);
-    const world=new THREE.Scene();world.background=new THREE.Color(0xeaf4fc);world.fog=new THREE.FogExp2(0xeaf4fc,.021);
+    const world=new THREE.Scene();world.background=new THREE.Color(mood.sky);world.fog=new THREE.FogExp2(mood.sky,.021);
     const camera=new THREE.PerspectiveCamera(38,1,.1,120);camera.position.set(...(portrait?[0,1.65,5.4]:[6,4.5,9]));
     const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.enableZoom=true;controls.minDistance=portrait?3:5;controls.maxDistance=26;controls.minPolarAngle=.18;controls.maxPolarAngle=Math.PI*.49;controls.target.set(0,portrait?1.65:1.3,0);
-    world.add(new THREE.HemisphereLight(0xf5fbff,0xabc0d0,1.8));
+    world.add(new THREE.HemisphereLight(mood.sky,0xabc0d0,mood.ambient));
     const sun=new THREE.DirectionalLight(0xfff3e6,2.8);sun.position.set(-5,12,7);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12,near:1,far:40});sun.shadow.normalBias=.025;sun.shadow.intensity=.55;world.add(sun);
     const rim=new THREE.DirectionalLight(0xcce5ff,1.5);rim.position.set(5,6,-5);world.add(rim);
+    sun.color.setHex(mood.light);sun.intensity=mood.intensity;
     const materials=[];const geometries=[];
     const mat=(color,extra={})=>{const m=new THREE.MeshStandardMaterial({color,roughness:.85,...extra});materials.push(m);return m;};
-    const green=mat(0xb9d5db),earth=mat(0xb2cbdc),stone=mat(0xd5e5ee),bark=mat(0xbba995),leaf=mat(palette.accent),petal=mat(palette.flowers),cream=mat(0xfff7ee),wood=mat(0xb79984),roof=mat(0xa3c4dc),glow=mat(0xffe7b9,{emissive:0xffd6a1,emissiveIntensity:.45});
+    const green=mat(mood.ground),earth=mat(0xb2cbdc),stone=mat(0xd5e5ee),bark=mat(0xbba995),leaf=mat(palette.accent),petal=mat(palette.flowers),cream=mat(0xfff7ee),wood=mat(0xb79984),roof=mat(0xa3c4dc),glow=mat(0xffe7b9,{emissive:0xffd6a1,emissiveIntensity:.45});
     function mesh(geometry,material,x=0,y=0,z=0,parent=world){geometries.push(geometry);const o=new THREE.Mesh(geometry,material);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
     function box(w,h,d,m,x,y,z,parent){return mesh(new THREE.BoxGeometry(w,h,d),m,x,y,z,parent);}
     function ball(r,m,x,y,z,parent){return mesh(new THREE.SphereGeometry(r,24,16),m,x,y,z,parent);}
@@ -87,20 +90,20 @@ export default function Scene({movementInput,mode='home',theme='sage',emotion='c
     renderer.domElement.addEventListener('pointerdown',down);renderer.domElement.addEventListener('pointerup',click);
     let previousMode;let transitioning=true;let transitionTarget=new THREE.Vector3();let transitionLook=new THREE.Vector3();
     state.current={mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused};
-    const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0;
+    const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0,jumpRequested=false;
     function keydown(e){
       const s=state.current,key=villageMovementKey(e);
       if(!key||!s?.inputEnabled||s.paused)return;
       if(s.mode!=='village'&&ownerId!==s.viewerId)return;
-      e.preventDefault();heldKeys.add(key);
+      e.preventDefault();if(key===' '){if(!e.repeat)jumpRequested=true;}else heldKeys.add(key);
     }
     function keyup(e){heldKeys.delete((e.code?.startsWith('Key')?e.code.slice(3):e.key).toLowerCase());}
-    function clearKeys(){heldKeys.clear();if(callbacks.current.movementInput)callbacks.current.movementInput.current={x:0,y:0};const entry=remoteCharacters.get(state.current?.viewerId);if(entry?.moving){entry.moving=false;entry.runMotion.update(0,false);entry.idleAction?.reset().play();callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false});}}
+    function clearKeys(){heldKeys.clear();jumpRequested=false;if(jumpInput)jumpInput.current=false;if(callbacks.current.movementInput)callbacks.current.movementInput.current={x:0,y:0};const entry=remoteCharacters.get(state.current?.viewerId);if(entry?.moving){entry.moving=false;entry.runMotion.update(0,false);entry.idleAction?.reset().play();callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false,jumpStarted:entry.jumpStarted||0});}}
     function visibilityChanged(){if(document.hidden)clearKeys();}
     window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',visibilityChanged);
     const observer=new ResizeObserver(()=>{const {width,height}=el.getBoundingClientRect();if(!width||!height)return;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();});observer.observe(el);
     const clock=new THREE.Clock();
-    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();return;}
+    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();controls.update();renderer.render(world,camera);return;}
       if(s.mode!==previousMode){previousMode=s.mode;transitioning=true;if(s.mode!=='village')heldKeys.clear();if(s.mode==='village'){transitionTarget.set(11,17,14);transitionLook.set(0,0,0);}else{transitionTarget.set(...(portrait?[0,1.65,5.4]:[4.7,3.25,8]));transitionLook.set(0,portrait?1.65:1.45,0);}}
       if(transitioning){const blend=1-Math.exp(-3.4*dt);camera.position.lerp(transitionTarget,blend);controls.target.lerp(transitionLook,blend);if(camera.position.distanceTo(transitionTarget)<.03)transitioning=false;}
       controls.update();
@@ -119,9 +122,12 @@ export default function Scene({movementInput,mode='home',theme='sage',emotion='c
           entry.root.visible=true;
           if(member.userId===ownerId)entry.root.userData.action='avatar';
           const previousX=entry.root.position.x,previousZ=entry.root.position.z;
+          let jumped=false;
           if(member.userId!==s.viewerId){entry.root.position.x+=(member.x-entry.root.position.x)*Math.min(1,dt*12);entry.root.position.z+=(member.z-entry.root.position.z)*Math.min(1,dt*12);entry.root.rotation.y+=Math.atan2(Math.sin((member.rotation||0)-entry.root.rotation.y),Math.cos((member.rotation||0)-entry.root.rotation.y))*Math.min(1,dt*12);}
           else{
             const active=s.inputEnabled&&(s.mode==='village'||ownerId===s.viewerId);
+            if(active&&(jumpRequested||jumpInput?.current)&&(!entry.jumpStarted||Date.now()-entry.jumpStarted>=720)){entry.jumpStarted=Date.now();jumped=true;}
+            jumpRequested=false;if(jumpInput)jumpInput.current=false;
             villageDirection(active?heldKeys:new Set(),camera,direction,active?(callbacks.current.movementInput?.current||{x:0,y:0}):{x:0,y:0});
             if(direction.lengthSq()){
               entry.root.position.addScaledVector(direction,3.2*dt);
@@ -132,14 +138,14 @@ export default function Scene({movementInput,mode='home',theme='sage',emotion='c
           }
           const dx=entry.root.position.x-previousX,dz=entry.root.position.z-previousZ;
           const moving=member.userId===s.viewerId?Math.hypot(dx,dz)>.0001:member.moving||Math.hypot(member.x-entry.root.position.x,member.z-entry.root.position.z)>.025;
-          if(member.userId===s.viewerId&&((moving&&time-lastSent>.1)||(!moving&&entry.moving))){lastSent=time;callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving});}
+          if(member.userId===s.viewerId&&(jumped||(moving&&time-lastSent>.1)||(!moving&&entry.moving))){lastSent=time;callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving,jumpStarted:entry.jumpStarted||0});}
           if(moving!==entry.moving){
             if(moving)entry.idleAction?.stop();
             else{entry.runMotion.update(0,false);entry.idleAction?.reset().play();}
             entry.moving=moving;
           }
           entry.mixer?.update(dt);
-          entry.root.position.y=.39+(moving?entry.runMotion.update(time,true):0);
+          entry.root.position.y=.39+(moving?entry.runMotion.update(time,true):0)+villageJumpHeight(member.userId===s.viewerId?entry.jumpStarted:member.jumpStarted);
         }
       }
       if(mixer){mixer.update(dt);if(action)action.timeScale=s.emotion==='excited'||s.emotion==='happy'?.8:.32;}

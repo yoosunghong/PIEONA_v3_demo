@@ -2,12 +2,18 @@ import {Vector3} from 'three';
 
 const forward=new Vector3(),right=new Vector3();
 
-const movementKeys=new Set(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright']);
+const movementKeys=new Set(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ']);
+
+export function villageJumpHeight(started,now=Date.now()){
+  const t=(now-started)/720;
+  return started&&t>0&&t<1?4*1.15*t*(1-t):0;
+}
 
 export function villageMovementKey(event){
   if(event.defaultPrevented||event.isComposing||event.ctrlKey||event.metaKey||event.altKey)return null;
   if(event.target?.isContentEditable||event.target?.closest?.('input,textarea,select,[role="textbox"]'))return null;
   const key=(event.code?.startsWith('Key')?event.code.slice(3):event.key).toLowerCase();
+  if(key===' '&&event.target?.closest?.('button,a,[role="button"]'))return null;
   return movementKeys.has(key)?key:null;
 }
 

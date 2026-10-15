@@ -1,0 +1,5 @@
+Generation method: built-in image_gen tool, transparent_background=true.
+Saved project asset: public/images/tutorial-guide.png
+
+Final prompt:
+Use case: stylized-concept. Asset type: transparent character cutout for PIEONA cozy village app onboarding popup. Primary request: Create one original friendly tiny chibi garden guide character, full body, smiling and waving hello with one open hand and other hand gently presenting to the right. Soft white fluffy bob hair, little green sprout and small gold crown, cream sweater, sage green shorts, tiny bare feet. Premium soft 3D toy render, rounded proportions, warm inviting face with happy crescent eyes and subtle pink cheeks. Three quarter frontal pose. Entire body visible, generous transparent padding, isolated on genuinely transparent background. No scenery, no lettering, no speech bubbles, no UI, no watermark. This must be a newly designed character and not a reproduction of any existing franchise. Intended to accompany Korean tutorial speech bubbles.
