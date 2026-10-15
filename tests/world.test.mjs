@@ -9,6 +9,7 @@ import {day} from '../server/store.mjs';
 import {existsSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {decorations} from '../shared/world.mjs';
 
 let runtime,url,owner,visitor,third;
 async function request(path,user,body,method=body?'POST':'GET'){const r=await fetch(url+'/api'+path,{method,headers:{'Content-Type':'application/json',...(user?{Cookie:user.cookie}:{})},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,body:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};}
@@ -52,6 +53,17 @@ test('village themes persist independently of avatar slots, preserve furniture a
   const slot=(await request('/slots',owner,{nickname:'theme_test'})).body;
   await request(`/slots/${slot.id}/activate`,owner,{});
   assert.equal((await request('/me',owner)).body.user.village.theme,'twilight');
+});
+
+test('all editor props are accepted by world API and survive reload and visitor reads',async()=>{
+  const user=await register('prop_catalog_owner');
+  for(const entry of decorations){
+    const items=[{...piece(),type:entry.id,rotation:3}];
+    const result=await request('/me/world',user,{village:{items}},'PATCH');
+    assert.equal(result.status,200,entry.id);
+    assert.deepEqual((await request('/me',user)).body.user.village.items,items);
+    assert.deepEqual((await request('/users/'+user.id,visitor)).body.user.village.items,items);
+  }
 });
 
 test('live visitors receive clothing updates; the host is separate from player positions',async()=>{

@@ -15,8 +15,8 @@ export function createDecoration(type){
     for(let i=0;i<5;i++){const x=(i-2)*.17;cyl(.018,.018,.3,green,x,.48,0);ball(.105,i%2?pink:blue,x,.68,0);const leaf=ball(.09,green,x+.06,.46,0);leaf.scale.set(.8,.3,1);}
   }else if(type==='bench'){
     for(const x of [-.42,.42])box(.1,.45,.5,wood,x,.23,0);
-    for(let i=0;i<3;i++)box(1.15,.08,.14,cream,0,.49,(i-1)*.17);
-    box(1.15,.15,.08,wood,0,.75,-.25);box(1.15,.14,.08,cream,0,.94,-.25);
+    for(let i=0;i<3;i++)box(1.15,.08,.14,wood,0,.49,(i-1)*.17);
+    box(1.15,.15,.08,wood,0,.75,-.25);box(1.15,.14,.08,wood,0,.94,-.25);
   }else if(type==='lantern'){
     cyl(.22,.3,.12,wood,0,.06,0);cyl(.045,.07,1.4,wood,0,.78,0);
     const lit=material('#ffdf96');lit.emissive.set('#ffc979');lit.emissiveIntensity=.8;
@@ -33,6 +33,69 @@ export function createDecoration(type){
     cyl(.35,.43,.8,cream,0,.4,0);const cap=ball(.64,pink,0,.93,0);cap.scale.y=.55;
     box(.22,.4,.04,wood,0,.23,.4);ball(.12,blue,.25,.6,.31);
     for(const [x,y,z] of [[0,1.25,0],[-.3,1.12,.27],[.3,1.12,.27]])ball(.09,cream,x,y,z);
+  }else if(type==='cherry'||type==='bush'){
+    if(type==='cherry'){
+      cyl(.1,.2,1.6,wood,0,.8,0);
+      for(const sign of [-1,1]){const branch=cyl(.045,.07,.8,wood,sign*.22,1.25,0);branch.rotation.z=-sign*.5;}
+    }
+    const y=type==='cherry'?1.65:.3,s=type==='cherry'?.62:.36;
+    for(const [x,h,z] of [[0,.3,0],[-.5,0,0],[.5,.12,0],[-.2,.05,.4],[.25,.42,-.24]]){
+      ball(s,type==='cherry'?pink:green,x*.8,y+h,z);
+      for(let i=0;i<3;i++)ball(.065,cream,x*.8+Math.sin(i*3)*s*.6,y+h+s*.8,z+Math.cos(i*3)*s*.5);
+    }
+  }else if(type==='parasol'){
+    cyl(.48,.5,.1,wood,0,.65,0);cyl(.055,.1,.6,wood,0,.3,0);cyl(.025,.025,1.65,wood,0,.9,0);
+    shape(new THREE.ConeGeometry(.9,.32,10),cream,0,1.8,0);
+    for(let i=0;i<10;i++){const a=i*Math.PI/5;const spoke=box(.025,.025,.85,wood,Math.sin(a)*.41,1.7,Math.cos(a)*.41);spoke.rotation.y=a;spoke.rotation.x=.16;}
+    for(const x of [-.65,.65]){cyl(.22,.24,.12,wood,x,.35,.16);for(const z of [-.12,.12])box(.055,.3,.055,wood,x,.16,z+.16);}
+  }else if(type==='cart'){
+    box(1.2,.65,.65,wood,0,.64,0);box(1.32,.08,.78,cream,0,1.01,0);
+    for(const x of [-.46,.46]){box(.045,1.1,.045,wood,x,1.48,-.22);const wheel=cyl(.23,.23,.08,wood,x,.27,.38);wheel.rotation.x=Math.PI/2;ball(.07,cream,x,.27,.44);}
+    for(let i=0;i<7;i++){const roof=box(.2,.065,.96,i%2?cream:blue,-.6+i*.2,2.02,.06);roof.rotation.x=.13;box(.2,.19,.05,i%2?cream:blue,-.6+i*.2,1.91,.54);}
+    for(let i=0;i<4;i++){cyl(.08,.065,.15,cream,-.38+i*.25,1.13,0);ball(.08,pink,-.38+i*.25,1.22,0);}
+  }else if(type==='fence'){
+    for(const x of [-.6,0,.6]){box(.13,.85,.13,wood,x,.43,0);shape(new THREE.ConeGeometry(.1,.14,4),wood,x,.91,0);}
+    for(const y of [.3,.65])box(1.4,.12,.09,wood,0,y,.02);
+  }else if(type==='path'){
+    for(let i=0;i<3;i++){const tile=box(.75,.07,.38,cream,(i%2)*.12,.035,(i-1)*.43);tile.rotation.y=i%2?.06:-.04;}
+  }else if(type==='statue'){
+    cyl(.42,.48,.16,cream,0,.08,0);cyl(.32,.38,.12,cream,0,.22,0);
+    const body=ball(.28,cream,0,.63,0);body.scale.y=1.25;ball(.3,cream,0,1.02,0);
+    for(const x of [-.16,.16]){const ear=ball(.13,cream,x,1.36,0);ear.scale.set(.65,1.7,.7);ball(.045,wood,x*.65,1.05,.275);ball(.12,cream,x,.35,.15);}
+    shape(new THREE.ConeGeometry(.27,.25,5),material('#dfbe7f'),0,1.48,0);
+  }else if(type==='mushroomSeat'){
+    cyl(.18,.24,.45,cream,0,.23,0);const cap=ball(.48,pink,0,.6,0);cap.scale.y=.65;
+    for(const [x,z] of [[0,0],[-.25,.14],[.23,.17],[.1,-.26]])ball(.07,cream,x,.84-Math.hypot(x,z)*.2,z);
+  }else if(type==='swing'){
+    for(const x of [-.65,.65])for(const sign of [-1,1]){const pole=cyl(.045,.055,1.9,pink,x,.92,sign*.3);pole.rotation.x=sign*.32;}
+    box(1.5,.1,.1,pink,0,1.85,0);
+    for(const x of [-.35,.35])cyl(.012,.012,1.15,cream,x,1.2,0);
+    box(.85,.1,.42,pink,0,.6,0);box(.85,.3,.06,pink,0,.79,-.19);
+  }else if(type==='sign'){
+    box(.12,1.35,.12,wood,0,.68,0);box(1,.55,.12,wood,0,1.18,0);box(.83,.39,.03,cream,0,1.18,.08);
+    for(let i=0;i<3;i++)box(.55-i*.12,.035,.02,wood,-.07,1.27-i*.09,.105);
+  }else if(type==='mailbox'){
+    box(.11,.85,.11,wood,0,.42,0);box(.55,.38,.5,blue,0,1,0);const roof=cyl(.28,.28,.5,blue,0,1.18,0);roof.rotation.x=Math.PI/2;
+    box(.32,.04,.02,wood,0,1.04,.26);box(.035,.36,.035,wood,.32,1.23,0);box(.2,.15,.04,pink,.4,1.39,0);
+  }else if(type==='picnic'){
+    box(1.25,.025,1,cream,0,.015,0);
+    for(let i=0;i<5;i++)box(.12,.008,1,pink,-.5+i*.25,.035,0);
+    box(.55,.3,.35,wood,0,.2,0);const handle=shape(new THREE.TorusGeometry(.23,.025,8,18,Math.PI),wood,0,.36,0);handle.scale.y=.8;
+    ball(.1,pink,.14,.37,.05);cyl(.08,.06,.15,cream,-.4,.12,.25);
+  }else if(type==='flowerLamp'){
+    cyl(.15,.22,.08,cream,0,.04,0);cyl(.025,.04,1.05,green,0,.55,0);
+    const light=material('#ffe9a3');light.emissive.set('#ffd06e');light.emissiveIntensity=.65;
+    for(let i=0;i<5;i++){const a=i*Math.PI*2/5;const petal=ball(.19,cream,Math.cos(a)*.21,1.1+Math.sin(a)*.21,0);petal.scale.z=.4;}
+    ball(.15,light,0,1.1,.05);
+  }else if(type==='gazebo'){
+    cyl(.95,1,.12,cream,0,.06,0);
+    for(let i=0;i<6;i++){const a=i*Math.PI/3;cyl(.04,.06,1.5,cream,Math.cos(a)*.8,.85,Math.sin(a)*.8);}
+    shape(new THREE.ConeGeometry(1.18,.6,6),blue,0,1.9,0);ball(.08,cream,0,2.25,0);
+    for(const x of [-.5,.5])box(.12,.5,.6,wood,x,.35,0);box(1.2,.08,.6,wood,0,.63,0);
+  }else if(type==='crystal'){
+    cyl(.36,.43,.15,cream,0,.08,0);
+    const glow=material('#bca5f1');glow.emissive.set('#9472ce');glow.emissiveIntensity=.4;
+    for(const [x,h,z] of [[0,.9,0],[-.25,.5,.12],[.23,.65,.08]]){const shard=shape(new THREE.OctahedronGeometry(.25,0),glow,x,h*.5+.15,z);shard.scale.y=h/.35;}
   }
   // Dispose materials that weren't used by this model, too.
   const used=new Set();root.traverse(o=>{if(o.isMesh)used.add(o.material);});
@@ -72,4 +135,4 @@ export function dressAvatar(avatar,appearance={}){
   for(const material of [color,gold])if(!used.has(material))material.dispose();
 }
 
-export function disposeObject(root){const geometries=new Set(),materials=new Set();root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});geometries.forEach(g=>g.dispose());materials.forEach(m=>{m.map?.dispose();m.dispose();});}
+export function disposeObject(root){const geometries=new Set(),materials=new Set();root.traverse(o=>{if(o.isInstancedMesh)o.dispose();if(o.geometry)geometries.add(o.geometry);if(o.material)for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});geometries.forEach(g=>g.dispose());materials.forEach(m=>{m.map?.dispose();m.dispose();});}

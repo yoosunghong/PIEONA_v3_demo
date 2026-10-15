@@ -1,12 +1,30 @@
 // Original, code-generated 3D assets; this catalog is shared by editor and server.
 export const decorations = [
-  {id:'planter',name:'튤립 화단',icon:'🌷',color:'#edabc5'},
-  {id:'bench',name:'정원 벤치',icon:'🪑',color:'#bf947b'},
-  {id:'lantern',name:'별빛 가로등',icon:'🏮',color:'#efc976'},
-  {id:'fountain',name:'구름 분수',icon:'⛲',color:'#92cce9'},
-  {id:'arch',name:'꽃 아치',icon:'🌸',color:'#c5abdf'},
-  {id:'mushroom',name:'버섯 오두막',icon:'🍄',color:'#dca7a4'}
+  {id:'bench',name:'나무 벤치',category:'furniture',color:'#bf947b'},
+  {id:'lantern',name:'가로등',category:'lighting',color:'#efc976'},
+  {id:'cherry',name:'벚꽃나무',category:'plants',color:'#edabc5'},
+  {id:'parasol',name:'파라솔 테이블',category:'furniture',color:'#f4dea4'},
+  {id:'fountain',name:'분수대',category:'decor',color:'#92cce9'},
+  {id:'cart',name:'푸드 카트',category:'buildings',color:'#9fc4d8'},
+  {id:'fence',name:'울타리',category:'decor',color:'#bf947b'},
+  {id:'planter',name:'꽃 화단',category:'plants',color:'#edabc5'},
+  {id:'path',name:'돌길',category:'decor',color:'#d4d2df'},
+  {id:'statue',name:'피어나 조각상',category:'decor',color:'#e8e3f2'},
+  {id:'mushroomSeat',name:'버섯 의자',category:'furniture',color:'#e4a4c8'},
+  {id:'swing',name:'그네',category:'furniture',color:'#e4b9ce'},
+  {id:'arch',name:'꽃 아치',category:'decor',color:'#c5abdf'},
+  {id:'sign',name:'나무 안내판',category:'other',color:'#bf947b'},
+  {id:'bush',name:'꽃 덤불',category:'plants',color:'#9ebc94'},
+  {id:'mushroom',name:'버섯 오두막',category:'buildings',color:'#dca7a4'},
+  {id:'mailbox',name:'편지함',category:'other',color:'#98b7dc'},
+  {id:'picnic',name:'피크닉 바구니',category:'furniture',color:'#dfb29b'},
+  {id:'flowerLamp',name:'꽃 조명',category:'lighting',color:'#f4d694'},
+  {id:'gazebo',name:'정원 정자',category:'buildings',color:'#b8c8df'},
+  {id:'crystal',name:'별빛 수정',category:'lighting',color:'#b8a7e9'}
 ];
+// The legacy 2D catalog also uses these symbols for saved items.
+const decorIcons=['🪑','🏮','🌸','⛱️','⛲','🛒','🪵','🌷','🪨','🐰','🍄','🎠','🌸','🪧','🌿','🍄','📬','🧺','🌼','🏛️','💎'];
+decorations.forEach((item,index)=>{item.icon=decorIcons[index];});
 export const hats=[{id:'none',name:'벗기'},{id:'beret',name:'구름 베레모'},{id:'crown',name:'별 왕관'},{id:'sprout',name:'새싹 머리핀'}];
 export const accessories=[{id:'none',name:'벗기'},{id:'scarf',name:'포근한 스카프'},{id:'bow',name:'리본 타이'},{id:'wings',name:'요정 날개'}];
 export const colors=['#88b5d7','#d994b6','#a6bc83','#c8a0dd','#e5b570','#eee7da'];
