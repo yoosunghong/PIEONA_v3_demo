@@ -42,6 +42,11 @@ export function openStore(filename = './data/pieona.sqlite') {
   `);
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='active_slot'))db.exec("ALTER TABLE users ADD COLUMN active_slot TEXT NOT NULL DEFAULT ''");
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='anonymous'))db.exec('ALTER TABLE games ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');
+  for(const column of ['village','appearance'])if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name===column))db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT '{}'`);
+  if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='kind'))db.exec("ALTER TABLE games ADD COLUMN kind TEXT NOT NULL DEFAULT 'rhythm'");
+  if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='score'))db.exec('ALTER TABLE games ADD COLUMN score INTEGER');
+  // Backfill completed rhythm rounds, including rounds without a gold reward.
+  db.prepare("SELECT id,hits FROM games WHERE finished=1 AND kind='rhythm' AND score IS NULL").all().forEach(g=>db.prepare('UPDATE games SET score=? WHERE id=?').run(JSON.parse(g.hits).reduce((n,h)=>n+(h.rating==='perfect'?100:65),0),g.id));
   if(!db.prepare('PRAGMA table_info(conversations)').all().some(c=>c.name==='avatar_slot')){
     db.exec("ALTER TABLE conversations ADD COLUMN avatar_slot TEXT NOT NULL DEFAULT ''; UPDATE conversations SET avatar_slot=COALESCE((SELECT active_slot FROM users WHERE users.id=conversations.target_id),'')");
   }
@@ -84,6 +89,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
   const incoming = store.one("SELECT status FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'", user.id, viewerId);
   const result = {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
+    village: {items:[],...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
     stage: own || s.stageVisible ? stageOf(store, user) : null,
     tags: s.publicTags, online: online.has(user.id), allowVisitors: s.allowVisitors,
     allowTopics: s.allowTopics, receiveTranscripts: s.receiveTranscripts,
