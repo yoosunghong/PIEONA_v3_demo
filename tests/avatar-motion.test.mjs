@@ -2,9 +2,31 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Bone,Group,PerspectiveCamera,Vector3,AnimationMixer,AnimationClip,NumberKeyframeTrack} from 'three';
 import {createRunMotion} from '../src/avatarMotion.mjs';
-import {villageDirection,villageMovementKey,villagePlayers} from '../src/villageMovement.mjs';
+import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,joystickAxis} from '../src/villageMovement.mjs';
 
 const near=(actual,expected)=>assert.ok(Math.abs(actual-expected)<1e-6,`${actual} != ${expected}`);
+
+test('the village stand-in disappears while the owner is present and returns on departure',()=>{
+  const visitor={userId:'guest'},owner={userId:'owner'};
+  assert.equal(showVillageStandIn('village','owner',[visitor]),true);
+  assert.equal(showVillageStandIn('village','owner',[visitor,owner]),false);
+  assert.equal(showVillageStandIn('village','owner',[]),true);
+  assert.equal(showVillageStandIn('village','owner',villagePlayers([],'owner','owner','나',{})),false);
+  // Close-up conversations keep a single portrait while the local walking model is hidden.
+  assert.equal(showVillageStandIn('home','owner',[owner,visitor]),true);
+});
+
+test('touch stick has a dead zone and bounded analog speed in camera space',()=>{
+  assert.deepEqual(joystickAxis(2,-2),{x:0,y:0});
+  assert.deepEqual(joystickAxis(22,0),{x:.5,y:0});
+  const diagonal=joystickAxis(1000,-1000);near(Math.hypot(diagonal.x,diagonal.y),1);
+  const camera=new PerspectiveCamera();camera.position.set(11,17,14);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+  const half=villageDirection(new Set(),camera,new Vector3(),joystickAxis(22,0));near(half.length(),.5);
+  const keyboard=villageDirection(new Set(['d']),camera);
+  near(half.clone().normalize().dot(keyboard),1);
+  near(villageDirection(new Set(['d']),camera,new Vector3(),diagonal).length(),1);
+  near(villageDirection(new Set(),camera,new Vector3(),joystickAxis(0,0)).length(),0);
+});
 
 test('walking ignores text editing, composition and browser shortcuts',()=>{
   assert.equal(villageMovementKey({key:'W'}),'w');

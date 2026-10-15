@@ -2,15 +2,15 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
-import {villageDirection,villageMovementKey,villagePlayers} from './villageMovement.mjs';
+import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn} from './villageMovement.mjs';
 import {createDecoration,dressAvatar,disposeObject} from './worldAssets';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,onWalkRequest,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false}){
-  const mount=useRef();const callbacks=useRef({onInteract,onReady,onPositionChange,onWalkRequest});callbacks.current={onInteract,onReady,onPositionChange,onWalkRequest};
+export default function Scene({movementInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,onWalkRequest,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false}){
+  const mount=useRef();const callbacks=useRef({onInteract,onReady,onPositionChange,onWalkRequest,movementInput});callbacks.current={onInteract,onReady,onPositionChange,onWalkRequest,movementInput};
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused]);
   useEffect(()=>{
@@ -88,7 +88,7 @@ export default function Scene({mode='home',theme='sage',emotion='calm',sceneType
       e.preventDefault();heldKeys.add(key);
     }
     function keyup(e){heldKeys.delete((e.code?.startsWith('Key')?e.code.slice(3):e.key).toLowerCase());}
-    function clearKeys(){heldKeys.clear();const entry=remoteCharacters.get(state.current?.viewerId);if(entry?.moving){entry.moving=false;entry.runMotion.update(0,false);entry.idleAction?.reset().play();callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false});}}
+    function clearKeys(){heldKeys.clear();if(callbacks.current.movementInput)callbacks.current.movementInput.current={x:0,y:0};const entry=remoteCharacters.get(state.current?.viewerId);if(entry?.moving){entry.moving=false;entry.runMotion.update(0,false);entry.idleAction?.reset().play();callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false});}}
     function visibilityChanged(){if(document.hidden)clearKeys();}
     window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',clearKeys);document.addEventListener('visibilitychange',visibilityChanged);
     const observer=new ResizeObserver(()=>{const {width,height}=el.getBoundingClientRect();if(!width||!height)return;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();});observer.observe(el);
@@ -97,10 +97,12 @@ export default function Scene({mode='home',theme='sage',emotion='calm',sceneType
       if(s.mode!==previousMode){previousMode=s.mode;transitioning=true;if(s.mode!=='village')heldKeys.clear();if(s.mode==='village'){transitionTarget.set(11,17,14);transitionLook.set(0,0,0);}else{transitionTarget.set(...(portrait?[0,1.65,5.4]:[4.7,3.25,8]));transitionLook.set(0,portrait?1.65:.8,0);}}
       if(transitioning){const blend=1-Math.exp(-3.4*dt);camera.position.lerp(transitionTarget,blend);controls.target.lerp(transitionLook,blend);if(camera.position.distanceTo(transitionTarget)<.03)transitioning=false;}
       controls.update();
+      const players=villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);
+      avatarRoot.visible=showVillageStandIn(s.mode,ownerId,players);
       if(hostTag)hostTag.visible=s.mode==='village';avatarRoot.position.set(0,.39,0);avatarRoot.rotation.y=.55+Math.sin(time*.25)*.12;
       if(!s.inputEnabled||document.activeElement?.isContentEditable||document.activeElement?.closest?.('input,textarea,select,[role="textbox"]'))heldKeys.clear();
       if(characterAsset){
-        const members=s.mode==='village'||ownerId===s.viewerId?villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance):[];
+        const members=s.mode==='village'||ownerId===s.viewerId?players:[];
         const desired=new Set(members.map(m=>m.userId));
         for(const [id,entry] of remoteCharacters){if(!desired.has(id)){world.remove(entry.root);disposeCharacter(entry.root);entry.mixer?.stopAllAction();entry.mixer?.uncacheRoot(entry.mixer.getRoot());remoteCharacters.delete(id);}}
         for(const member of members){
@@ -108,10 +110,12 @@ export default function Scene({mode='home',theme='sage',emotion='calm',sceneType
           if(entry&&entry.root.userData.look!==JSON.stringify(member.appearance||appearance)){world.remove(entry.root);disposeCharacter(entry.root);entry.mixer?.stopAllAction();entry.mixer?.uncacheRoot(entry.mixer.getRoot());remoteCharacters.delete(member.userId);entry=null;}
           if(!entry){entry=buildRemote(member);remoteCharacters.set(member.userId,entry);if(member.userId===s.viewerId)callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false});}
           entry.root.visible=member.userId!==s.viewerId||s.mode==='village';
+          if(member.userId===ownerId)entry.root.userData.action='avatar';
           const previousX=entry.root.position.x,previousZ=entry.root.position.z;
           if(member.userId!==s.viewerId){entry.root.position.x+=(member.x-entry.root.position.x)*Math.min(1,dt*12);entry.root.position.z+=(member.z-entry.root.position.z)*Math.min(1,dt*12);entry.root.rotation.y+=Math.atan2(Math.sin((member.rotation||0)-entry.root.rotation.y),Math.cos((member.rotation||0)-entry.root.rotation.y))*Math.min(1,dt*12);}
           else{
-            villageDirection(s.mode==='village'?heldKeys:new Set(),camera,direction);
+            const active=s.inputEnabled&&s.mode==='village';
+            villageDirection(active?heldKeys:new Set(),camera,direction,active?(callbacks.current.movementInput?.current||{x:0,y:0}):{x:0,y:0});
             if(direction.lengthSq()){
               entry.root.position.addScaledVector(direction,3.2*dt);
               const radius=Math.hypot(entry.root.position.x,entry.root.position.z);

@@ -18,10 +18,22 @@ export function villagePlayers(members,ownerId,viewerId,nickname,appearance){
 }
 
 // Map input onto the ground relative to the current camera, including after orbiting.
-export function villageDirection(keys,camera,target=new Vector3()){
-  const x=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));
-  const z=Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));
+export function showVillageStandIn(mode,ownerId,members){
+  return mode!=='village'||!members.some(member=>member.userId===ownerId);
+}
+
+export function joystickAxis(x,y,radius=44){
+  const length=Math.hypot(x,y);
+  if(length<radius*.15)return {x:0,y:0};
+  const scale=1/Math.max(radius,length);
+  return {x:x*scale,y:y*scale};
+}
+
+export function villageDirection(keys,camera,target=new Vector3(),stick={x:0,y:0}){
+  const x=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'))+stick.x;
+  const z=Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'))+stick.y;
   camera.getWorldDirection(forward);forward.y=0;forward.normalize();
   right.set(-forward.z,0,forward.x);
-  return target.copy(right).multiplyScalar(x).addScaledVector(forward,-z).normalize();
+  target.copy(right).multiplyScalar(x).addScaledVector(forward,-z);
+  return target.lengthSq()>1?target.normalize():target;
 }

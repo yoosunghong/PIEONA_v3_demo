@@ -1,0 +1,19 @@
+.touch-joystick { display: none; }
+@media (pointer: coarse), (max-width: 800px) {
+  .touch-joystick { display: flex; position: absolute; left: 18px; bottom: 160px; z-index: 6; flex-direction: column; align-items: center; gap: 5px; user-select: none; -webkit-user-select: none; }
+  .joystick-pad { width: 116px; height: 116px; position: relative; display: grid; place-items: center; border-radius: 50%; border: 2px solid #7298bb; background: #f7fbffe8; box-shadow: 0 4px 18px #254f7526; touch-action: none; cursor: grab; }
+  .joystick-pad:active { cursor: grabbing; border-color: #215e9b; }
+  .joystick-cross { color: #567b9c; font-size: 90px; line-height: 1; opacity: .3; pointer-events: none; }
+  .joystick-knob { position: absolute; width: 46px; height: 46px; border-radius: 50%; background: #215e9b; border: 2px solid #fff; box-shadow: 0 2px 8px #183d6550; pointer-events: none; }
+  .joystick-hint { font-size: 11px; font-weight: 600; color: #294f70; background: #ffffffeb; padding: 2px 7px; border-radius: 5px; }
+  .touch-joystick.is-disabled { visibility: hidden; pointer-events: none; }
+  .village-mode .village-label { z-index: 4; }
+}
+@media (max-height: 620px) and (pointer: coarse) {
+  .touch-joystick { bottom: 105px; left: 12px; }
+  .joystick-pad { width: 96px; height: 96px; }
+}
+@media (max-width: 570px) {
+  .village-mode .avatar-card { display: none; }
+  .village-mode .cafe-label { top: 38%; left: 12px; }
+}
