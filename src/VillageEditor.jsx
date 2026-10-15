@@ -5,16 +5,18 @@ import {decorations} from '../shared/world.mjs';
 import {canPlaceDecoration,editorHistory,snapPosition} from './villageEditorState.mjs';
 import {decorationThumbnails} from './decorationThumbnails';
 import './village-editor.css';
+import {SIGN_ID,villageSign,signPlacementItem} from '../shared/sign.mjs';
+import {SignThumbnail} from './SignEditor';
 
 const categories=[{id:'all',name:'전체',Icon:Grid2X2},{id:'furniture',name:'가구',Icon:Armchair},{id:'plants',name:'식물',Icon:Flower2},{id:'decor',name:'장식',Icon:Trees},{id:'buildings',name:'건물',Icon:House},{id:'lighting',name:'조명',Icon:Lightbulb},{id:'other',name:'기타',Icon:Blocks}];
 
 export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange}){
-  const [history,dispatch]=useReducer(editorHistory,{past:[],present:(me.village?.items||[]).map(item=>({...item})),future:[]});
+  const [history,dispatch]=useReducer(editorHistory,{past:[],present:[...(me.village?.items||[]).map(item=>({...item})),signPlacementItem(villageSign(me.village))],future:[]});
   const items=history.present;
   const [category,setCategory]=useState('all'),[query,setQuery]=useState(''),[sort,setSort]=useState(false),[images,setImages]=useState({});
   const [selected,setSelected]=useState(null),[tool,setTool]=useState(null),[rotation,setRotation]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[exitPrompt,setExitPrompt]=useState(false),[cameraAction,setCameraAction]=useState(null);
   const busyRef=useRef(false),initial=useRef(JSON.stringify(items)),backRef=useRef();
-  const chosen=items.find(item=>item.id===selected),active=decorations.find(item=>item.id===(chosen?.type||tool));
+  const chosen=items.find(item=>item.id===selected),active=chosen?.id===SIGN_ID?{id:'villageSign',name:'마을 팻말'}:decorations.find(item=>item.id===(chosen?.type||tool));
   const dirty=initial.current!==JSON.stringify(items);
   useEffect(()=>{if(!dirty)return;const warn=e=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
   let catalog=decorations.filter(item=>(category==='all'||category===item.category)&&item.name.includes(query.trim()));
@@ -27,7 +29,7 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
   function place(point,type=tool){
     if(busyRef.current||!decorations.some(item=>item.id===type))return;
     const x=snapPosition(point.x),z=snapPosition(point.z);
-    if(items.length>=24)return setError('소품은 최대 24개까지 배치할 수 있어요. 기존 소품을 정리해 주세요.');
+    if(items.filter(item=>item.id!==SIGN_ID).length>=24)return setError('소품은 최대 24개까지 배치할 수 있어요. 기존 소품을 정리해 주세요.');
     if(!canPlaceDecoration(items,x,z))return setError('광장·산책로·기존 시설을 피해 빈 격자에 놓아주세요. 소품 사이에는 간격이 필요해요.');
     const item={id:crypto.randomUUID(),type,x,z,rotation};change([...items,item]);setSelected(item.id);setTool(null);
   }
@@ -37,13 +39,13 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
     change(items.map(item=>item.id===id?{...item,x,z}:item));
   }
   function rotate(){if(busyRef.current)return;if(chosen)change(items.map(item=>item.id===selected?{...item,rotation:(item.rotation+1)%4}:item));else setRotation(value=>(value+1)%4);}
-  function remove(){if(!chosen||busyRef.current)return;change(items.filter(item=>item.id!==selected));setSelected(null);}
+  function remove(){if(!chosen||chosen.id===SIGN_ID||busyRef.current)return;change(items.filter(item=>item.id!==selected));setSelected(null);}
   function timeTravel(type){if(busyRef.current)return;dispatch({type});cancel();setError('');}
   function close(){if(busyRef.current)return;if(dirty)setExitPrompt(true);else onClose();}
   async function save(){
     if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');
     try{
-      await api('/me/world',{method:'PATCH',body:{village:{items}}});
+      await api('/me/world',{method:'PATCH',body:{village:{items:items.filter(item=>item.id!==SIGN_ID),sign:{x:items.find(item=>item.id===SIGN_ID).x,z:items.find(item=>item.id===SIGN_ID).z,rotation:items.find(item=>item.id===SIGN_ID).rotation}}}});
       initial.current=JSON.stringify(items);
       try{await onRefresh();}catch{notify('배치는 저장됐어요. 홈 화면을 새로고침하면 저장한 마을을 볼 수 있어요.');}
       notify('마을 꾸미기를 저장했어요.');onClose();
@@ -63,7 +65,7 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
     window.addEventListener('keydown',keydown);return()=>window.removeEventListener('keydown',keydown);
   });
   const camera=type=>setCameraAction({type,at:performance.now()});
-  useLayoutEffect(()=>{onSceneChange({items,editor:{selected,tool,rotation,busy,onSelect:select,onCancel:cancel,onPlace:place,onMove:move,cameraAction}});},[items,selected,tool,rotation,busy,cameraAction,onSceneChange]);
+  useLayoutEffect(()=>{onSceneChange({items:items.filter(item=>item.id!==SIGN_ID),sign:{...villageSign(me.village),...items.find(item=>item.id===SIGN_ID)},editor:{selected,tool,rotation,busy,onSelect:select,onCancel:cancel,onPlace:place,onMove:move,cameraAction}});},[items,selected,tool,rotation,busy,cameraAction,onSceneChange]);
   return <main className="village-studio" aria-label="마을 꾸미기" aria-busy={busy}>
     <header className="studio-heading"><button ref={backRef} className="studio-back" aria-label="마을 꾸미기 나가기" disabled={busy} onClick={close}><ArrowLeft/></button><div><h1>마을 꾸미기</h1><p>나만의 특별한 공간을 만들어보세요</p></div></header>
     <aside className="studio-catalog" aria-label="소품 목록">
@@ -71,11 +73,11 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
       <div className="studio-search"><label><Search size={19}/><input aria-label="소품 검색" placeholder="아이템 이름을 검색하세요..." value={query} onChange={e=>setQuery(e.target.value)}/>{query&&<button aria-label="검색 지우기" onClick={()=>setQuery('')}><X size={14}/></button>}</label><button className={sort?'active':''} aria-label="이름순 정렬" aria-pressed={sort} onClick={()=>setSort(value=>!value)}><SlidersHorizontal size={21}/></button></div>
       <div className="studio-inventory"><nav className="studio-categories" aria-label="전체 소품 분류">{categories.map(({id,name,Icon})=><button key={id} className={category===id?'active':''} aria-pressed={category===id} onClick={()=>setCategory(id)}><Icon strokeWidth={1.65}/><span>{name}</span></button>)}</nav>
         <div className="studio-cards" aria-label="배치할 소품">{catalog.length?catalog.map(item=><button key={item.id} className={'studio-card '+((chosen?.type||tool)===item.id?'selected':'')} aria-label={item.name+' 배치'} aria-pressed={tool===item.id} disabled={busy} draggable={!busy} onDragStart={e=>{e.dataTransfer.setData('application/pieona-decoration',item.id);e.dataTransfer.effectAllowed='copy';pick(item.id);}} onClick={()=>pick(item.id)}><span className="studio-card-art">{images[item.id]?<img src={images[item.id]} alt="" draggable={false}/>:<span className="studio-card-placeholder" style={{background:item.color}}/>}</span><strong>{item.name}</strong><span className="studio-card-add"><Plus size={13}/></span></button>):<p className="studio-empty">검색한 소품이 없어요.<button onClick={()=>{setQuery('');setCategory('all');}}>전체 소품 보기</button></p>}</div>
-      </div><div className="studio-catalog-foot"><span><span className="studio-dot"/>{items.length} / 24 배치</span><span>모든 소품 무료 <Sparkles size={12}/></span></div>
+      </div><button className="studio-sign-position" aria-label="마을 팻말 위치 조정" disabled={busy} onClick={()=>select(SIGN_ID)}><SignThumbnail shape={villageSign(me.village).shape}/><span><strong>마을 팻말</strong><small>선택하여 이동 · 회전</small></span></button><div className="studio-catalog-foot"><span><span className="studio-dot"/>{items.length-1} / 24 배치</span><span>모든 소품 무료 <Sparkles size={12}/></span></div>
     </aside>
     <div className="studio-mode"><Sparkles size={35} strokeWidth={1.5}/><div><strong>편집 모드</strong><p>아이템을 배치하여<br/>나만의 마을을 꾸며보세요!</p></div></div>
     <div className="studio-camera" aria-label="편집 카메라"><button aria-label="줌인" onClick={()=>camera('in')}><ZoomIn size={19}/></button><button aria-label="줌아웃" onClick={()=>camera('out')}><ZoomOut size={19}/></button><span/><button aria-label="카메라 시점 초기화" onClick={()=>camera('reset')}><Focus size={19}/></button></div>
-    {(chosen||tool)&&<div className="studio-selection"><div>{active&&images[active.id]&&<img src={images[active.id]} alt=""/>}<span><strong>{active?.name}</strong><small>{chosen?'드래그로 이동 · 방향키로 미세 조정':'빈 격자를 클릭하거나 소품을 끌어 놓으세요'}</small></span><button aria-label="소품 선택 해제" onClick={cancel} disabled={busy}><X size={17}/></button></div><footer><button onClick={rotate} disabled={busy}><RotateCw size={16}/>회전 <kbd>R</kbd></button>{chosen?<><button disabled={busy||items.length>=24} onClick={()=>{pick(chosen.type);setRotation(chosen.rotation);}}><Copy size={16}/>복제</button><button className="studio-delete" disabled={busy} onClick={remove}><Trash2 size={16}/>삭제</button></>:<span>{rotation*90}°</span>}</footer></div>}
+    {(chosen||tool)&&<div className="studio-selection"><div>{active&&images[active.id]&&<img src={images[active.id]} alt=""/>}<span><strong>{active?.name}</strong><small>{chosen?'드래그로 이동 · 방향키로 미세 조정':'빈 격자를 클릭하거나 소품을 끌어 놓으세요'}</small></span><button aria-label="소품 선택 해제" onClick={cancel} disabled={busy}><X size={17}/></button></div><footer><button onClick={rotate} disabled={busy}><RotateCw size={16}/>회전 <kbd>R</kbd></button>{chosen&&chosen.id!==SIGN_ID?<><button disabled={busy||items.length>=25} onClick={()=>{pick(chosen.type);setRotation(chosen.rotation);}}><Copy size={16}/>복제</button><button className="studio-delete" disabled={busy} onClick={remove}><Trash2 size={16}/>삭제</button></>:<span>{(chosen?.rotation??rotation)*90}°{chosen?.id===SIGN_ID?' · 마을에 하나씩 유지돼요':''}</span>}</footer></div>}
     <div className="studio-hints"><span><Mouse/>드래그 : {tool?'둘러보기 / 클릭 : 배치':'회전 · 소품 이동'}</span><span><Mouse/>휠 : 줌인 / 아웃</span><span><Mouse/>우클릭 / Esc : 선택 취소</span><span className="studio-touch-hint">한 손가락 : 회전 · 두 손가락 : 확대 / 이동</span></div>
     {error&&<div className="studio-error" role="alert"><span>{error}</span><button aria-label="안내 닫기" onClick={()=>setError('')}><X size={16}/></button></div>}
     {exitPrompt&&<div className="studio-exit" role="alertdialog" aria-label="편집 내용 저장"><strong>꾸민 마을을 저장할까요?</strong><p>저장하지 않고 나가면 이번 변경 사항이 사라져요.</p><div><button onClick={()=>setExitPrompt(false)}>계속 꾸미기</button><button disabled={busy} onClick={onClose}>저장하지 않고 나가기</button><button className="studio-save" disabled={busy} onClick={save}>저장하고 나가기</button></div></div>}

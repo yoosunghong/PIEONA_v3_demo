@@ -13,6 +13,7 @@ import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
 import { decorations, hats, accessories, colors, validPlacement, villageThemes, characters, characterLooks } from '../shared/world.mjs';
 import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
+import {villageSign,signColors,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
 
 const scrypt = promisify(scryptCallback);
 const hashToken = value => createHash('sha256').update(value).digest('hex');
@@ -38,6 +39,7 @@ export function createApp(options = {}) {
   const online = new Map(); const locks = new Set(); const villageVisitors = new Map();
   app.set('trust proxy', 'loopback');
   app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'blob:', 'data:'], connectSrc: ["'self'", 'ws:', 'wss:'], workerSrc: ["'self'", 'blob:'], upgradeInsecureRequests: null } }, crossOriginEmbedderPolicy: false }));
+  app.use('/api/me/world',express.json({limit:'1mb'}));
   app.use(express.json({ limit: '20kb' }));
   app.use('/api', (req, res, next) => { res.set('Cache-Control','no-store'); if (!['GET','HEAD','OPTIONS'].includes(req.method) && req.headers.origin && !origins.has(req.headers.origin)) return res.status(403).json({ error: '허용되지 않은 요청 출처입니다.' }); next(); });
   app.use('/api', rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '요청이 많아요. 잠시 후 다시 시도해 주세요.' } }));
@@ -120,13 +122,22 @@ export function createApp(options = {}) {
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
     const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
-    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
+    const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
+    const stroke=z.object({tool:z.enum(['draw','erase']),color:z.enum(signColors),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
+    const signSchema=z.object({x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
+    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     if(data.village?.items){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     const user=userById(req.user.id);
+    const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
+    if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
+    if(data.village?.sign||data.village?.items){
+      const sign=villageSign(nextVillage);
+      if(!validPlacement(sign.x,sign.z)||(nextVillage.items||[]).some(item=>Math.hypot(item.x-sign.x,item.z-sign.z)<.8))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
+    }
     const saved=characterLooks(JSON.parse(user.appearance),JSON.parse(user.character_looks));
     for(const [character,look] of Object.entries(data.characterLooks||{}))if(look)saved[character]={...look,character};
     if(data.appearance)saved[data.appearance.character||'pio']={...data.appearance};
-    store.run('UPDATE users SET village=?,appearance=?,character_looks=? WHERE id=?',data.village?JSON.stringify({...JSON.parse(user.village),...data.village}):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,JSON.stringify(saved),user.id);
+    store.run('UPDATE users SET village=?,appearance=?,character_looks=? WHERE id=?',data.village?JSON.stringify(nextVillage):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,JSON.stringify(saved),user.id);
     emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
     res.json({user:profile(userById(user.id),user.id)});
   });

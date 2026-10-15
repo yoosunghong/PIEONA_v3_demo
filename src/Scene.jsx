@@ -11,11 +11,14 @@ import {createGardenDetails} from './gardenDetails';
 import {createDecoration,dressAvatar,disposeObject} from './worldAssets';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import {SIGN_ID,villageSign,signPlacementItem,signCameraView} from '../shared/sign.mjs';
+import {createVillageSign} from './signModel';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
 export default function Scene({captureRef,movementInput,jumpInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false,editor=null}){
-  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={onInteract,onReady,onPositionChange,movementInput,editor,items:village.items||[]};
+  const signData=villageSign(village),signKey=JSON.stringify(signData);
+  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={onInteract,onReady,onPositionChange,movementInput,editor,sign:signData,items:[...(village.items||[]),signPlacementItem(signData)]};
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused]);
   // Keep one WebGL context for this mounted scene, including all look previews.
@@ -119,6 +122,7 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     function buildRemote(member,asset){const root=new THREE.Group();root.position.set(member.x??0,.39,member.z??0);root.rotation.y=member.rotation||0;const avatar=clone(asset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);root.add(avatar);dressAvatar(avatar,member.appearance||appearance);addNameTag(root,member.nickname);root.userData.look=JSON.stringify(member.appearance||appearance);const runMotion=createRunMotion(avatar);let mixer,idleAction;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);idleAction=mixer.clipAction(asset.animations[0]);idleAction.play();idleAction.timeScale=.45;}world.add(root);return{root,mixer,idleAction,runMotion,moving:false};}
     loadAsset(ownerAppearance.character).then(asset=>{if(disposed)return;characterAsset=asset;characterAssets.set(ownerAppearance.character||'pio',asset);const avatar=clone(asset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());const scale=2.65/Math.max(size.y,.001);avatar.scale.setScalar(scale);const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatarRoot.add(avatar);dressAvatar(avatar,ownerAppearance);hostTag=addNameTag(avatarRoot,ownerNickname||viewerNickname||'피오');if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);action=mixer.clipAction(asset.animations[0]);action.play();action.timeScale=.55;}setLoading(false);if(captureRef)captureRef.current=()=>{drawFrame();return renderer.domElement.toDataURL('image/png');};callbacks.current.onReady?.();}).catch(()=>{if(!disposed){setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');setLoading(false);}});
     const decorationRoot=new THREE.Group();world.add(decorationRoot);
+    const signRoot=new THREE.Group();world.add(signRoot);
     const previewRoot=new THREE.Group();world.add(previewRoot);
     const gridPoints=[];
     for(let i=-13;i<=13;i++){
@@ -128,11 +132,11 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     const gridStyle=editorGridStyle(mood);
     const grid=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(gridPoints,3)),new THREE.LineDashedMaterial({color:gridStyle.color,transparent:true,opacity:0,dashSize:.075,gapSize:.04,depthWrite:false,toneMapped:false,fog:false}));grid.computeLineDistances();grid.position.y=.165;grid.visible=!!editor;world.add(grid);
     // Item updates are independent of the scene, so editing never resets the camera.
-    worldRef.current={decorationRoot,previewRoot,world,controls,camera};
+    worldRef.current={decorationRoot,signRoot,previewRoot,world,controls,camera};
     const raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.16);let pointerDown,dragged=null;
     function ray(e){const rect=el.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);}
     function ground(e){ray(e);const point=raycaster.ray.intersectPlane(groundPlane,new THREE.Vector3());return point?{x:snapPosition(point.x),z:snapPosition(point.z)}:null;}
-    function itemHit(e){ray(e);for(const hit of raycaster.intersectObjects(decorationRoot.children,true)){let obj=hit.object;while(obj&&obj!==decorationRoot){if(obj.userData.itemId)return obj;obj=obj.parent;}}return null;}
+    function itemHit(e){ray(e);for(const hit of raycaster.intersectObjects([...decorationRoot.children,...signRoot.children],true)){let obj=hit.object;while(obj){if(obj.userData.itemId)return obj;obj=obj.parent;}}return null;}
     function down(e){
       if(e.button!==0)return;pointerDown={x:e.clientX,y:e.clientY,id:e.pointerId};
       const edit=callbacks.current.editor;if(!edit||edit.busy)return;
@@ -159,6 +163,7 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     }
     function click(e){
       if(finishDrag(e))return;
+      if(!callbacks.current.editor&&(!state.current?.inputEnabled||state.current?.paused))return;
       if(e.button!==0||!pointerDown||Math.hypot(pointerDown.x-e.clientX,pointerDown.y-e.clientY)>6)return;
       const edit=callbacks.current.editor;
       if(edit){if(edit.busy)return;const point=ground(e);if(edit.tool&&point)edit.onPlace(point);else edit.onSelect(null);return;}
@@ -171,10 +176,10 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     function drop(e){const edit=callbacks.current.editor;if(!edit||edit.busy)return;e.preventDefault();const point=ground(e),type=e.dataTransfer.getData('application/pieona-decoration');if(point&&type)edit.onPlace(point,type);}
     const pointerEvents={pointerdown:down,pointermove:move,pointerup:click,pointercancel:cancel,pointerleave:leave,contextmenu:context,dragover,drop};
     for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.addEventListener(name,handler);
-    let previousMode=mode,cameraTransition=null,returnPose=null,gridOpacity=mode==='edit'?gridStyle.opacity:0;
+    let previousMode=mode,previousSignPose='',cameraTransition=null,returnPose=null,gridOpacity=mode==='edit'?gridStyle.opacity:0;
     worldRef.current.cancelCameraTransition=()=>{cameraTransition=null;};
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const initialView=sceneView(mode,{portrait,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
+    const initialView=mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
     controls.addEventListener('start',()=>{cameraTransition=null;});
     state.current={mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused};
     const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0,jumpRequested=false;
@@ -194,16 +199,17 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     function drawFrame(){viewport.draw(()=>{placeMoon();renderer.render(world,camera);});}
     const clock=new THREE.Clock();let lastPausedRender=-1;
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();if(viewport.needsDraw||time-lastPausedRender>.1){lastPausedRender=time;controls.update();drawFrame();}return;}
-      if(s.mode!==previousMode){
-        const leavingEdit=previousMode==='edit';
-        if(s.mode==='edit')returnPose=cameraPose(camera,controls);
-        const view=leavingEdit&&returnPose?returnPose:sceneView(s.mode,{portrait,mood:mood.id});
+      const modeChanged=s.mode!==previousMode,signPose=[callbacks.current.sign.x,callbacks.current.sign.z,callbacks.current.sign.rotation].join(',');
+      if(modeChanged||s.mode==='sign'&&signPose!==previousSignPose){
+        const leavingDetail=previousMode==='edit'||previousMode==='sign';
+        if(modeChanged&&(s.mode==='edit'||s.mode==='sign'))returnPose=cameraPose(camera,controls);
+        const view=s.mode==='sign'?signCameraView(callbacks.current.sign):leavingDetail&&returnPose?returnPose:sceneView(s.mode,{portrait,mood:mood.id});
         // Drain orbit damping before beginning the cinematic from the current view.
         controls.enableDamping=false;controls.update();controls.enableDamping=true;
         cameraTransition=startCameraTransition(camera,controls,view,reducedMotion.matches?0:1.1);
-        previousMode=s.mode;if(s.mode!=='village')heldKeys.clear();
+        previousMode=s.mode;previousSignPose=signPose;if(s.mode!=='village')heldKeys.clear();
       }
-      const editing=s.mode==='edit';controls.enablePan=editing;controls.maxDistance=editing?30:26;controls.mouseButtons.RIGHT=editing?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
+      const editing=s.mode==='edit';controls.enabled=s.mode!=='sign'&&!dragged;controls.minDistance=s.mode==='sign'?1:portrait?3:5;controls.enablePan=editing;controls.maxDistance=editing?30:26;controls.mouseButtons.RIGHT=editing?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
       if(cameraTransition&&advanceCameraTransition(cameraTransition,camera,controls,dt))cameraTransition=null;
       gridOpacity+=((editing?gridStyle.opacity:0)-gridOpacity)*Math.min(1,dt*6);grid.visible=gridOpacity>.002;grid.material.opacity=gridOpacity;
       controls.update();
@@ -263,7 +269,7 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
       fireCore.scale.y=1+Math.sin(time*13)*.17;embers.forEach((ember,i)=>{ember.position.y=.55+((time*.6+i/14)%1)*1.4;ember.position.x=Math.sin(time*2+i*2.4)*.23;ember.scale.setScalar(1-(ember.position.y-.55)/1.7);});
       drawFrame();
     }render();
-    return()=>{if(captureRef)captureRef.current=null;disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',visibilityChanged);disposeObject(decorationRoot);disposeObject(previewRoot);disposeObject(gardenDetails);disposeObject(cafeTables);grid.geometry.dispose();grid.material.dispose();disposeCharacter(avatarRoot);remoteCharacters.forEach(({root,mixer:remoteMixer})=>{world.remove(root);disposeCharacter(root);remoteMixer?.stopAllAction();remoteMixer?.uncacheRoot(remoteMixer.getRoot());});for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.removeEventListener(name,handler);mixer?.stopAllAction();mixer?.uncacheRoot(mixer.getRoot());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.dispose();renderer.renderLists.dispose();renderer.domElement.remove();state.current=null;worldRef.current=null;};
+    return()=>{if(captureRef)captureRef.current=null;disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',visibilityChanged);disposeObject(decorationRoot);disposeObject(signRoot);disposeObject(previewRoot);disposeObject(gardenDetails);disposeObject(cafeTables);grid.geometry.dispose();grid.material.dispose();disposeCharacter(avatarRoot);remoteCharacters.forEach(({root,mixer:remoteMixer})=>{world.remove(root);disposeCharacter(root);remoteMixer?.stopAllAction();remoteMixer?.uncacheRoot(remoteMixer.getRoot());});for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.removeEventListener(name,handler);mixer?.stopAllAction();mixer?.uncacheRoot(mixer.getRoot());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.dispose();renderer.renderLists.dispose();renderer.domElement.remove();state.current=null;worldRef.current=null;};
   },[theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),village.theme]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
@@ -273,13 +279,18 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
   },[JSON.stringify(village.items),village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
+    disposeObject(scene.signRoot);scene.signRoot.clear();
+    const model=createVillageSign(villageSign(village));model.userData.itemId=SIGN_ID;scene.signRoot.add(model);
+  },[signKey,village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
+  useEffect(()=>{
+    const scene=worldRef.current;if(!scene)return;
     const {previewRoot}=scene;
     disposeObject(previewRoot);previewRoot.clear();
     if(!editor)return;
-    const chosen=(village.items||[]).find(item=>item.id===editor.selected),type=chosen?.type||editor.tool;
+    const chosen=[...(village.items||[]),signPlacementItem(villageSign(village))].find(item=>item.id===editor.selected),type=chosen?.type||editor.tool;
     if(!type)return;
     const preview=new THREE.Group();preview.position.set(chosen?.x||0,.17,chosen?.z||0);preview.visible=!!chosen;
-    const sample=createDecoration(type);sample.rotation.y=(chosen?.rotation??editor.rotation??0)*Math.PI/2;
+    const sample=type==='villageSign'?createVillageSign({...villageSign(village),x:0,z:0,rotation:0}):createDecoration(type);sample.rotation.y=(chosen?.rotation??editor.rotation??0)*Math.PI/2;
     const bounds=new THREE.Box3().setFromObject(sample),size=bounds.getSize(new THREE.Vector3());
     const w=Math.max(.85,size.x+.15),d=Math.max(.85,size.z+.15);
     if(!chosen){sample.traverse(o=>{if(o.isMesh){o.material.transparent=true;o.material.opacity=.55;o.castShadow=false;}});preview.add(sample);}else disposeObject(sample);
@@ -289,7 +300,7 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     for(const [x,z] of [[1,0],[-1,0],[0,1],[0,-1]]){const arrow=new THREE.ArrowHelper(new THREE.Vector3(x,0,z),new THREE.Vector3(x*w*.5,.1,z*d*.5),.42,color,.16,.13);arrow.line.material.depthTest=false;arrow.cone.material.depthTest=false;arrow.renderOrder=21;preview.add(arrow);}
     preview.userData.tint=valid=>{lineMat.color.setHex(valid?color:0xff8394);base.material.color.copy(lineMat.color);};
     previewRoot.add(preview);
-  },[JSON.stringify(village.items),village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),!!editor,editor?.selected,editor?.tool,editor?.rotation]);
+  },[JSON.stringify(village.items),village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),JSON.stringify(village.sign),!!editor,editor?.selected,editor?.tool,editor?.rotation]);
   useEffect(()=>{
     const scene=worldRef.current,action=editor?.cameraAction;if(!scene||!action)return;
     const {camera,controls}=scene;
