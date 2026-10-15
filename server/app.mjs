@@ -12,6 +12,7 @@ import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemo
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
 import { decorations, hats, accessories, colors, validPlacement, villageThemes } from '../shared/world.mjs';
 import { RUN_DURATION, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
+import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
 
 const scrypt = promisify(scryptCallback);
 const hashToken = value => createHash('sha256').update(value).digest('hex');
@@ -118,8 +119,8 @@ export function createApp(options = {}) {
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
-    const data=z.object({village:z.object({items:z.array(item).max(24),theme:z.enum(villageThemes.map(t=>t.id)).optional()}).strict().optional(),appearance:z.object({hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict().optional()}).strict().parse(req.body);
-    if(data.village){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
+    const data=z.object({village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional()}).strict().optional(),appearance:z.object({hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict().optional()}).strict().parse(req.body);
+    if(data.village?.items){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     const user=userById(req.user.id);store.run('UPDATE users SET village=?,appearance=? WHERE id=?',data.village?JSON.stringify({...JSON.parse(user.village),...data.village}):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,user.id);
     emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
     res.json({user:profile(userById(user.id),user.id)});
@@ -305,7 +306,35 @@ export function createApp(options = {}) {
     const latestTarget=checkTarget(req,target.id,'topic');const latestMe=userById(me.id);if(!settingsOf(latestMe).allowTopics||!sessionUser(req.headers)||assembleContext(store,latestMe,'public-topic-viewer',data.topic).contextKey!==a.contextKey||assembleContext(store,latestTarget,'public-topic-viewer',data.topic).contextKey!==b.contextKey)fail(409,'공개 설정이 변경됐어요. 다시 시도해주세요.');
     const tid=id();store.run('INSERT INTO topic_sessions VALUES(?,?,?,?,?,?)',tid,me.id,target.id,data.topic,JSON.stringify(transcript),now());event(req.user.id,'topic_completed');res.json({id:tid,transcript});
   });
-  app.post('/api/feedback',auth,(req,res)=>{const data=z.object({rating:z.number().int().min(1).max(5),resemblance:z.number().int().min(1).max(5),returnIntent:z.number().int().min(1).max(5),note:z.string().max(1000).default('')}).parse(req.body);event(req.user.id,'playtest_feedback',data);res.status(201).json({ok:true});});
+  app.get('/api/survey/status',auth,(req,res)=>{
+    const participation=store.one('SELECT * FROM survey_participation WHERE user_id=?',req.user.id);
+    const counts=store.one(`SELECT SUM(CASE WHEN name='game_finished' THEN 1 ELSE 0 END) games,
+      SUM(CASE WHEN name='message_sent' AND json_extract(detail,'$.owner')=1 THEN 1 ELSE 0 END) ownChats,
+      SUM(CASE WHEN name='message_sent' AND json_extract(detail,'$.owner')=0 THEN 1 ELSE 0 END) otherChats FROM events WHERE user_id=?`,req.user.id);
+    const completed=!!participation?.completed,deferred=!completed&&participation?.deferred_until>Date.now();
+    res.json({completed,deferred,eligible:!completed&&!deferred&&(counts.games>=1||counts.ownChats>=10||counts.otherChats>=5)});
+  });
+  app.post('/api/survey/defer',auth,(req,res)=>{
+    store.run('INSERT INTO survey_participation(user_id,deferred_until) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET deferred_until=excluded.deferred_until',req.user.id,Date.now()+86400000);
+    emitUpdate(req.user.id);res.json({ok:true});
+  });
+  const answerShape=Object.fromEntries(surveyQuestions.map(q=>{
+    if(q.type==='text')return[q.id,z.string().trim().max(2000).optional()];
+    if(q.type==='rating')return[q.id,q.unexperienced?z.union([z.number().int().min(1).max(5),z.literal('unexperienced')]):z.number().int().min(1).max(5)];
+    return[q.id,z.object({selected:z.array(z.number().int().min(0).max(q.options.length-1)).min(1).max(q.type==='single'?1:q.max||q.options.length),other:z.string().trim().max(500).default('')}).strict().superRefine((a,ctx)=>{
+      if(new Set(a.selected).size!==a.selected.length||a.selected.includes(q.exclusive)&&a.selected.length>1)ctx.addIssue({code:'custom',message:'선택지를 확인해 주세요.'});
+      const other=a.selected.includes(q.options.length-1);if(other&&!a.other||!other&&a.other)ctx.addIssue({code:'custom',message:'기타 응답을 확인해 주세요.'});
+    })];
+  }));
+  app.post('/api/feedback',auth,(req,res)=>{
+    const {answers}=z.object({answers:z.object(answerShape).strict()}).strict().parse(req.body);
+    store.transaction(()=>{
+      if(store.one('SELECT completed FROM survey_participation WHERE user_id=?',req.user.id)?.completed)fail(409,'이미 설문에 참여했어요. 고마워요!');
+      // No account IDs, timestamps, event records or response IDs link answers to an account.
+      store.run('INSERT INTO survey_responses VALUES(?,?,?)',id(),surveyVersion,JSON.stringify(answers));
+      store.run('INSERT INTO survey_participation(user_id,completed) VALUES(?,1) ON CONFLICT(user_id) DO UPDATE SET completed=1,deferred_until=0',req.user.id);
+    });emitUpdate(req.user.id);res.status(201).json({ok:true});
+  });
   app.get('/api/stats',auth,(req,res)=>{const counts=store.all('SELECT name,COUNT(*) count FROM events WHERE user_id=? GROUP BY name',req.user.id);res.json({events:counts,memories:store.one('SELECT COUNT(*) count FROM memories WHERE owner_id=?',req.user.id).count,visitors:store.one("SELECT COUNT(DISTINCT actor_id) count FROM activities WHERE owner_id=? AND actor_id<>?",req.user.id,req.user.id).count,stage:stageOf(store,req.user)});});
   app.get('/api/export',auth,(req,res)=>{const user=userById(req.user.id);res.set('Content-Disposition','attachment; filename="pieona-my-data.json"');res.json({exportedAt:now(),profile:profile(user,user.id),avatarSlots:store.all('SELECT * FROM avatar_slots WHERE owner_id=?',user.id).map(s=>({id:s.id,snapshot:s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot)})),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id),conversations:store.all('SELECT c.id,c.target_id,c.share,c.created_at,m.role,m.content,m.created_at message_at FROM conversations c LEFT JOIN messages m ON m.conversation_id=c.id WHERE c.viewer_id=?',user.id),events:store.all('SELECT name,detail,created_at FROM events WHERE user_id=?',user.id)});});
 

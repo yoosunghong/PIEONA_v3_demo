@@ -37,8 +37,11 @@ export function openStore(filename = './data/pieona.sqlite') {
     CREATE TABLE IF NOT EXISTS games (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), notes TEXT NOT NULL, hits TEXT NOT NULL DEFAULT '[]', started INTEGER NOT NULL, finished INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS topic_sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), topic TEXT NOT NULL, transcript TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), name TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '{}', created_at TEXT NOT NULL);
+    CREATE INDEX IF NOT EXISTS events_user_name ON events(user_id,name);
     CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), reason TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS avatar_slots (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), snapshot TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS survey_participation (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, completed INTEGER NOT NULL DEFAULT 0, deferred_until INTEGER NOT NULL DEFAULT 0);
+    CREATE TABLE IF NOT EXISTS survey_responses (id TEXT PRIMARY KEY, version INTEGER NOT NULL, answers TEXT NOT NULL);
   `);
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='active_slot'))db.exec("ALTER TABLE users ADD COLUMN active_slot TEXT NOT NULL DEFAULT ''");
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='anonymous'))db.exec('ALTER TABLE games ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');

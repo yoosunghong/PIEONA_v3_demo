@@ -5,9 +5,9 @@ const steps=[
   {target:'world',title:'작은 마을에 오신 걸 환영해요!',text:'나는 정원 안내자 피오예요. 홈에서 WASD나 방향키로 걸어보세요. 스페이스 또는 점프 버튼으로 폴짝 뛰어볼 수도 있어요.'},
   {target:'chat',title:'나의 아바타와 이야기해요',text:'아래 대화창에 일상과 취향을 들려주세요. 대화가 쌓일수록 아바타가 조금씩 나를 닮아가요. 새 대화와 세션으로 이야기를 이어갈 수 있어요.'},
   {target:'memory',title:'기억 정원을 가꿔요',text:'기억 정원에서 아바타가 배운 기억을 확인하고 수정해요. 이웃에게 나눌 기억의 공개 범위도 직접 정할 수 있어요.'},
-  {target:'friends',title:'친구의 마을에 놀러 가요',text:'오른쪽 이웃 목록이나 친구 탭에서 친구를 만나보세요. 친구의 마을을 방문하고, 친구가 허용한 기억을 가진 AI 아바타와 대화할 수 있어요.'},
+  {target:'friends',title:'친구의 마을에 놀러 가요',text:'오른쪽 친구·이웃 목록에서 친구를 만나보세요. 목록 위 + 버튼으로 친구를 추가하고, 친구의 마을을 방문해 AI 아바타와 대화할 수 있어요.'},
   {target:'games',title:'가볍게 놀고 기록을 남겨요',text:'미니게임에서 리듬게임과 구름 달리기를 즐겨보세요. 친구와 함께 도전하고 마을 기록에서 점수도 확인해요.'},
-  {target:'customize',title:'나만의 분위기로 꾸며요',text:'마을 꾸미기에서 소품과 기본·노을·황혼 테마를 골라보세요. 저장한 마을은 다시 접속해도 유지되고, 방문한 친구에게도 같은 모습으로 보여요.'}
+  {target:'customize',title:'나만의 분위기로 꾸며요',text:'마을 꾸미기에서 소품을 배치하고, STAGE MODE에서 정원·모닥불·카페·황혼·노을 테마를 골라보세요. 저장한 마을은 다시 접속해도 유지돼요. 캡처 버튼으로 날짜와 메모도 남겨보세요.'}
 ];
 
 export default function Tutorial({onClose}){
@@ -32,13 +32,16 @@ export default function Tutorial({onClose}){
     function measure(){
       const el=document.querySelector(`[data-tutorial="${step.target}"]`);
       const r=el?.getBoundingClientRect();
-      setRect(r&&r.width&&r.height?{left:r.left-6,top:r.top-6,width:r.width+12,height:r.height+12}:null);
+      setRect(r&&r.width&&r.height?{left:Math.max(0,r.left-6),top:Math.max(0,r.top-6),width:Math.min(innerWidth,r.right+6)-Math.max(0,r.left-6),height:Math.min(innerHeight,r.bottom+6)-Math.max(0,r.top-6)}:null);
     }
-    measure();window.addEventListener('resize',measure);
-    return()=>window.removeEventListener('resize',measure);
+    measure();window.addEventListener('resize',measure);window.addEventListener('scroll',measure,true);
+    const observer=new ResizeObserver(measure);const target=document.querySelector(`[data-tutorial="${step.target}"]`);if(target)observer.observe(target);
+    return()=>{observer.disconnect();window.removeEventListener('resize',measure);window.removeEventListener('scroll',measure,true);};
   },[index]);
-  return <div className="tutorial-backdrop">
-    {rect&&step.target!=='world'&&<div className="tutorial-highlight" style={rect} aria-hidden="true"/>}
+  const clip=rect?`polygon(evenodd,0 0,100% 0,100% 100%,0 100%,0 0,${rect.left}px ${rect.top}px,${rect.left}px ${rect.top+rect.height}px,${rect.left+rect.width}px ${rect.top+rect.height}px,${rect.left+rect.width}px ${rect.top}px,${rect.left}px ${rect.top}px)`:undefined;
+  return <div className={'tutorial-backdrop tutorial-step-'+step.target}>
+    <div className="tutorial-shade" style={{clipPath:clip}} aria-hidden="true"/>
+    {rect&&<div className="tutorial-highlight" style={rect} aria-hidden="true"/>}
     <section ref={dialog} className="tutorial-dialog" role="dialog" aria-modal="true" aria-labelledby="tutorial-title" aria-describedby="tutorial-description">
       <img className="tutorial-character" src="/images/tutorial-guide.png" alt="새싹 왕관을 쓰고 손을 흔드는 정원 안내자 피오"/>
       <div className="tutorial-bubble">

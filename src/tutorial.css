@@ -1,4 +1,7 @@
-.tutorial-backdrop{position:fixed;inset:0;z-index:100;background:#10233b9c;backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;padding:24px}
+.tutorial-backdrop{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:24px}
+.tutorial-shade{position:absolute;inset:0;background:#10233b9c;backdrop-filter:blur(2px);pointer-events:none}
+.tutorial-step-chat{align-items:flex-start;padding-top:28px}
+@media(min-width:901px){.tutorial-step-friends{justify-content:flex-start;padding-left:36px}.tutorial-step-friends .tutorial-dialog{width:min(740px,calc(100vw - 410px))}.tutorial-step-friends .tutorial-character{width:190px;height:300px}}
 .tutorial-highlight{position:fixed;border:3px solid #ffe39c;border-radius:24px;box-shadow:0 0 0 5px #fff6d538,0 0 28px #ffe39caa;pointer-events:none}
 .tutorial-dialog{position:relative;display:flex;align-items:center;width:min(820px,100%);gap:12px;filter:drop-shadow(0 22px 45px #10223833)}
 .tutorial-character{width:300px;height:430px;object-fit:contain;flex-shrink:0}
