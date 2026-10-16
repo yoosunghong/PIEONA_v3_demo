@@ -2,14 +2,28 @@ import * as THREE from 'three';
 import {villageThemes} from '../shared/world.mjs';
 
 export const CAMERA_TRANSITION_SECONDS=1.1;
-// Keep the camera's focus within the village's walkable island.
+// Bound horizontal travel to the island and allow a little vertical framing.
 export const VILLAGE_CAMERA_PAN_RADIUS=5.8;
-export function configureScenePanning(controls,mode){
-  const village=mode==='village';
-  controls.enablePan=village||mode==='edit';
-  controls.screenSpacePanning=!village;
-  controls.maxTargetRadius=village?VILLAGE_CAMERA_PAN_RADIUS:Infinity;
+export const VILLAGE_CAMERA_PAN_HEIGHT=.8;
+const canPanScene=(mode,portrait)=>!portrait&&(mode==='home'||mode==='village');
+export function configureScenePanning(controls,mode,{portrait=false}={}){
+  controls.enablePan=canPanScene(mode,portrait)||mode==='edit';
+  controls.screenSpacePanning=true;
+  controls.maxTargetRadius=Infinity;
   controls.mouseButtons.RIGHT=mode==='edit'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
+}
+export function constrainScenePanning(camera,controls,mode,options={}){
+  if(!canPanScene(mode,options.portrait))return;
+  const target=controls.target,radius=Math.hypot(target.x,target.z);
+  const scale=radius>VILLAGE_CAMERA_PAN_RADIUS?VILLAGE_CAMERA_PAN_RADIUS/radius:1;
+  const centerY=sceneView(mode,options).target[1];
+  const y=THREE.MathUtils.clamp(target.y,centerY-VILLAGE_CAMERA_PAN_HEIGHT,centerY+VILLAGE_CAMERA_PAN_HEIGHT);
+  const dx=target.x*scale-target.x,dy=y-target.y,dz=target.z*scale-target.z;
+  if(!dx&&!dy&&!dz)return;
+  target.set(target.x+dx,y,target.z+dz);
+  // Translate both ends together so hitting a limit never changes the viewing angle or zoom.
+  camera.position.x+=dx;camera.position.y+=dy;camera.position.z+=dz;
+  camera.updateMatrixWorld();
 }
 export const sceneMood=id=>villageThemes.find(theme=>theme.id===id)||villageThemes[0];
 export function sceneView(mode,{portrait=false,mood='default'}={}){

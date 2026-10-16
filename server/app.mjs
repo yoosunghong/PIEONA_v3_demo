@@ -17,6 +17,7 @@ import {installCrabGames} from './crabGames.mjs';
 import {crabSeconds} from '../shared/crab.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
 import {villageSign,signColors,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
+import {villageGuestbook,GUESTBOOK_PAGE_SIZE,GUESTBOOK_MAX_LENGTH,guestbookLength} from '../shared/guestbook.mjs';
 
 const scrypt = promisify(scryptCallback);
 const hashToken = value => createHash('sha256').update(value).digest('hex');
@@ -128,14 +129,18 @@ export function createApp(options = {}) {
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.enum(signColors),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
     const signSchema=z.object({x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
-    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
+    const guestbookSchema=z.object({x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional()}).strict();
+    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     if(data.village?.items){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     const user=userById(req.user.id);
     const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
     if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
-    if(data.village?.sign||data.village?.items){
+    if(data.village?.guestbook)nextVillage.guestbook={...villageGuestbook(oldVillage),...data.village.guestbook};
+    if(data.village?.sign||data.village?.items||data.village?.guestbook){
       const sign=villageSign(nextVillage);
       if(!validPlacement(sign.x,sign.z)||(nextVillage.items||[]).some(item=>Math.hypot(item.x-sign.x,item.z-sign.z)<.8))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
+      const book=villageGuestbook(nextVillage);
+      if(!validPlacement(book.x,book.z)||[...(nextVillage.items||[]),sign].some(item=>Math.hypot(item.x-book.x,item.z-book.z)<.8))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
     }
     const saved=characterLooks(JSON.parse(user.appearance),JSON.parse(user.character_looks));
     for(const [character,look] of Object.entries(data.characterLooks||{}))if(look)saved[character]={...look,character};
@@ -152,6 +157,32 @@ export function createApp(options = {}) {
   });
   app.get('/api/users', auth, (req,res) => { const users=store.all('SELECT * FROM users ORDER BY created_at'); res.json({ users:users.filter(u=>!isBlocked(store,req.user.id,u.id)).map(u=>profile(u,req.user.id)) }); });
   app.get('/api/users/:id', auth, (req,res) => { const target=checkTarget(req,req.params.id); res.json({user:profile(target,req.user.id), memories:visibleMemories(store,target.id,req.user.id).map(m=>({id:m.id,content:m.content,category:m.category,visibility:m.visibility}))}); });
+  // Entry contents and author identities never travel through village profiles or socket events.
+  const guestbookLimiter=rateLimit({windowMs:60_000,limit:options.testing?500:20,keyGenerator:req=>req.user.id,standardHeaders:'draft-8',legacyHeaders:false,message:{error:'글을 너무 빠르게 남기고 있어요. 잠시 후 다시 시도해 주세요.'}});
+  const guestbookChanged=villageId=>io.to([`village:${villageId}`,`user:${villageId}`]).emit('guestbook:changed',{villageId});
+  app.get('/api/villages/:id/guestbook',auth,(req,res)=>{
+    const target=checkTarget(req,req.params.id),own=target.id===req.user.id;
+    const requested=z.coerce.number().int().min(1).max(1000000).default(1).parse(req.query.page);
+    const where=own?'e.owner_id=?':`e.owner_id=? AND e.visibility='public' AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.owner_id=? AND b.blocked_id=e.author_id) OR (b.blocked_id=? AND b.owner_id=e.author_id))`;
+    const args=own?[target.id]:[target.id,req.user.id,req.user.id];
+    const total=store.one(`SELECT COUNT(*) total FROM guestbook_entries e WHERE ${where}`,...args).total;
+    const pages=Math.max(1,Math.ceil(total/GUESTBOOK_PAGE_SIZE)),page=Math.min(requested,pages);
+    const entries=store.all(`SELECT e.*,u.nickname FROM guestbook_entries e JOIN users u ON u.id=e.author_id WHERE ${where} ORDER BY e.created_at DESC,e.rowid DESC LIMIT ? OFFSET ?`,...args,GUESTBOOK_PAGE_SIZE,(page-1)*GUESTBOOK_PAGE_SIZE).map(e=>({id:e.id,content:e.content,anonymous:!!e.anonymous,visibility:e.visibility,createdAt:e.created_at,authorName:e.anonymous?'익명':e.nickname||'이름을 기다리는 새싹',isOwner:!e.anonymous&&e.author_id===target.id}));
+    res.json({entries,page,pages,total,pageSize:GUESTBOOK_PAGE_SIZE});
+  });
+  app.post('/api/villages/:id/guestbook',auth,guestbookLimiter,(req,res)=>{
+    const target=checkTarget(req,req.params.id);
+    const data=z.object({content:z.string().max(GUESTBOOK_MAX_LENGTH*2).trim().min(1).refine(text=>guestbookLength(text)<=GUESTBOOK_MAX_LENGTH,'방명록은 최대 200자까지 남길 수 있어요.'),anonymous:z.boolean().default(false),visibility:z.enum(['public','private']).default('public')}).strict().parse(req.body);
+    const entryId=id();
+    store.run('INSERT INTO guestbook_entries(id,owner_id,author_id,content,anonymous,visibility,created_at) VALUES(?,?,?,?,?,?,?)',entryId,target.id,req.user.id,data.content,Number(data.anonymous),data.visibility,now());
+    guestbookChanged(target.id);res.status(201).json({ok:true});
+  });
+  app.delete('/api/villages/:id/guestbook/:entryId',auth,(req,res)=>{
+    if(req.params.id!==req.user.id)fail(403,'마을 주인만 방명록 글을 삭제할 수 있어요.');
+    const deleted=store.run('DELETE FROM guestbook_entries WHERE id=? AND owner_id=?',req.params.entryId,req.user.id);
+    if(!deleted.changes)fail(404,'이미 삭제되었거나 찾을 수 없는 글이에요.');
+    guestbookChanged(req.user.id);res.json({ok:true});
+  });
   app.get('/api/questions', auth, (req,res) => {
     const s=settingsOf(req.user); const date=day(); const seed=[...date].reduce((a,c)=>a+c.charCodeAt(0),0);
     const prompts=[`오늘 너에게 작은 행복을 준 순간이 있었어?`, `${s.questionTopic} 이야기를 들려줄래? 요즘 가장 마음이 가는 건 뭐야?`, '요즘 너만의 충전 방법은 뭐야?', '절대 잃고 싶지 않은 너만의 가치는 뭐야?', '일 년 뒤의 너에게 한마디를 남긴다면?'];

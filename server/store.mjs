@@ -23,6 +23,12 @@ export function openStore(filename = './data/pieona.sqlite') {
       confirmed INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS memories_owner ON memories(owner_id);
+    CREATE TABLE IF NOT EXISTS guestbook_entries (
+      id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, content TEXT NOT NULL,
+      anonymous INTEGER NOT NULL DEFAULT 0, visibility TEXT NOT NULL DEFAULT 'public', created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS guestbook_owner ON guestbook_entries(owner_id,created_at DESC,id DESC);
     CREATE TABLE IF NOT EXISTS friendships (owner_id TEXT NOT NULL REFERENCES users(id), friend_id TEXT NOT NULL REFERENCES users(id), status TEXT NOT NULL DEFAULT 'pending', close INTEGER NOT NULL DEFAULT 0, PRIMARY KEY(owner_id, friend_id));
     CREATE TABLE IF NOT EXISTS blocks (owner_id TEXT NOT NULL REFERENCES users(id), blocked_id TEXT NOT NULL REFERENCES users(id), PRIMARY KEY(owner_id, blocked_id));
     CREATE TABLE IF NOT EXISTS conversations (

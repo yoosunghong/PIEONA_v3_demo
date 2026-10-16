@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
 import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,villageJumpHeight} from './villageMovement.mjs';
-import {sceneMood,sceneView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning} from './sceneCamera.mjs';
+import {sceneMood,sceneView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning,constrainScenePanning} from './sceneCamera.mjs';
 import {createSceneViewport} from './sceneViewport.mjs';
 import {editorGridStyle} from './sceneGrid.mjs';
 import {canPlaceDecoration,snapPosition} from './villageEditorState.mjs';
@@ -13,13 +13,17 @@ import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import {SIGN_ID,villageSign,signPlacementItem,signCameraView} from '../shared/sign.mjs';
 import {createVillageSign} from './signModel';
+import {GUESTBOOK_ID,villageGuestbook,guestbookPlacementItem,guestbookCameraView} from '../shared/guestbook.mjs';
+import {createVillageGuestbook} from './guestbookModel';
+import {guestbookOccluders} from './guestbookVisibility.mjs';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
 export default function Scene({topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false,renderSuspended=false,editor=null}){
   const signData=villageSign(village),signKey=JSON.stringify(signData);
+  const guestbookData=villageGuestbook(village),guestbookKey=JSON.stringify(guestbookData);
   const topicBubble=useRef();
-  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={topicGuest,topicLine,onInteract,onReady,onPositionChange,movementInput,editor,sign:signData,items:[...(village.items||[]),signPlacementItem(signData)]};
+  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={topicGuest,topicLine,onInteract,onReady,onPositionChange,movementInput,editor,sign:signData,guestbook:guestbookData,items:[...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData)]};
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused,renderSuspended]);
   // Keep one WebGL context for this mounted scene, including all look previews.
@@ -180,9 +184,13 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     let previousMode=mode,previousSignPose='',cameraTransition=null,returnPose=null,gridOpacity=mode==='edit'?gridStyle.opacity:0;
     worldRef.current.cancelCameraTransition=()=>{cameraTransition=null;};
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const initialView=mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
+    const initialView=mode==='guestbook'?guestbookCameraView(callbacks.current.guestbook):mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
     controls.addEventListener('start',()=>{cameraTransition=null;});
     state.current={mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused,renderSuspended};
+    function constrainCameraPan(){
+      if(!cameraTransition&&state.current?.mode===previousMode)constrainScenePanning(camera,controls,state.current.mode,{portrait,mood:mood.id});
+    }
+    controls.addEventListener('change',constrainCameraPan);
     const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0,jumpRequested=false;
     function keydown(e){
       const s=state.current,key=villageMovementKey(e);
@@ -197,6 +205,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const viewport=createSceneViewport(renderer,camera);
     const resize=()=>{const {width,height}=el.getBoundingClientRect();viewport.resize(width,height);};
     const observer=new ResizeObserver(resize);observer.observe(el);resize();
+    let bookOccluders=[],nextOcclusionCheck=0;
     function drawFrame(){viewport.draw(()=>{
       if(state.current?.mode==='topic'&&!cameraTransition){camera.position.set(0,4.3,Math.max(10,6/camera.aspect));controls.target.set(0,1.8,0);controls.update();}
       const bubble=topicBubble.current,line=callbacks.current.topicLine;
@@ -207,24 +216,33 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         bubble.style.left=`${left}px`;bubble.style.top=`${(1-point.y)*50}%`;
         bubble.style.setProperty('--speech-tail',`${half+anchor-left}px`);
       }
-      placeMoon();renderer.render(world,camera);
+      placeMoon();
+      if(state.current?.mode==='guestbook'){
+        if(performance.now()>=nextOcclusionCheck){bookOccluders=guestbookOccluders(world,camera,callbacks.current.guestbook);nextOcclusionCheck=performance.now()+150;}
+        const visibility=bookOccluders.map(object=>object.visible);
+        bookOccluders.forEach(object=>{object.visible=false;});
+        renderer.render(world,camera);
+        bookOccluders.forEach((object,index)=>{object.visible=visibility[index];});
+      }else{nextOcclusionCheck=0;renderer.render(world,camera);}
     });}
     const clock=new THREE.Clock();let lastPausedRender=-1;
-    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();if(viewport.needsDraw||!s.renderSuspended&&time-lastPausedRender>.1){lastPausedRender=time;controls.update();drawFrame();}return;}
-      const modeChanged=s.mode!==previousMode,signPose=[callbacks.current.sign.x,callbacks.current.sign.z,callbacks.current.sign.rotation].join(',');
-      if(modeChanged||s.mode==='sign'&&signPose!==previousSignPose){
-        const leavingDetail=previousMode==='edit'||previousMode==='sign';
-        if(modeChanged&&(s.mode==='edit'||s.mode==='sign'))returnPose=cameraPose(camera,controls);
-        const view=s.mode==='sign'?signCameraView(callbacks.current.sign):leavingDetail&&returnPose?returnPose:sceneView(s.mode,{portrait,mood:mood.id});
+    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();if(viewport.needsDraw||!s.renderSuspended&&time-lastPausedRender>.1){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
+      const modeChanged=s.mode!==previousMode,focus=s.mode==='guestbook'?callbacks.current.guestbook:callbacks.current.sign,signPose=[focus.x,focus.z,focus.rotation].join(',');
+      const detail=s.mode==='sign'||s.mode==='guestbook';
+      if(modeChanged||detail&&signPose!==previousSignPose){
+        const leavingDetail=previousMode==='edit'||previousMode==='sign'||previousMode==='guestbook';
+        if(modeChanged&&(s.mode==='edit'||detail)&&!leavingDetail)returnPose=cameraPose(camera,controls);
+        const view=s.mode==='guestbook'?guestbookCameraView(focus):s.mode==='sign'?signCameraView(focus):leavingDetail&&returnPose?returnPose:sceneView(s.mode,{portrait,mood:mood.id});
         // Drain orbit damping before beginning the cinematic from the current view.
         controls.enableDamping=false;controls.update();controls.enableDamping=true;
         cameraTransition=startCameraTransition(camera,controls,view,reducedMotion.matches?0:1.1);
         previousMode=s.mode;previousSignPose=signPose;if(s.mode!=='village')heldKeys.clear();
       }
-      const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&s.mode!=='sign'&&!dragged;controls.minDistance=s.mode==='sign'?1:portrait?3:5;controls.maxDistance=editing?30:26;configureScenePanning(controls,s.mode);
+      const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&!detail&&!dragged;controls.minDistance=detail?1:portrait?3:5;controls.maxDistance=editing?30:26;configureScenePanning(controls,s.mode,{portrait});
       if(cameraTransition&&advanceCameraTransition(cameraTransition,camera,controls,dt))cameraTransition=null;
       gridOpacity+=((editing?gridStyle.opacity:0)-gridOpacity)*Math.min(1,dt*6);grid.visible=gridOpacity>.002;grid.material.opacity=gridOpacity;
       controls.update();
+      constrainCameraPan();
       const players=s.mode==='topic'&&callbacks.current.topicGuest?[{userId:callbacks.current.topicGuest.id,nickname:callbacks.current.topicGuest.nickname,appearance:callbacks.current.topicGuest.appearance,x:1.15,z:0,rotation:-Math.PI/2}]:villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);
       avatarRoot.visible=s.mode==='topic'||showVillageStandIn(s.mode,ownerId,players,s.viewerId);
       if(hostTag)hostTag.visible=true;avatarRoot.position.set(0,.39,0);avatarRoot.rotation.y=.55+Math.sin(time*.25)*.12;if(s.mode==='topic'){avatarRoot.position.x=-1.15;avatarRoot.rotation.y=Math.PI/2;}
@@ -293,16 +311,17 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const scene=worldRef.current;if(!scene)return;
     disposeObject(scene.signRoot);scene.signRoot.clear();
     const model=createVillageSign(villageSign(village));model.userData.itemId=SIGN_ID;scene.signRoot.add(model);
-  },[signKey,village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
+    const book=createVillageGuestbook(villageGuestbook(village));book.userData.itemId=GUESTBOOK_ID;scene.signRoot.add(book);
+  },[signKey,guestbookKey,village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
     const {previewRoot}=scene;
     disposeObject(previewRoot);previewRoot.clear();
     if(!editor)return;
-    const chosen=[...(village.items||[]),signPlacementItem(villageSign(village))].find(item=>item.id===editor.selected),type=chosen?.type||editor.tool;
+    const chosen=[...(village.items||[]),signPlacementItem(villageSign(village)),guestbookPlacementItem(villageGuestbook(village))].find(item=>item.id===editor.selected),type=chosen?.type||editor.tool;
     if(!type)return;
     const preview=new THREE.Group();preview.position.set(chosen?.x||0,.17,chosen?.z||0);preview.visible=!!chosen;
-    const sample=type==='villageSign'?createVillageSign({...villageSign(village),x:0,z:0,rotation:0}):createDecoration(type);sample.rotation.y=(chosen?.rotation??editor.rotation??0)*Math.PI/2;
+    const sample=type==='villageGuestbook'?createVillageGuestbook({x:0,z:0,rotation:0}):type==='villageSign'?createVillageSign({...villageSign(village),x:0,z:0,rotation:0}):createDecoration(type);sample.rotation.y=(chosen?.rotation??editor.rotation??0)*Math.PI/2;
     const bounds=new THREE.Box3().setFromObject(sample),size=bounds.getSize(new THREE.Vector3());
     const w=Math.max(.85,size.x+.15),d=Math.max(.85,size.z+.15);
     if(!chosen){sample.traverse(o=>{if(o.isMesh){o.material.transparent=true;o.material.opacity=.55;o.castShadow=false;}});preview.add(sample);}else disposeObject(sample);
@@ -312,7 +331,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     for(const [x,z] of [[1,0],[-1,0],[0,1],[0,-1]]){const arrow=new THREE.ArrowHelper(new THREE.Vector3(x,0,z),new THREE.Vector3(x*w*.5,.1,z*d*.5),.42,color,.16,.13);arrow.line.material.depthTest=false;arrow.cone.material.depthTest=false;arrow.renderOrder=21;preview.add(arrow);}
     preview.userData.tint=valid=>{lineMat.color.setHex(valid?color:0xff8394);base.material.color.copy(lineMat.color);};
     previewRoot.add(preview);
-  },[JSON.stringify(village.items),village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),JSON.stringify(village.sign),!!editor,editor?.selected,editor?.tool,editor?.rotation]);
+  },[JSON.stringify(village.items),village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),JSON.stringify(village.sign),guestbookKey,!!editor,editor?.selected,editor?.tool,editor?.rotation]);
   useEffect(()=>{
     const scene=worldRef.current,action=editor?.cameraAction;if(!scene||!action)return;
     const {camera,controls}=scene;
