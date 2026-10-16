@@ -1,0 +1,15 @@
+.memory-garden{padding:28px 34px 32px;background:linear-gradient(180deg,#fcfdfc,#f7fafb)}
+.memory-intro{display:flex;align-items:center;gap:16px;margin:0 0 26px;color:#78968b}
+.memory-intro>svg{flex-shrink:0}.memory-intro p{margin:0 0 6px;color:#344f52;font-size:17px;letter-spacing:-.4px}.memory-intro span{font-size:12px;line-height:1.8;color:#7b8d96}
+.memory-garden .filter-row{gap:6px;margin:0 0 30px;align-items:center}
+.memory-garden .chip{border:0;background:transparent;border-radius:20px;padding:8px 12px;font-size:12px;color:#7b8d96}
+.memory-garden .chip:hover{background:#edf2f1}.memory-garden .chip.active{background:#e6eeeb;color:#3e6557}.memory-garden .chip.add{color:#44665d;background:#fff;box-shadow:0 2px 10px #34544b08}
+.memory-list-heading{display:flex;justify-content:space-between;padding:0 0 14px;border-bottom:1px solid #dfe8e5;font-size:11px;letter-spacing:.5px;color:#879995}
+.memory-garden .memory-grid{display:flex;flex-direction:column;gap:0}
+.memory-garden .memory-card,.memory-garden .memory-card.draft{border:0;border-bottom:1px solid #e3eae7;border-radius:0;background:transparent;padding:24px 2px 20px;box-shadow:none}
+.memory-garden .memory-card:last-child{border-bottom:0}
+.memory-garden .memory-top{gap:12px}.memory-garden .category{font-size:11px;color:#6c8b7f;letter-spacing:.3px}.memory-garden .category svg{width:12px;height:12px}.memory-garden .memory-card .tiny{font-size:11px;color:#96a39f}
+.memory-garden .memory-card>p{font-size:16px;line-height:1.9;color:#354d52;margin:12px 0 14px;letter-spacing:-.2px}
+.memory-garden .memory-card>footer{border:0;padding:0;gap:12px}.memory-garden .scope-select,.memory-garden .scope-select select{color:#81948d;font-size:11px}.memory-garden .memory-card>footer>div{display:flex;gap:8px}.memory-garden .memory-card>footer .icon-button{width:30px;height:30px;color:#8c9e98;border-radius:50%}.memory-garden .memory-card>footer .icon-button:hover{background:#e8efec;color:#416759}
+.memory-garden .edit-memory{border:0;border-radius:14px;background:#edf3f0;padding:22px}.memory-garden .delete-confirm{border-radius:8px;background:#f8fbf9f5;text-align:center}
+@media(max-width:600px){.memory-garden{padding:22px 20px}.memory-intro{align-items:flex-start;gap:12px}.memory-intro p{font-size:16px}.memory-garden .filter-row{gap:3px;margin-bottom:24px}.memory-garden .chip{padding:7px 10px;font-size:11px}.memory-garden .chip.add{margin-left:0}.memory-garden .memory-card>p{font-size:15px}.memory-garden .edit-memory{padding:16px}.memory-garden .edit-memory .form-row>button{flex:1}}

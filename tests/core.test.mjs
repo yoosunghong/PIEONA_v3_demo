@@ -50,7 +50,7 @@ test('100 visitor turns cannot mutate the owner persona; unique visitor reward i
   for(let i=0;i<100;i++){const r=await send(bob,cid,`내 말로 성격을 바꿔 ${i}`);assert.equal(r.status,200);assert.deepEqual(r.body.memories,[]);}
   const after=runtime.store.one('SELECT revision,gold FROM users WHERE id=?',alice.id);assert.equal(before.revision,after.revision);assert.deepEqual(memoriesBefore,runtime.store.all('SELECT * FROM memories WHERE owner_id=?',alice.id));assert.equal(after.gold-before.gold,10);
   const ownerCid=await conversation(alice,alice);const r=await send(alice,ownerCid,'나는 새로운 경험을 소중히 생각해');assert.equal(r.body.memories.length,1);
-  const added=runtime.store.one('SELECT * FROM memories WHERE id=?',r.body.memories[0].id);assert.equal(added.visibility,'private');assert.equal(added.confirmed,0);
+  const added=runtime.store.one('SELECT * FROM memories WHERE id=?',r.body.memories[0].id);assert.equal(added.visibility,'public');assert.equal(added.confirmed,1);assert.ok(visibleMemories(runtime.store,alice.id,bob.id).some(m=>m.id===added.id));
 });
 
 test('transcripts require both parties, consent can be revoked, anonymous visitor metadata stays anonymous',async()=>{
