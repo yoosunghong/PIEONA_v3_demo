@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {joystickAxis} from './villageMovement.mjs';
 import './touch-joystick.css';
 
-export default function TouchJoystick({input,disabled=false}){
+export default function TouchJoystick({input,disabled=false,label='마을 이동 조이스틱'}){
   const pointer=useRef(null),pad=useRef(null);
   const [axis,setAxis]=useState({x:0,y:0});
   function reset(){
@@ -24,7 +24,7 @@ export default function TouchJoystick({input,disabled=false}){
     input.current=value;setAxis(value);
   }
   return <div className={'touch-joystick '+(disabled?'is-disabled':'')}>
-    <div ref={pad} className="joystick-pad" role="group" aria-label="마을 이동 조이스틱" aria-disabled={disabled}
+    <div ref={pad} className="joystick-pad" role="group" aria-label={label} aria-disabled={disabled}
       onPointerDown={event=>{if(disabled||pointer.current!==null||event.button!==0)return;pointer.current=event.pointerId;event.currentTarget.setPointerCapture(event.pointerId);move(event);}}
       onPointerMove={move} onPointerUp={event=>{if(pointer.current===event.pointerId)reset();}}
       onPointerCancel={event=>{if(pointer.current===event.pointerId)reset();}} onLostPointerCapture={event=>{if(pointer.current===event.pointerId)reset();}}

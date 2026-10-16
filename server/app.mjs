@@ -13,6 +13,8 @@ import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemo
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
 import { decorations, hats, accessories, colors, validPlacement, villageThemes, characters, characterLooks } from '../shared/world.mjs';
 import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
+import {installCrabGames} from './crabGames.mjs';
+import {crabSeconds} from '../shared/crab.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
 import {villageSign,signColors,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
 
@@ -256,7 +258,8 @@ export function createApp(options = {}) {
   app.post('/api/reports',auth,(req,res)=>{const data=z.object({targetId:z.string().uuid(),reason:z.string().trim().min(3).max(500)}).parse(req.body);userById(data.targetId);store.run('INSERT INTO reports VALUES(?,?,?,?,?)',id(),req.user.id,data.targetId,data.reason,now());res.status(201).json({ok:true});});
 
   const runnerNotes=()=>createRunnerNotes(()=>randomBytes(1)[0]%3);
-  const busy=userId=>store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started);
+  const crabs=installCrabGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.crabClock});
+  const busy=userId=>crabs.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started);
   function raceEmit(r,name,data){for(const player of r.players)io.to(player.socketId).emit(name,data);}
   function cancelInvite(invite,reason){invites.delete(invite.id);for(const sid of [invite.fromSocket,invite.toSocket])io.to(sid).emit('runner:invite-ended',{id:invite.id,reason});}
   function leaveRace(socket){
@@ -264,12 +267,14 @@ export function createApp(options = {}) {
     for(const race of races.values()){
       const player=race.players.find(p=>p.socketId===socket.id);if(!player||player.left)continue;
       player.left=true;
+      if(race.kind==='crab')crabs.leave(player.userId,race.id);
       if(player.gameId)store.run('UPDATE games SET finished=2 WHERE id=? AND finished=0',player.gameId);
       if(!race.started){raceEmit(race,'runner:cancelled',{id:race.id,reason:'상대가 준비 중에 나갔어요.'});races.delete(race.id);emitVillage(race.villageId);}
-      else for(const other of race.players)if(other!==player)io.to(other.socketId).emit('runner:opponent-left',{id:race.id,userId:player.userId});
+      else if(race.kind!=='crab')for(const other of race.players)if(other!==player)io.to(other.socketId).emit('runner:opponent-left',{id:race.id,userId:player.userId});
     }
   }
   function publishRace(race){
+    if(race.kind==='crab')return;
     const elapsed=Math.max(0,Date.now()-race.started);
     const players=race.players.map(player=>{
       const g=store.one('SELECT * FROM games WHERE id=?',player.gameId);
@@ -298,14 +303,14 @@ export function createApp(options = {}) {
   }
   app.post('/api/games/:id/action',auth,(req,res)=>{const g=running(req);res.json(actOnRun(g,req.body));const race=races.get(raceByGame.get(g.id));if(race)publishRace(race);});
   app.get('/api/games/:id/state',auth,(req,res)=>{const g=running(req);const state=advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started);store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(state),g.id);res.json({state,elapsed:Date.now()-g.started});});
-  app.post('/api/games/:id/abandon',auth,(req,res)=>{store.run('UPDATE games SET finished=2 WHERE id=? AND user_id=? AND finished=0',req.params.id,req.user.id);for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.json({ok:true});});
+  app.post('/api/games/:id/abandon',auth,(req,res)=>{crabs.abandon(req.params.id,req.user.id);store.run('UPDATE games SET finished=2 WHERE id=? AND user_id=? AND finished=0',req.params.id,req.user.id);for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.json({ok:true});});
   app.post('/api/games/:id/hit',auth,(req,res)=>{
     const {lane}=z.object({lane:z.number().int().min(0).max(3)}).parse(req.body);const g=store.one("SELECT * FROM games WHERE id=? AND user_id=? AND finished=0 AND kind='rhythm'",req.params.id,req.user.id);if(!g)fail(404,'진행 중인 게임이 아니에요.');
     const elapsed=Date.now()-g.started;const hits=JSON.parse(g.hits);const notes=JSON.parse(g.notes);const index=notes.findIndex((n,i)=>n.lane===lane&&!hits.some(h=>h.index===i)&&Math.abs(n.time-elapsed)<=300);
     let rating='miss';if(index>=0){rating=Math.abs(notes[index].time-elapsed)<130?'perfect':'good';hits.push({index,rating});store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(hits),g.id);}res.json({rating,combo:hits.length});
   });
   app.post('/api/games/:id/finish',auth,(req,res)=>{
-    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>(g.kind==='runner'?RUN_EXPIRY:120000))fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
+    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(g.kind==='crab')fail(400,'해변 게임 기록은 해변 게임 화면에서 저장해주세요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>(g.kind==='runner'?RUN_EXPIRY:120000))fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
     const state=g.kind==='runner'?advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started):null;
     if(state?state.lives>0&&state.elapsed<RUN_DURATION:Date.now()-g.started<30000)fail(400,'게임이 끝나면 정산할 수 있어요.');
     const hits=state?state.dodged:JSON.parse(g.hits).length;const score=state?runScore(state):JSON.parse(g.hits).reduce((n,h)=>n+(h.rating==='perfect'?100:65),0);let gold=0;
@@ -319,10 +324,10 @@ export function createApp(options = {}) {
     });emitUpdate(req.user.id);emitVillage(g.target_id);io.to([`village:${g.target_id}`,`user:${g.target_id}`]).emit('games:changed',{villageId:g.target_id});res.json({score,gold,hits,total:g.kind==='runner'?JSON.parse(g.notes).filter(n=>n.kind!=='seed').length:40,lives:state?.lives,collectedSeeds:state?.collectedSeeds||0});
   });
   app.get('/api/villages/:id/records',auth,(req,res)=>{
-    checkTarget(req,req.params.id);const kind=z.enum(['rhythm','runner']).parse(req.query.kind||'rhythm');
+    checkTarget(req,req.params.id);const kind=z.enum(['rhythm','runner','crab']).parse(req.query.kind||'rhythm');
     // Filter before ranking/limiting; anonymous records never expose a user or game ID.
-    const records=store.all(`SELECT g.user_id,g.anonymous,g.score,g.started,u.nickname FROM games g JOIN users u ON u.id=g.user_id WHERE g.target_id=? AND g.kind=? AND g.finished=1 AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.owner_id=? AND b.blocked_id=g.user_id) OR (b.blocked_id=? AND b.owner_id=g.user_id)) ORDER BY g.score DESC,g.started DESC LIMIT 30`,req.params.id,kind,req.user.id,req.user.id);
-    res.json({records:records.map((r,i)=>({rank:i+1,nickname:r.anonymous?'익명의 이웃':r.nickname||'새싹',score:r.score,playedAt:new Date(r.started).toISOString(),isMe:r.user_id===req.user.id}))});
+    const records=store.all(`SELECT g.user_id,g.anonymous,g.score,g.started,g.hits,u.nickname FROM games g JOIN users u ON u.id=g.user_id WHERE g.target_id=? AND g.kind=? AND g.finished=1 AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.owner_id=? AND b.blocked_id=g.user_id) OR (b.blocked_id=? AND b.owner_id=g.user_id)) ORDER BY g.score DESC,g.started DESC LIMIT 30`,req.params.id,kind,req.user.id,req.user.id);
+    res.json({records:records.map((r,i)=>({rank:i+1,nickname:r.anonymous?'익명의 이웃':r.nickname||'새싹',score:r.score,playedAt:new Date(r.started).toISOString(),isMe:r.user_id===req.user.id,...(kind==='crab'?{seconds:crabSeconds({elapsed:JSON.parse(r.hits).survived||0})}:{})}))});
   });
 
   app.post('/api/topics',auth,aiLimiter,async(req,res)=>{
@@ -378,15 +383,15 @@ export function createApp(options = {}) {
       publishRace(race);
     });
     runnerRequest('runner:invite',(data,ack)=>{
-      const {userId,anonymous}=z.object({userId:z.string().uuid(),anonymous:z.boolean().default(false)}).strict().parse(data);
+      const {userId,anonymous,kind}=z.object({userId:z.string().uuid(),anonymous:z.boolean().default(false),kind:z.enum(['runner','crab']).default('runner')}).strict().parse(data);
       const villageId=socket.data.village?.villageId;if(!villageId||userId===uid)fail(400,'같은 마을의 이웃을 선택해주세요.');
       checkTarget({user:userById(uid)},villageId);checkTarget({user:userById(userId)},villageId);
       if(isBlocked(store,uid,userId))fail(403,'초대할 수 없는 이웃이에요.');
       const member=villageVisitors.get(villageId)?.get(userId),toSocket=member&&[...member.sockets][0];
       if(!toSocket)fail(409,'상대가 마을을 떠났어요.');
       if(busy(uid)||busy(userId)||[...invites.values()].some(i=>[i.from,i.to].some(u=>u===uid||u===userId)))fail(409,'이미 게임이나 초대를 진행 중이에요.');
-      const invite={id:id(),villageId,from:uid,to:userId,fromSocket:socket.id,toSocket,anonymous,expires:Date.now()+30000};invites.set(invite.id,invite);
-      io.to(toSocket).emit('runner:invited',{id:invite.id,villageId,nickname:userById(uid).nickname,expires:invite.expires});ack({ok:true,id:invite.id});
+      const invite={id:id(),kind,villageId,from:uid,to:userId,fromSocket:socket.id,toSocket,anonymous,expires:Date.now()+30000};invites.set(invite.id,invite);
+      io.to(toSocket).emit('runner:invited',{id:invite.id,kind,villageId,nickname:userById(uid).nickname,expires:invite.expires});ack({ok:true,id:invite.id});
     });
     runnerRequest('runner:respond',(data,ack)=>{
       const {inviteId,accept,anonymous}=z.object({inviteId:z.string().uuid(),accept:z.boolean(),anonymous:z.boolean().default(false)}).strict().parse(data);
@@ -398,8 +403,8 @@ export function createApp(options = {}) {
       checkTarget({user:userById(uid)},invite.villageId);checkTarget({user:userById(invite.from)},invite.villageId);
       if(isBlocked(store,uid,invite.from)||busy(uid)||busy(invite.from))fail(409,'지금은 함께 시작할 수 없어요.');
       invites.delete(invite.id);
-      const race={id:id(),villageId:invite.villageId,notes:runnerNotes(),created:Date.now(),players:[{userId:invite.from,socketId:invite.fromSocket,anonymous:invite.anonymous},{userId:uid,socketId:socket.id,anonymous}].map(p=>({...p,nickname:userById(p.userId).nickname,appearance:profile(userById(p.userId),p.userId).appearance}))};races.set(race.id,race);emitVillage(race.villageId);
-      raceEmit(race,'runner:matched',{id:race.id,villageId:race.villageId,players:race.players.map(({socketId,anonymous,...p})=>p)});ack({ok:true});
+      const race={id:id(),kind:invite.kind,villageId:invite.villageId,notes:runnerNotes(),created:Date.now(),players:[{userId:invite.from,socketId:invite.fromSocket,anonymous:invite.anonymous},{userId:uid,socketId:socket.id,anonymous}].map(p=>({...p,nickname:userById(p.userId).nickname,appearance:profile(userById(p.userId),p.userId).appearance}))};races.set(race.id,race);emitVillage(race.villageId);
+      raceEmit(race,'runner:matched',{id:race.id,kind:race.kind,villageId:race.villageId,players:race.players.map(({socketId,anonymous,...p})=>p)});ack({ok:true});
     });
     runnerRequest('runner:cancel-invite',(data,ack)=>{const invite=invites.get(data?.id);if(invite&&invite.fromSocket===socket.id)cancelInvite(invite,'초대가 취소됐어요.');ack({ok:true});});
     runnerRequest('runner:leave',(_,ack)=>{leaveRace(socket);if(socket.data.village)emitVillage(socket.data.village.villageId);ack({ok:true});});
@@ -410,6 +415,11 @@ export function createApp(options = {}) {
         for(const p of race.players){checkTarget({user:userById(p.userId)},race.villageId);if(io.sockets.sockets.get(p.socketId)?.data.village?.villageId!==race.villageId)fail(409,'같은 마을에서 준비해주세요.');}
         if(isBlocked(store,race.players[0].userId,race.players[1].userId))fail(403,'함께 달릴 수 없는 이웃이에요.');
         race.started=Date.now()+1000;
+        if(race.kind==='crab'){
+          const room=crabs.start(race.players,race.villageId,race.id,race.started);
+          for(const p of race.players){const participant=room.players.find(v=>v.userId===p.userId);p.gameId=participant.gameId;io.to(p.socketId).emit('runner:started',{id:race.id,game:crabs.info(room,participant)});}
+          ack({ok:true});return;
+        }
         store.transaction(()=>{for(const p of race.players){p.gameId=id();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous,kind) VALUES(?,?,?,?,?,?,0,?,?)',p.gameId,p.userId,race.villageId,JSON.stringify(race.notes),JSON.stringify(newRun()),race.started,Number(p.anonymous),'runner');raceByGame.set(p.gameId,race.id);}});
         for(const p of race.players)io.to(p.socketId).emit('runner:started',{id:race.id,game:{id:p.gameId,notes:race.notes,duration:RUN_DURATION,started:race.started,serverTime:Date.now()}});
       }ack({ok:true});
@@ -450,9 +460,9 @@ export function createApp(options = {}) {
       // Moving samples can be dropped; the final pose must be delivered reliably.
       if(moving)room.volatile.emit('village:move',update);else room.emit('village:move',update);
     });
-    socket.on('disconnect',()=>{leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
+    socket.on('disconnect',()=>{if(![...io.sockets.sockets.values()].some(other=>other.data.userId===uid))crabs.leave(uid);leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
   });
-  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(Date.now()-r.started>RUN_EXPIRY||r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished)){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
+  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(Date.now()-r.started>(r.kind==='crab'?3600000:RUN_EXPIRY)||r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished)){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
   const maintenance=setInterval(()=>{store.run('DELETE FROM sessions WHERE expires<?',Date.now());for(const socket of io.sockets.sockets.values())if(!sessionUser(socket.request.headers))socket.disconnect(true);},60000);maintenance.unref();
   app.use('/resource',express.static(resolve('resource'),{maxAge:'7d',immutable:true}));
   const dist=resolve('dist');if(existsSync(dist)){app.use(express.static(dist,{maxAge:'1h',setHeaders(res,path){if(path.endsWith('.html'))res.set('Cache-Control','no-store');}}));app.get('/{*splat}',(req,res,next)=>req.path.startsWith('/api/')?next():res.set('Cache-Control','no-store').sendFile(resolve(dist,'index.html')));}
@@ -464,5 +474,5 @@ export function createApp(options = {}) {
     if(status===500)console.error('[server]',error.name,error.message?.slice(0,160));
     res.status(status).json({error:error instanceof z.ZodError?'입력 형식 또는 길이를 확인해 주세요.':messages[error.message]||(status===500?'처리 중 오류가 발생했어요. 다시 시도해 주세요.':error.message)});
   });
-  return {app,server,io,store,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
+  return {app,server,io,store,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);crabs.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
 }

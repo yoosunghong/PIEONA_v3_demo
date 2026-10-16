@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
 import {villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,villageJumpHeight} from './villageMovement.mjs';
-import {sceneMood,sceneView,cameraPose,startCameraTransition,advanceCameraTransition} from './sceneCamera.mjs';
+import {sceneMood,sceneView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning} from './sceneCamera.mjs';
 import {createSceneViewport} from './sceneViewport.mjs';
 import {editorGridStyle} from './sceneGrid.mjs';
 import {canPlaceDecoration,snapPosition} from './villageEditorState.mjs';
@@ -16,12 +16,12 @@ import {createVillageSign} from './signModel';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false,editor=null}){
+export default function Scene({topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false,renderSuspended=false,editor=null}){
   const signData=villageSign(village),signKey=JSON.stringify(signData);
   const topicBubble=useRef();
   const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={topicGuest,topicLine,onInteract,onReady,onPositionChange,movementInput,editor,sign:signData,items:[...(village.items||[]),signPlacementItem(signData)]};
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
-  useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused]);
+  useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused,renderSuspended]);
   // Keep one WebGL context for this mounted scene, including all look previews.
   useEffect(()=>()=>{
     const renderer=rendererRef.current;rendererRef.current=null;
@@ -182,7 +182,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     const initialView=mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
     controls.addEventListener('start',()=>{cameraTransition=null;});
-    state.current={mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused};
+    state.current={mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused,renderSuspended};
     const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0,jumpRequested=false;
     function keydown(e){
       const s=state.current,key=villageMovementKey(e);
@@ -210,7 +210,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       placeMoon();renderer.render(world,camera);
     });}
     const clock=new THREE.Clock();let lastPausedRender=-1;
-    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();if(viewport.needsDraw||time-lastPausedRender>.1){lastPausedRender=time;controls.update();drawFrame();}return;}
+    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();if(viewport.needsDraw||!s.renderSuspended&&time-lastPausedRender>.1){lastPausedRender=time;controls.update();drawFrame();}return;}
       const modeChanged=s.mode!==previousMode,signPose=[callbacks.current.sign.x,callbacks.current.sign.z,callbacks.current.sign.rotation].join(',');
       if(modeChanged||s.mode==='sign'&&signPose!==previousSignPose){
         const leavingDetail=previousMode==='edit'||previousMode==='sign';
@@ -221,7 +221,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         cameraTransition=startCameraTransition(camera,controls,view,reducedMotion.matches?0:1.1);
         previousMode=s.mode;previousSignPose=signPose;if(s.mode!=='village')heldKeys.clear();
       }
-      const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&s.mode!=='sign'&&!dragged;controls.minDistance=s.mode==='sign'?1:portrait?3:5;controls.enablePan=editing;controls.maxDistance=editing?30:26;controls.mouseButtons.RIGHT=editing?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
+      const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&s.mode!=='sign'&&!dragged;controls.minDistance=s.mode==='sign'?1:portrait?3:5;controls.maxDistance=editing?30:26;configureScenePanning(controls,s.mode);
       if(cameraTransition&&advanceCameraTransition(cameraTransition,camera,controls,dt))cameraTransition=null;
       gridOpacity+=((editing?gridStyle.opacity:0)-gridOpacity)*Math.min(1,dt*6);grid.visible=gridOpacity>.002;grid.material.opacity=gridOpacity;
       controls.update();

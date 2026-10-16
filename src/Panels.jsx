@@ -2,10 +2,10 @@ import React,{useEffect,useState,useRef}from'react';
 import{Lock,Globe,Heart,Trash2,Pencil,Check,Plus,Download,Shield,Flower2,MessageCircle,Eye,EyeOff,ArrowLeft,UserPlus,Star,Flag,Ban}from'lucide-react';
 import{api,dateLabel,stageNames,themes}from'./api';
 
-export function Modal({title,eyebrow='MY LITTLE WORLD',children,onClose,wide=false,dismissOnBackdrop=true,side=false}){
+export function Modal({title,eyebrow='MY LITTLE WORLD',description,children,onClose,wide=false,dismissOnBackdrop=true,side=false,className=''}){
   const root=useRef();
   useEffect(()=>{const previous=document.activeElement;const dialog=root.current;const first=dialog.querySelector('input,textarea,button,select,a[href]');if(!dialog.contains(document.activeElement))first?.focus();function trap(e){if(e.key!=='Tab')return;const nodes=[...dialog.querySelectorAll('button:not(:disabled),input:not(:disabled),textarea:not(:disabled),select:not(:disabled),a[href]')].filter(n=>n.getClientRects().length);const first=nodes[0],last=nodes.at(-1);if(e.shiftKey&&document.activeElement===first){e.preventDefault();last?.focus();}else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first?.focus();}}dialog.addEventListener('keydown',trap);return()=>{dialog.removeEventListener('keydown',trap);previous?.focus?.();};},[]);
-  return <div className={'modal-backdrop'+(side?' side-backdrop':'')} onMouseDown={e=>{if(dismissOnBackdrop&&e.target===e.currentTarget)onClose();}}><section ref={root} role="dialog" aria-modal="true" aria-label={title} className={'modal '+(wide?'wide':'')+(side?' side-panel':'')}><header><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2></div><button className="icon-button" aria-label="닫기" onClick={onClose}>×</button></header>{children}</section></div>;
+  return <div className={'modal-backdrop'+(side?' side-backdrop':'')} onMouseDown={e=>{if(dismissOnBackdrop&&e.target===e.currentTarget)onClose();}}><section ref={root} role="dialog" aria-modal="true" aria-label={title} className={'modal '+(wide?'wide':'')+(side?' side-panel':'')+' '+className}><header><div><span className="eyebrow">{eyebrow}</span><h2>{title}</h2>{description&&<p className="modal-description">{description}</p>}</div><button className="icon-button" aria-label="닫기" onClick={onClose}>×</button></header>{children}</section></div>;
 }
 export function AvatarBadge({user,size='normal'}){return <span className={'avatar-badge '+size} style={{'--avatar-color':themes[user?.theme]?.color||'#b9d9ac'}}><Flower2 size={size==='large'?32:20}/></span>;}
 

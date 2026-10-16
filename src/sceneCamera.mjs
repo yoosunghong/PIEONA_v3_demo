@@ -2,6 +2,15 @@ import * as THREE from 'three';
 import {villageThemes} from '../shared/world.mjs';
 
 export const CAMERA_TRANSITION_SECONDS=1.1;
+// Keep the camera's focus within the village's walkable island.
+export const VILLAGE_CAMERA_PAN_RADIUS=5.8;
+export function configureScenePanning(controls,mode){
+  const village=mode==='village';
+  controls.enablePan=village||mode==='edit';
+  controls.screenSpacePanning=!village;
+  controls.maxTargetRadius=village?VILLAGE_CAMERA_PAN_RADIUS:Infinity;
+  controls.mouseButtons.RIGHT=mode==='edit'?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
+}
 export const sceneMood=id=>villageThemes.find(theme=>theme.id===id)||villageThemes[0];
 export function sceneView(mode,{portrait=false,mood='default'}={}){
   if(mode==='topic')return{position:[0,4.3,10],target:[0,1.8,0]};

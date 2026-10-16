@@ -5,3 +5,16 @@ Use case: stylized-concept. Asset type: wide game selection banner for a cozy Ko
 
 starlight-rhythm.png
 Use case: stylized-concept. Asset type: wide game selection banner for a cozy Korean social village game. Primary request: Starlight Rhythm, a cute rounded 3D toy-like humanoid avatar playing a glowing pastel keyboard in a cozy garden cafe at dusk, luminous musical notes and stars swirling over four keys, flowers, warm cafe lights. Style: polished soft 3D game illustration with lilac, dusty pink, cream and sage, soft magical starlight, playful musical energy, wide cinematic landscape framing. No text, letters, logos or watermark. Save final generated image as a local file and return its path.
+
+Playground room UI assets — 2026-10-16
+Generated with the built-in image_gen tool; optimized as WebP for the project.
+Reference: user-supplied playground UI screenshot (pastel anime illustration style).
+
+public/images/minigames/playground-header.webp
+Prompt: A very wide powder-blue sky header with fluffy white clouds. A cheerful blonde anime chibi girl with a blue ribbon and tiny blue flowers in her hair, winking and cuddling a smiling white bunny in the right third. Clean pale-blue sky on the left for a title overlay. Delicate linework, soft watercolor and cel shading, bright cozy fantasy RPG mood. No text, UI, logos, borders, or watermark.
+
+public/images/minigames/cloud-run-card.webp
+Prompt: Two anime chibi children, a brown-haired boy in a sage explorer cap and a pink-haired girl in a white bunny hat, running and jumping along a pink stone path above clouds. Floating fairytale castles and gardens under a blue sky. Pastel anime illustration, crisp delicate linework, large sparkling eyes, soft cel shading, bright sunlight. Landscape 4:3. No text, UI, logos, or watermark.
+
+public/images/minigames/starlight-rhythm-card.webp
+Prompt: An anime chibi girl with peach-lilac hair in a flower-decorated bun and large purple eyes playing a keyboard under a garden tree at twilight. Glowing golden stars, colorful musical notes, star lanterns, a white bunny, and an indigo-purple garden cafe. Delicate anime linework, soft cel shading, luminous cozy fantasy RPG mood. Landscape 4:3. No text, UI, logos, or watermark.
