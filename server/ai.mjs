@@ -57,6 +57,31 @@ export async function generateAnswer(context, text, history = [], options = {}) 
 }
 
 function localAnswer(context, text) {
+  if(context.topicTurn){
+    const {index,topic}=context.topicTurn;
+    const preference=context.snapshot.personality?.['취향']?.[0]||context.snapshot.interests[0];
+    const turns=/첫인상|첫인사/.test(topic)?[
+      '처음엔 조금 차분해 보였어요. 낯을 가리는 편이에요?',
+      '조금요, 친해지면 말이 많아져요. 그쪽은요?',
+      '저도 처음엔 무슨 말을 할지 고르게 돼요.',
+      '그럼 우리 둘 다 첫마디가 어려웠겠네요?',
+      '맞아요, 지금은 한결 편해졌어요. 쉬는 날엔 뭘 해요?',
+      preference?`저는 ${preference} 쪽에 마음이 가요. 같이 해볼래요?`:'저는 이렇게 느긋하게 이야기하는 것도 좋아요.',
+      '좋아요, 다음엔 더 편하게 이야기할 수 있겠어요.',
+      '그러게요, 다음에 만나면 먼저 인사할게요.'
+    ]:[
+      `“${topic}”이라니, 먼저 떠오르는 게 있어요?`,
+      preference?`저는 ${preference}부터 떠올랐어요. 그쪽은요?`:'저는 여유롭게 시작하고 싶어요. 그쪽은요?',
+      '저도 서두르기보단 천천히 즐기는 게 좋아요.',
+      '그럼 처음부터 계획을 꽉 채우진 말까요?',
+      '좋아요, 마음 가는 대로 하나씩 정해봐요.',
+      '중간에 생각이 달라져도 괜찮겠죠?',
+      '물론이죠, 같이 이야기하며 바꾸면 되니까요.',
+      '좋아요, 다음에도 이렇게 같이 골라봐요.'
+    ];
+    return {reply:turns[index],emotion:index===7?'happy':'curious',memories:[],provider:'local'};
+  }
+
   const style = /말투|반말|존댓말|장난|간결|짧게|직설/.test(text) && /좋아|원해|해줘|말해|쓰|선호/.test(text);
   const interest = (style || /(?:좋아|즐겨|취미|싫어|중요|소중|나는|저는|오늘)/.test(text)) && !/[?？]$/.test(text);
   const related = context.selected.find(m => m.score >= 4);

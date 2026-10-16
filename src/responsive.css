@@ -1,0 +1,123 @@
+/* Loaded after the visual themes so mobile geometry has one final owner. */
+.main-shell, .workspace { min-width: 0; }
+
+@media (max-width: 800px), (max-height: 500px) and (pointer: coarse) {
+  .app-shell {
+    --mobile-header: calc(56px + env(safe-area-inset-top, 0px));
+    --mobile-nav: calc(58px + env(safe-area-inset-bottom, 0px));
+    position: relative;
+    height: var(--app-height, 100dvh);
+    min-height: 0;
+    padding: 0 env(safe-area-inset-right, 0px) var(--mobile-nav) env(safe-area-inset-left, 0px);
+  }
+  .app-shell .main-shell { width: 100%; min-height: 0; }
+  .app-shell .topbar {
+    height: var(--mobile-header); min-height: var(--mobile-header);
+    padding: env(safe-area-inset-top, 0px) 10px 0; gap: 8px;
+  }
+  .app-shell .brand { min-width: 0; }
+  .app-shell .brand > span:first-of-type { font-size: 20px; letter-spacing: 1px; }
+  .app-shell .topbar-right { gap: 6px; flex-shrink: 0; }
+  .app-shell .top-user { display: none; }
+  .app-shell .top-survey { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 40px; padding: 6px; flex-shrink: 0; }
+  .app-shell .top-survey > span { display: none; }
+  .app-shell .gold { font-size: 12px; gap: 3px; }
+  .app-shell .mobile-people-button { display: inline-flex; width: 36px; height: 40px; }
+
+  .app-shell .rail {
+    position: absolute; inset: auto 0 0; width: 100%;
+    height: var(--mobile-nav); padding: 0 env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    flex-direction: row; justify-content: stretch;
+    border-right: 0; border-top: 1px solid #dce9f4; background: #f9fcff;
+  }
+  .app-shell .rail-logo { display: none; }
+  .app-shell .rail-menu, .app-shell .rail-bottom {
+    position: static; display: flex; flex-direction: row; align-items: center;
+    height: 100%; width: auto; margin: 0; padding: 0; gap: 0;
+  }
+  .app-shell .rail-menu { flex: 4; }
+  .app-shell .rail-bottom { flex: 3; }
+  .app-shell .rail-item, .app-shell .rail-bottom .rail-item, .app-shell .rail-profile {
+    display: flex; flex: 1; min-width: 0; width: auto; height: 52px;
+    align-items: center; justify-content: center; flex-direction: column;
+    margin: 0; padding: 4px 0; border: 0; border-radius: 12px; gap: 2px;
+  }
+  .app-shell .rail-item span { display: block; font-size: 10px; }
+  .app-shell .rail-item svg { width: 20px; height: 20px; }
+  .app-shell .people-sidebar, .app-shell .people-sidebar.is-collapsed { display: none; }
+  .app-shell .people-sidebar.mobile-open {
+    display: flex; top: var(--mobile-header); bottom: var(--mobile-nav);
+    width: min(360px, 100%); min-width: 0;
+  }
+  .app-shell .people-reopen { display: none; }
+  .app-shell .world-top { top: 12px; left: 12px; right: 12px; gap: 8px; }
+  .app-shell .world-top > div { min-width: 0; max-width: calc(100% - 100px); }
+  .app-shell .world-title h1 { font-size: clamp(17px, 3.8vw, 24px); line-height: 1.35; }
+  .app-shell .breadcrumbs { margin-bottom: 5px; }
+  .app-shell .world-subtitle { font-size: 11px; margin-top: 4px; }
+  .app-shell .village-theme-button { min-height: 40px; padding: 8px; font-size: 11px; }
+  .app-shell .stage-controls { top: 100px; left: 12px; right: 12px; max-width: none; }
+  .app-shell .stage-mode { flex: 1; }
+  .app-shell .stage-mode > div { flex-wrap: nowrap; }
+  .app-shell .stage-mode button { flex: 1; padding: 6px 4px; font-size: 11px; }
+  .app-shell .world-panel .avatar-card { display: none; }
+  .app-shell .world-actions {
+    top: 174px; left: auto; right: 12px; width: 44px;
+    flex-direction: column; gap: 6px;
+  }
+  .app-shell .world-actions button { width: 44px; height: 44px; min-height: 44px; padding: 0; gap: 0; font-size: 0; }
+  .app-shell .world-actions button > svg { width: 22px; height: 22px; padding: 11px; }
+  .app-shell .world-panel .avatar-speech { display: none; }
+  .app-shell .chat-dock, .app-shell .chat-dock.is-collapsed {
+    left: 10px; right: 10px; bottom: 10px; width: auto; max-width: none;
+    transform: none; max-height: min(48%, 340px); border-radius: 22px;
+    padding: 8px 10px;
+  }
+  .app-shell .chat-body { overflow-y: auto; overscroll-behavior: contain; }
+  .app-shell .chat-input-wrap { height: 52px; min-height: 52px; }
+  .app-shell .chat-input-wrap input { font-size: 16px; width: 100%; }
+  .app-shell .chat-messages { flex-shrink: 0; }
+  .app-shell .chat-line p { font-size: 14px; overflow-wrap: anywhere; }
+  .app-shell .village-footer { bottom: 10px; max-height: 40%; overflow-y: auto; }
+  .app-shell .touch-joystick { bottom: 160px; left: 12px; }
+  .app-shell .persistent-world-stage.is-positioned { transition: none; }
+  .modal-backdrop { padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left)); }
+  .modal, .modal.side-panel { max-height: calc(var(--app-height, 100dvh) - 24px); }
+  .modal > header { flex-shrink: 0; padding: 14px 16px; gap: 8px; }
+  .modal h2 { font-size: 19px; overflow-wrap: anywhere; }
+  .modal .panel-body { padding: 16px; }
+  .modal input, .modal textarea, .modal select, .auth-form input, .app-shell .people-search input { font-size: 16px; }
+  .sign-view-actions {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    width: max-content; max-width: calc(100% - 20px); flex-wrap: wrap;
+    justify-content: center; padding: 10px; gap: 6px;
+  }
+  .sign-view-actions strong { width: 100%; text-align: center; }
+  .sign-view-actions button { font-size: 13px; padding: 10px 12px; }
+  .sign-editor { max-height: calc(var(--app-height, 100dvh) - 24px); }
+  .tutorial-dialog { max-height: calc(var(--app-height, 100dvh) - 24px); overflow-y: auto; }
+  .toast { bottom: calc(68px + env(safe-area-inset-bottom)); overflow-wrap: anywhere; }
+  .auth-page { display: block; }
+  .auth-world { min-height: 0; height: 260px; }
+  .auth-story { bottom: 12px; left: 24px; }
+  .auth-story p, .auth-tags, .auth-caption { display: none; }
+  .auth-form-side { padding: 24px max(20px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); }
+}
+
+/* A rotated phone or an open keyboard must leave room for the input. */
+@media (max-height: 600px) and (max-width: 800px), (max-height: 500px) and (pointer: coarse) {
+  .app-shell .world-top { top: 6px; }
+  .app-shell .breadcrumbs, .app-shell .world-subtitle { display: none; }
+  .app-shell .stage-controls { top: 52px; }
+  .app-shell .stage-mode > span { display: none; }
+  .app-shell .world-actions { top: 108px; flex-direction: row; width: auto; }
+  .app-shell .chat-dock { max-height: 48%; bottom: 6px; }
+  .app-shell .chat-dock .starter-row, .app-shell .chat-body > footer { display: none; }
+  .app-shell .touch-joystick { bottom: 112px; }
+  .app-shell .joystick-pad { width: 80px; height: 80px; }
+  .app-shell .joystick-hint { display: none; }
+}
+
+@media (max-width: 600px) and (max-height: 450px) {
+  .app-shell .touch-joystick { display: none; }
+}

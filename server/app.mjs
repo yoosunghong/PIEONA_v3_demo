@@ -1,3 +1,4 @@
+import {generateTopic} from './topic.mjs';
 import express from 'express';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
@@ -328,7 +329,7 @@ export function createApp(options = {}) {
     const data=z.object({targetId:z.string().uuid(),topic:z.string().trim().min(1).max(120)}).parse(req.body);const target=checkTarget(req,data.targetId,'topic');const me=userById(req.user.id);if(!settingsOf(me).allowTopics)fail(403,'내 아바타의 토픽 허용을 먼저 켜주세요.');if(target.id===me.id)fail(400,'함께할 이웃 아바타를 골라주세요.');
     // A synthetic viewer receives public-only snapshots of BOTH characters, even for the owner.
     const a=assembleContext(store,me,'public-topic-viewer',data.topic);const b=assembleContext(store,target,'public-topic-viewer',data.topic);
-    const transcript=[];for(let i=0;i<4;i++){const context=i%2===0?a:b;const text=i===0?`다른 AI 아바타와 ${data.topic} 주제로 대화해줘.`:`상대 아바타: ${transcript.at(-1).text}\n주제: ${data.topic}. 이어서 답해줘.`;const answer=await(options.generateAnswer||generateAnswer)(context,text,[]);transcript.push({speaker:i%2===0?me.nickname:target.nickname,text:answer.reply,emotion:answer.emotion,theme:i%2===0?me.theme:target.theme});}
+    const transcript=await generateTopic([a,b],[me,target],data.topic,options.generateAnswer||generateAnswer);
     const latestTarget=checkTarget(req,target.id,'topic');const latestMe=userById(me.id);if(!settingsOf(latestMe).allowTopics||!sessionUser(req.headers)||assembleContext(store,latestMe,'public-topic-viewer',data.topic).contextKey!==a.contextKey||assembleContext(store,latestTarget,'public-topic-viewer',data.topic).contextKey!==b.contextKey)fail(409,'공개 설정이 변경됐어요. 다시 시도해주세요.');
     const tid=id();store.run('INSERT INTO topic_sessions VALUES(?,?,?,?,?,?)',tid,me.id,target.id,data.topic,JSON.stringify(transcript),now());event(req.user.id,'topic_completed');res.json({id:tid,transcript});
   });

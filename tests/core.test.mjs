@@ -89,7 +89,9 @@ test('five unique balance answers create private confirmed memories and stage pr
 
 test('avatar topic uses only public snapshots for both speakers and never grows persona',async()=>{
   await memory(bob,'BOB_PRIVATE_TOPIC_SECRET');await memory(bob,'BOB_PUBLIC_COFFEE','public');const before=runtime.store.all('SELECT id,revision FROM users ORDER BY id');const start=packets.length;
-  const r=await request('/topics',{method:'POST',cookie:alice.cookie,body:{targetId:bob.id,topic:'완벽한 주말'}});assert.equal(r.status,200);assert.equal(r.body.transcript.length,4);
+  const r=await request('/topics',{method:'POST',cookie:alice.cookie,body:{targetId:bob.id,topic:'완벽한 주말'}});assert.equal(r.status,200);assert.equal(r.body.transcript.length,8);
+  assert.ok(r.body.transcript.every((m,i)=>m.speakerId===(i%2?bob.id:alice.id)&&m.text.length<=120));
+  assert.deepEqual(packets.slice(start).map(p=>p.history.length),[0,1,2,3,4,5,6,7]);
   assert.ok(packets.slice(start).every(p=>!p.context.own&&!p.context.system.includes('PRIVATE_SECRET')&&!p.context.system.includes('BOB_PRIVATE')&&!p.context.system.includes('CLOSE_SECRET')));
   assert.deepEqual(before,runtime.store.all('SELECT id,revision FROM users ORDER BY id'));
 });

@@ -16,9 +16,10 @@ import {createVillageSign} from './signModel';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({captureRef,movementInput,jumpInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false,editor=null}){
+export default function Scene({topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',theme='sage',emotion='calm',sceneType='garden',onInteract,onReady,villageMembers=[],viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,paused=false,editor=null}){
   const signData=villageSign(village),signKey=JSON.stringify(signData);
-  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={onInteract,onReady,onPositionChange,movementInput,editor,sign:signData,items:[...(village.items||[]),signPlacementItem(signData)]};
+  const topicBubble=useRef();
+  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={topicGuest,topicLine,onInteract,onReady,onPositionChange,movementInput,editor,sign:signData,items:[...(village.items||[]),signPlacementItem(signData)]};
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;}},[mode,emotion,villageMembers,viewerId,viewerNickname,inputEnabled,paused]);
   // Keep one WebGL context for this mounted scene, including all look previews.
@@ -196,7 +197,18 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     const viewport=createSceneViewport(renderer,camera);
     const resize=()=>{const {width,height}=el.getBoundingClientRect();viewport.resize(width,height);};
     const observer=new ResizeObserver(resize);observer.observe(el);resize();
-    function drawFrame(){viewport.draw(()=>{placeMoon();renderer.render(world,camera);});}
+    function drawFrame(){viewport.draw(()=>{
+      if(state.current?.mode==='topic'&&!cameraTransition){camera.position.set(0,4.3,Math.max(10,6/camera.aspect));controls.target.set(0,1.8,0);controls.update();}
+      const bubble=topicBubble.current,line=callbacks.current.topicLine;
+      if(bubble&&line){
+        const point=new THREE.Vector3(line.speakerId===ownerId?-1.15:1.15,3.2,0).project(camera);
+        const anchor=(point.x+1)*.5*el.clientWidth,half=bubble.offsetWidth/2;
+        const left=Math.max(half+12,Math.min(el.clientWidth-half-12,anchor));
+        bubble.style.left=`${left}px`;bubble.style.top=`${(1-point.y)*50}%`;
+        bubble.style.setProperty('--speech-tail',`${half+anchor-left}px`);
+      }
+      placeMoon();renderer.render(world,camera);
+    });}
     const clock=new THREE.Clock();let lastPausedRender=-1;
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;if(s.paused){clearKeys();if(viewport.needsDraw||time-lastPausedRender>.1){lastPausedRender=time;controls.update();drawFrame();}return;}
       const modeChanged=s.mode!==previousMode,signPose=[callbacks.current.sign.x,callbacks.current.sign.z,callbacks.current.sign.rotation].join(',');
@@ -209,16 +221,16 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
         cameraTransition=startCameraTransition(camera,controls,view,reducedMotion.matches?0:1.1);
         previousMode=s.mode;previousSignPose=signPose;if(s.mode!=='village')heldKeys.clear();
       }
-      const editing=s.mode==='edit';controls.enabled=s.mode!=='sign'&&!dragged;controls.minDistance=s.mode==='sign'?1:portrait?3:5;controls.enablePan=editing;controls.maxDistance=editing?30:26;controls.mouseButtons.RIGHT=editing?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
+      const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&s.mode!=='sign'&&!dragged;controls.minDistance=s.mode==='sign'?1:portrait?3:5;controls.enablePan=editing;controls.maxDistance=editing?30:26;controls.mouseButtons.RIGHT=editing?THREE.MOUSE.ROTATE:THREE.MOUSE.PAN;
       if(cameraTransition&&advanceCameraTransition(cameraTransition,camera,controls,dt))cameraTransition=null;
       gridOpacity+=((editing?gridStyle.opacity:0)-gridOpacity)*Math.min(1,dt*6);grid.visible=gridOpacity>.002;grid.material.opacity=gridOpacity;
       controls.update();
-      const players=villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);
-      avatarRoot.visible=showVillageStandIn(s.mode,ownerId,players,s.viewerId);
-      if(hostTag)hostTag.visible=true;avatarRoot.position.set(0,.39,0);avatarRoot.rotation.y=.55+Math.sin(time*.25)*.12;
+      const players=s.mode==='topic'&&callbacks.current.topicGuest?[{userId:callbacks.current.topicGuest.id,nickname:callbacks.current.topicGuest.nickname,appearance:callbacks.current.topicGuest.appearance,x:1.15,z:0,rotation:-Math.PI/2}]:villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);
+      avatarRoot.visible=s.mode==='topic'||showVillageStandIn(s.mode,ownerId,players,s.viewerId);
+      if(hostTag)hostTag.visible=true;avatarRoot.position.set(0,.39,0);avatarRoot.rotation.y=.55+Math.sin(time*.25)*.12;if(s.mode==='topic'){avatarRoot.position.x=-1.15;avatarRoot.rotation.y=Math.PI/2;}
       if(!s.inputEnabled||document.activeElement?.isContentEditable||document.activeElement?.closest?.('input,textarea,select,[role="textbox"]'))heldKeys.clear();
       if(characterAsset){
-        const members=s.mode==='village'||ownerId===s.viewerId?players:[];
+        const members=s.mode==='topic'||s.mode==='village'||ownerId===s.viewerId?players:[];
         const desired=new Set(members.map(m=>m.userId));
         for(const [id,entry] of remoteCharacters){if(!desired.has(id)){world.remove(entry.root);disposeCharacter(entry.root);entry.mixer?.stopAllAction();entry.mixer?.uncacheRoot(entry.mixer.getRoot());remoteCharacters.delete(id);}}
         for(const member of members){
@@ -233,7 +245,7 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
               }
               continue;
             }
-            entry=buildRemote(member,characterAssets.get(character));if(member.userId===s.viewerId&&ownerId===s.viewerId&&s.mode!=='village'){entry.root.position.set(0,.39,0);entry.root.rotation.y=.4;}remoteCharacters.set(member.userId,entry);if(member.userId===s.viewerId)callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false});}
+            entry=buildRemote(member,characterAssets.get(character));if(member.userId===s.viewerId&&ownerId===s.viewerId&&s.mode!=='village'){entry.root.position.set(0,.39,0);entry.root.rotation.y=.4;}remoteCharacters.set(member.userId,entry);if(s.mode!=='topic'&&member.userId===s.viewerId)callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false});}
           entry.root.visible=true;
           if(member.userId===ownerId)entry.root.userData.action='avatar';
           const previousX=entry.root.position.x,previousZ=entry.root.position.z;
@@ -309,5 +321,5 @@ export default function Scene({captureRef,movementInput,jumpInput,mode='home',th
     else{const offset=camera.position.clone().sub(controls.target),distance=THREE.MathUtils.clamp(offset.length()*(action.type==='in'?.8:1.25),controls.minDistance,controls.maxDistance);camera.position.copy(controls.target).add(offset.setLength(distance));}
     controls.update();
   },[editor?.cameraAction]);
-  return <div className="scene-wrap"><div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
+  return <div className="scene-wrap"><div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
 }

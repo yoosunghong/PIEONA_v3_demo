@@ -4,6 +4,7 @@ import {villageThemes} from '../shared/world.mjs';
 export const CAMERA_TRANSITION_SECONDS=1.1;
 export const sceneMood=id=>villageThemes.find(theme=>theme.id===id)||villageThemes[0];
 export function sceneView(mode,{portrait=false,mood='default'}={}){
+  if(mode==='topic')return{position:[0,4.3,10],target:[0,1.8,0]};
   if(mode==='edit')return{position:[1,17,12.5],target:[0,.1,0]};
   if(mode==='village')return{position:[11,17,14],target:[0,0,0]};
   if(portrait)return{position:[0,1.65,5.4],target:[0,1.65,0]};
