@@ -65,3 +65,15 @@ test('scenery movement protects stage, paths and neighbors and participates in u
   assert.deepEqual(editorHistory(state,{type:'undo'}).present,items);
   assert.deepEqual(editorHistory(editorHistory(state,{type:'undo'}),{type:'redo'}).present,next);
 });
+
+test('stored scenery and furniture free their positions and storage can be undone',()=>{
+  const furniture={id:'bench',type:'bench',x:-3,z:3.5,rotation:2};
+  const stored=[{...furniture,hidden:true},...villageScenery({}).map(item=>({...item,hidden:true}))];
+  assert.equal(canPlaceDecoration(stored,furniture.x,furniture.z),true);
+  assert.equal(canPlaceDecoration(stored,3.35,1.2),true);
+  const history=editorHistory({past:[],present:[furniture],future:[]},{type:'change',items:[stored[0]]});
+  assert.deepEqual(editorHistory(history,{type:'undo'}).present,[furniture]);
+  assert.deepEqual(editorHistory(editorHistory(history,{type:'undo'}),{type:'redo'}).present,[stored[0]]);
+  const tree=villageScenery({scenery:[{id:'tree-0',x:-5,z:0,rotation:2,hidden:true}]}).find(item=>item.id==='scenery:tree-0');
+  assert.equal(tree.hidden,true);assert.equal(tree.rotation,2);
+});

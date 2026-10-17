@@ -3,7 +3,8 @@ import {validPlacement} from '../shared/world.mjs';
 
 export const snapPosition=value=>Math.round(value*4)/4;
 export function canPlaceDecoration(items,x,z,selected=null){
-  return (isScenery(selected)?validSceneryPlacement(x,z):validPlacement(x,z,items.some(item=>isScenery(item.id))?items.filter(item=>isScenery(item.id)).map(item=>({...item,id:item.id.slice(8)})):undefined))&&!items.some(item=>item.id!==selected&&Math.hypot(item.x-x,item.z-z)<(isScenery(selected)?sceneryClearance(selected,item.id):.8));
+  const occupied=items.filter(item=>!item.hidden);
+  return (isScenery(selected)?validSceneryPlacement(x,z):validPlacement(x,z,items.some(item=>isScenery(item.id))?items.filter(item=>isScenery(item.id)).map(item=>({...item,id:item.id.slice(8)})):undefined))&&!occupied.some(item=>item.id!==selected&&Math.hypot(item.x-x,item.z-z)<(isScenery(selected)?sceneryClearance(selected,item.id):.8));
 }
 export function editorHistory(state,action){
   if(action.type==='undo')return state.past.length?{past:state.past.slice(0,-1),present:state.past.at(-1),future:[state.present,...state.future]}:state;

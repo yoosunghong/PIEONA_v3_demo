@@ -401,3 +401,32 @@ test('scenery placement saves, reaches visitors and rejects invalid IDs, positio
   assert.equal((await request('/me/world',user,{village:{theme:'sunset'}},'PATCH')).status,200);
   assert.deepEqual((await request('/me',user)).body.user.village.scenery,scenery);
 });
+
+test('storing and restoring objects preserves their identity, placement and sign artwork',async()=>{
+  const user=await register('storage_owner');
+  const furniture={...piece(),hidden:true};
+  const sign={x:-2,z:4.25,rotation:1,hidden:true,strokes:[{tool:'draw',color:'#20364c',size:10,points:[[.2,.3],[.4,.5]]}]};
+  const guestbook={x:2,z:4.25,rotation:2,hidden:true};
+  const scenery=[{id:'tree-0',x:-5,z:0,rotation:2,hidden:true}];
+  const saved=await request('/me/world',user,{village:{items:[furniture],sign,guestbook,scenery}},'PATCH');
+  assert.equal(saved.status,200,JSON.stringify(saved.body));
+  const village=(await request('/me',user)).body.user.village;
+  assert.deepEqual(village.items,[furniture]);assert.deepEqual(village.sign.strokes,sign.strokes);
+  assert.equal(village.sign.hidden,true);assert.equal(village.guestbook.hidden,true);
+  assert.deepEqual((await request('/users/'+user.id,visitor)).body.user.village.scenery,scenery);
+  const restored=await request('/me/world',user,{village:{items:[{...furniture,hidden:false}],sign:{hidden:false},guestbook:{hidden:false},scenery:[{...scenery[0],hidden:false}]}},'PATCH');
+  assert.equal(restored.status,200,JSON.stringify(restored.body));
+  assert.equal(restored.body.user.village.items[0].id,furniture.id);
+  assert.deepEqual(restored.body.user.village.sign.strokes,sign.strokes);
+  assert.equal(restored.body.user.village.scenery[0].hidden,false);
+});
+
+test('stored furniture does not collide with placed items or consume the 24 placement slots',async()=>{
+  const user=await register('storage_capacity');
+  const stored=Array.from({length:25},()=>({...piece(),hidden:true}));
+  const active=piece();
+  const saved=await request('/me/world',user,{village:{items:[...stored,active]}},'PATCH');
+  assert.equal(saved.status,200,JSON.stringify(saved.body));
+  assert.equal(saved.body.user.village.items.length,26);
+  assert.equal((await request('/me/world',user,{village:{items:[...stored.map(item=>({...item,hidden:false}))]}},'PATCH')).status,400);
+});

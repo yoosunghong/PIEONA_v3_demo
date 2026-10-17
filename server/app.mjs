@@ -125,31 +125,31 @@ export function createApp(options = {}) {
   });
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
   app.patch('/api/me/world',auth,(req,res)=>{
-    const item=z.object({id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
-    const sceneryItem=z.object({id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=6,'마을 안에 놓아주세요.');
+    const item=z.object({hidden:z.boolean().optional(),id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
+    const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=6,'마을 안에 놓아주세요.');
     const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.enum(signColors),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
-    const signSchema=z.object({x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
-    const guestbookSchema=z.object({x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional()}).strict();
-    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
+    const signSchema=z.object({hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
+    const guestbookSchema=z.object({hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional()}).strict();
+    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
     const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
-    if(data.village?.items){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
+    if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
     if(data.village?.guestbook)nextVillage.guestbook={...villageGuestbook(oldVillage),...data.village.guestbook};
     if(data.village?.sign||data.village?.items||data.village?.guestbook){
       const sign=villageSign(nextVillage);
-      if(!validPlacement(sign.x,sign.z,nextVillage.scenery)||(nextVillage.items||[]).some(item=>Math.hypot(item.x-sign.x,item.z-sign.z)<.8))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
+      if(!sign.hidden&&(!validPlacement(sign.x,sign.z,nextVillage.scenery)||(nextVillage.items||[]).some(item=>!item.hidden&&Math.hypot(item.x-sign.x,item.z-sign.z)<.8)))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
       const book=villageGuestbook(nextVillage);
-      if(!validPlacement(book.x,book.z,nextVillage.scenery)||[...(nextVillage.items||[]),sign].some(item=>Math.hypot(item.x-book.x,item.z-book.z)<.8))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
+      if(!book.hidden&&(!validPlacement(book.x,book.z,nextVillage.scenery)||[...(nextVillage.items||[]),sign].some(item=>!item.hidden&&Math.hypot(item.x-book.x,item.z-book.z)<.8)))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
     }
     if(data.village?.scenery){
       const before=villageScenery(oldVillage),after=villageScenery(nextVillage);
-      const objects=[...after,...(nextVillage.items||[]),villageSign(nextVillage),villageGuestbook(nextVillage)];
+      const objects=[...after,...(nextVillage.items||[]),villageSign(nextVillage),villageGuestbook(nextVillage)].filter(item=>!item.hidden);
       for(const object of after){
         const old=before.find(item=>item.id===object.id);
-        if(old.x===object.x&&old.z===object.z)continue;
+        if(object.hidden||(!old.hidden&&old.x===object.x&&old.z===object.z))continue;
         if(!validSceneryPlacement(object.x,object.z)||objects.some(other=>other!==object&&Math.hypot(other.x-object.x,other.z-object.z)<sceneryClearance(object.id,other.id)))fail(400,'광장·산책로·다른 오브젝트를 피해 배치해주세요.');
       }
     }

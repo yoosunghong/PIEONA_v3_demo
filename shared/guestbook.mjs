@@ -9,12 +9,12 @@ export const defaultGuestbook={x:2,z:4.25,rotation:0};
 export function villageGuestbook(village){
   if(village?.guestbook)return {...defaultGuestbook,...village.guestbook};
   const occupied=[...(village?.items||[]),villageSign(village)];
-  const free=(x,z)=>validPlacement(x,z)&&occupied.every(item=>Math.hypot(item.x-x,item.z-z)>=.8);
+  const free=(x,z)=>validPlacement(x,z)&&occupied.filter(item=>!item.hidden).every(item=>Math.hypot(item.x-x,item.z-z)>=.8);
   if(free(defaultGuestbook.x,defaultGuestbook.z))return {...defaultGuestbook};
   const candidates=[];
   for(let x=-5.5;x<=5.5;x+=.25)for(let z=-5.5;z<=5.5;z+=.25)if(free(x,z))candidates.push({x,z});
   candidates.sort((a,b)=>Math.hypot(a.x-defaultGuestbook.x,a.z-defaultGuestbook.z)-Math.hypot(b.x-defaultGuestbook.x,b.z-defaultGuestbook.z));
   return {...defaultGuestbook,...candidates[0]};
 }
-export const guestbookPlacementItem=book=>({id:GUESTBOOK_ID,type:'villageGuestbook',x:book.x,z:book.z,rotation:book.rotation});
+export const guestbookPlacementItem=book=>({id:GUESTBOOK_ID,type:'villageGuestbook',x:book.x,z:book.z,rotation:book.rotation,...(book.hidden?{hidden:true}:{})});
 export const guestbookCameraView=book=>signCameraView(book);

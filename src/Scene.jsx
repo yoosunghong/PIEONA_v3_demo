@@ -109,15 +109,12 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const fireCore=mesh(new THREE.ConeGeometry(.13,.5,8),fireMat,.05,.43,0,fireGroup);
     const embers=Array.from({length:14},(_,i)=>ball(.018,fireMat,Math.sin(i*2.4)*.22,.6+(i/14)*1.1,Math.cos(i*2.4)*.22,fireGroup));
     registerScenery('campfire',[fireGroup,flameLight],fireGroup.position.x,fireGroup.position.z);
-    let moon;
     if(night){
-      moon=ball(.62,mat(0xffefce,{emissive:0xffe3b2,emissiveIntensity:1.5}),-4,5,-6);moon.castShadow=false;
       const starMaterial=mat(0xfff3cf,{emissive:0xffefbd,emissiveIntensity:2});
       for(let i=0;i<55;i++){const a=i*2.39996;ball(.025+(i%3)*.012,starMaterial,Math.sin(a)*14,5+(i%11)*.45,Math.cos(a)*14);}
     }
     for(let i=0;i<2;i++){const bench=box(1,.14,.4,wood,2.1+(i?-.9:.9),.4,-2.6);bench.rotation.y=i?-.5:.5;registerScenery('bench-'+i,[bench],bench.position.x,bench.position.z);}
     for(const [x,z] of [[-1.4,3.4],[1.4,3.4],[-5,-2],[4,-1.3]]){const lampStart=world.children.length;cyl(.035,.06,1.65,bark,x,.95,z);box(.22,.34,.22,glow,x,1.9,z);box(.32,.06,.32,roof,x,2.1,z);const l=new THREE.PointLight(0xffd79d,1.5,4);l.position.set(x,1.8,z);world.add(l);registerScenery('lamp-'+([[-1.4,3.4],[1.4,3.4],[-5,-2],[4,-1.3]].findIndex(p=>p[0]===x&&p[1]===z)),world.children.slice(lampStart),x,z);}
-    function placeMoon(){if(moon){moon.position.set(-.85,.75,.995).unproject(camera).sub(camera.position).normalize().multiplyScalar(40).add(camera.position);}}
     // Seeded planting keeps the island stable between views.
     let seed=42;const rand=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
     const flowerGeo=new THREE.IcosahedronGeometry(.045,0);geometries.push(flowerGeo);const flowers=new THREE.InstancedMesh(flowerGeo,petal,230);const dummy=new THREE.Object3D();let n=0;for(let i=0;i<600&&n<230;i++){const x=(rand()-.5)*12,z=(rand()-.5)*12;if(x*x+z*z>40||x*x+z*z<8||Math.abs(x)<.8&&z>0||x<-2&&z<1||x>2&&z<3)continue;dummy.position.set(x,.2+rand()*.16,z);dummy.scale.setScalar(.7+rand());dummy.updateMatrix();flowers.setMatrixAt(n++,dummy.matrix);}flowers.count=n;world.add(flowers);
@@ -152,7 +149,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.16);let pointerDown,dragged=null;
     function ray(e){const rect=el.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);}
     function ground(e){ray(e);const point=raycaster.ray.intersectPlane(groundPlane,new THREE.Vector3());return point?{x:snapPosition(point.x),z:snapPosition(point.z)}:null;}
-    function itemHit(e){ray(e);for(const hit of raycaster.intersectObjects([...sceneryRoots.values(),...decorationRoot.children,...signRoot.children],true)){let obj=hit.object;while(obj){if(obj.userData.itemId)return obj;obj=obj.parent;}}return null;}
+    function itemHit(e){ray(e);for(const hit of raycaster.intersectObjects([...sceneryRoots.values(),...decorationRoot.children,...signRoot.children],true)){let obj=hit.object;while(obj){if(obj.userData.itemId){if(obj.visible)return obj;break;}obj=obj.parent;}}return null;}
     function down(e){
       if(e.button!==0)return;pointerDown={x:e.clientX,y:e.clientY,id:e.pointerId};
       const edit=callbacks.current.editor;if(!edit||edit.busy)return;
@@ -183,7 +180,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       if(e.button!==0||!pointerDown||Math.hypot(pointerDown.x-e.clientX,pointerDown.y-e.clientY)>6)return;
       const edit=callbacks.current.editor;
       if(edit){if(edit.busy)return;const point=ground(e);if(edit.tool&&point)edit.onPlace(point);else edit.onSelect(null);return;}
-      ray(e);for(const hit of raycaster.intersectObjects(world.children,true)){let obj=hit.object;while(obj){if(!obj.visible)break;if(obj.userData.action){callbacks.current.onInteract?.(obj.userData.action);return;}obj=obj.parent;}}
+      ray(e);for(const hit of raycaster.intersectObjects(world.children,true)){let ancestor=hit.object,visible=true;while(ancestor){if(!ancestor.visible){visible=false;break;}ancestor=ancestor.parent;}if(!visible)continue;let obj=hit.object;while(obj){if(!obj.visible)break;if(obj.userData.action){callbacks.current.onInteract?.(obj.userData.action);return;}obj=obj.parent;}}
     }
     function cancel(e){finishDrag(e,true);pointerDown=null;}
     function leave(){if(!dragged&&callbacks.current.editor?.tool&&previewRoot.children[0])previewRoot.children[0].visible=false;}
@@ -227,7 +224,6 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         bubble.style.left=`${left}px`;bubble.style.top=`${(1-point.y)*50}%`;
         bubble.style.setProperty('--speech-tail',`${half+anchor-left}px`);
       }
-      placeMoon();
       if(state.current?.mode==='guestbook'){
         if(performance.now()>=nextOcclusionCheck){bookOccluders=guestbookOccluders(world,camera,callbacks.current.guestbook);nextOcclusionCheck=performance.now()+150;}
         const visibility=bookOccluders.map(object=>object.visible);
@@ -316,20 +312,20 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const scene=worldRef.current;if(!scene)return;
     for(const item of villageScenery(village)){
       const root=scene.sceneryRoots.get(item.id);if(!root)continue;
-      root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;
+      root.visible=!item.hidden;root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;
     }
   },[JSON.stringify(village.scenery),village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
     const {decorationRoot}=scene;
     disposeObject(decorationRoot);decorationRoot.clear();
-    for(const item of village.items||[]){const model=createDecoration(item.type);model.userData.itemId=item.id;model.position.set(item.x,.15,item.z);model.rotation.y=item.rotation*Math.PI/2;decorationRoot.add(model);}
+    for(const item of (village.items||[]).filter(item=>!item.hidden)){const model=createDecoration(item.type);model.userData.itemId=item.id;model.position.set(item.x,.15,item.z);model.rotation.y=item.rotation*Math.PI/2;decorationRoot.add(model);}
   },[JSON.stringify(village.scenery),JSON.stringify(village.items),village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
     disposeObject(scene.signRoot);scene.signRoot.clear();
-    const model=createVillageSign(villageSign(village));model.userData.itemId=SIGN_ID;scene.signRoot.add(model);
-    const book=createVillageGuestbook(villageGuestbook(village));book.userData.itemId=GUESTBOOK_ID;scene.signRoot.add(book);
+    const model=createVillageSign(villageSign(village));model.userData.itemId=SIGN_ID;if(!signData.hidden)scene.signRoot.add(model);else disposeObject(model);
+    const book=createVillageGuestbook(villageGuestbook(village));book.userData.itemId=GUESTBOOK_ID;if(!guestbookData.hidden)scene.signRoot.add(book);else disposeObject(book);
   },[signKey,guestbookKey,village.theme,theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
