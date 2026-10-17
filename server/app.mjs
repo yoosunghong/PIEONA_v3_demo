@@ -131,21 +131,26 @@ export function createApp(options = {}) {
     const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
     const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
-    if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>Number.isFinite(entry.quantity)&&items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
+    // Keep legacy/default placements, including overlaps, until an object is moved or restored.
+    const placementChanged=(before,after)=>!before||before.hidden||before.x!==after.x||before.z!==after.z;
+    const itemMoved=item=>placementChanged(oldVillage.items?.find(old=>old.id===item.id),item);
+    if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>Number.isFinite(entry.quantity)&&items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>itemMoved(i)&&!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&(itemMoved(a)||itemMoved(b))&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
     if(data.village?.guestbook)nextVillage.guestbook={...villageGuestbook(oldVillage),...data.village.guestbook};
     if(data.village?.sign||data.village?.items||data.village?.guestbook){
       const sign=villageSign(nextVillage);
-      if(!sign.hidden&&(!validPlacement(sign.x,sign.z,nextVillage.scenery)||(nextVillage.items||[]).some(item=>!item.hidden&&Math.hypot(item.x-sign.x,item.z-sign.z)<.8)))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
+      const signMoved=placementChanged(villageSign(oldVillage),sign);
+      if(!sign.hidden&&((signMoved&&!validPlacement(sign.x,sign.z,nextVillage.scenery))||(nextVillage.items||[]).some(item=>!item.hidden&&(signMoved||itemMoved(item))&&Math.hypot(item.x-sign.x,item.z-sign.z)<.8)))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
       const book=villageGuestbook(nextVillage);
-      if(!book.hidden&&(!validPlacement(book.x,book.z,nextVillage.scenery)||[...(nextVillage.items||[]),sign].some(item=>!item.hidden&&Math.hypot(item.x-book.x,item.z-book.z)<.8)))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
+      const bookMoved=placementChanged(villageGuestbook(oldVillage),book);
+      if(!book.hidden&&((bookMoved&&!validPlacement(book.x,book.z,nextVillage.scenery))||(nextVillage.items||[]).some(item=>!item.hidden&&(bookMoved||itemMoved(item))&&Math.hypot(item.x-book.x,item.z-book.z)<.8)||(!sign.hidden&&(bookMoved||signMoved)&&Math.hypot(sign.x-book.x,sign.z-book.z)<.8)))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
     }
     if(data.village?.scenery){
       const before=villageScenery(oldVillage),after=villageScenery(nextVillage);
       const objects=[...after,...(nextVillage.items||[]),villageSign(nextVillage),villageGuestbook(nextVillage)].filter(item=>!item.hidden);
       for(const object of after){
         const old=before.find(item=>item.id===object.id);
-        if(object.hidden||(!old.hidden&&old.x===object.x&&old.z===object.z))continue;
+        if(object.hidden||!placementChanged(old,object))continue;
         if(!validSceneryPlacement(object.x,object.z)||objects.some(other=>other!==object&&Math.hypot(other.x-object.x,other.z-object.z)<sceneryClearance(object.id,other.id)))fail(400,'광장·산책로·다른 오브젝트를 피해 배치해주세요.');
       }
     }

@@ -1,5 +1,6 @@
 .village-studio{--catalog-width:clamp(350px,29.25vw,490px);--studio-text:#f3f4ff;position:fixed;inset:0;z-index:60;isolation:isolate;overflow:hidden;background:transparent;color:var(--studio-text);font-family:inherit;pointer-events:none}
 .village-studio>*,.village-studio button{pointer-events:auto}
+.toast.toast-village-editor{top:calc(94px + env(safe-area-inset-top));bottom:auto;left:50%;transform:translateX(-50%);width:max-content;max-width:calc(100vw - 32px);pointer-events:none}
 .village-studio .studio-sign-position{display:flex;width:calc(100% - 24px);margin:5px 12px;padding:4px 14px;gap:10px;border-radius:12px;background:#b5c7ee30;justify-content:flex-start;text-align:left;flex-shrink:0}
 .studio-sign-position canvas{width:45px;height:45px;object-fit:contain}.studio-sign-position span{display:flex;flex-direction:column;gap:3px}.studio-sign-position strong{font-size:13px}.studio-sign-position small{font-size:11px;opacity:.75}
 .studio-guestbook-position>svg{margin:7px;flex-shrink:0;color:#d4e6df}

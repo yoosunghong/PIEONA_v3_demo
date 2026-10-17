@@ -466,6 +466,37 @@ test('bulk storage persists every scenery group including perimeter rocks, small
 import {villageSign} from '../shared/sign.mjs';
 import {villageGuestbook} from '../shared/guestbook.mjs';
 import {canPlaceDecoration} from '../src/villageEditorState.mjs';
+test('editor saves preserve legacy overlaps while validating new, moved and restored objects',async()=>{
+  const user=await register('legacy_overlap');
+  const first={...piece(),x:-3,z:3.5},second={...piece(),x:-3.25,z:3.5};
+  // Simulate a saved village created before the current collision rules.
+  const original={theme:'default',items:[first,second],sign:{...villageSign({}),x:-3,z:3.5},guestbook:{...villageGuestbook({}),x:-3,z:3.5}};
+  runtime.store.run('UPDATE users SET village=? WHERE id=?',JSON.stringify(original),user.id);
+  const scenery=villageScenery(original).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden}));
+  let village={...original,scenery};
+  let result=await request('/me/world',user,{village},'PATCH');
+  assert.equal(result.status,200,JSON.stringify(result.body));
+  village={...village,items:[{...first,rotation:1},second],sign:{...village.sign,rotation:1},guestbook:{...village.guestbook,rotation:2},scenery:scenery.map(item=>item.id==='tree-0'?{...item,rotation:1}:item)};
+  result=await request('/me/world',user,{village},'PATCH');
+  assert.equal(result.status,200,JSON.stringify(result.body));
+  assert.deepEqual((await request('/me',user)).body.user.village,village);
+  village={...village,items:[...village.items,{...piece(),x:0,z:-5}]};
+  result=await request('/me/world',user,{village},'PATCH');
+  assert.equal(result.status,200,JSON.stringify(result.body));
+  for(const invalid of [
+    {...village,items:[...village.items,{...piece(),x:first.x,z:first.z}]},
+    {...village,items:village.items.map(item=>item.id===second.id?{...item,x:-3.1}:item)},
+    {...village,sign:{...village.sign,x:-3.1}},
+    {...village,guestbook:{...village.guestbook,x:-3.1}},
+    {...village,scenery:village.scenery.map(item=>item.id==='tree-0'?{...item,x:first.x,z:first.z}:item)},
+  ])assert.equal((await request('/me/world',user,{village:invalid},'PATCH')).status,400);
+  village={...village,items:village.items.map(item=>item.id===second.id?{...item,hidden:true}:item)};
+  result=await request('/me/world',user,{village},'PATCH');
+  assert.equal(result.status,200,JSON.stringify(result.body));
+  assert.equal((await request('/me/world',user,{village:{...village,items:village.items.map(item=>({...item,hidden:false}))}},'PATCH')).status,400);
+  assert.deepEqual((await request('/me',user)).body.user.village,village);
+});
+
 test('editor complete snapshots save for every theme and accepted object moves',async()=>{
   for(const theme of ['default','campfire','cafe','twilight','sunset']){
     const user=await register('snapshot_'+theme);

@@ -247,7 +247,7 @@ function App(){
   {panel==='signView'&&<div className="sign-view-actions" role="region" aria-label="팻말 확대 보기"><strong>{own?'우리 마을 팻말':target.nickname+'의 팻말'}</strong>{own&&<button onClick={()=>setPanel('signEdit')}><Paintbrush size={18}/>팻말 편집하기</button>}<button autoFocus onClick={closePanel}><X size={17}/>돌아가기</button></div>}
   {panel==='signEdit'&&own&&<SignEditor key={target.id} sign={villageSign(target.village)} onClose={()=>setPanel('signView')} onSaved={user=>{setMe(user);setPanel('signView');notify('팻말을 저장했어요. 마을에 온 이웃에게도 보여요.');}}/>}
   {editing&&<VillageEditor me={me} notify={notify} onRefresh={refresh} onClose={closeVillageEditor} onSceneChange={setEditorSession}/>}
-  {toast&&<div className={'toast'+(panel==='signView'?' toast-sign-view':'')} role="status"><Flower2 size={17}/>{toast}</div>}
+  {toast&&<div className={'toast'+(editing?' toast-village-editor':panel==='signView'?' toast-sign-view':'')} role="status"><Flower2 size={17}/>{toast}</div>}
   </div>;
 }
 
