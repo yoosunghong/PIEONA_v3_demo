@@ -24,7 +24,12 @@ export const decorations = [
 ];
 // The legacy 2D catalog also uses these symbols for saved items.
 const decorIcons=['🪑','🏮','🌸','⛱️','⛲','🛒','🪵','🌷','🪨','🐰','🍄','🎠','🌸','🪧','🌿','🍄','📬','🧺','🌼','🏛️','💎'];
-decorations.forEach((item,index)=>{item.icon=decorIcons[index];});
+decorations.forEach((item,index)=>{item.icon=decorIcons[index];item.quantity=10;});
+// Placed items use stock; storing or undoing a placement returns it.
+export function remainingDecoration(items,type){
+  const entry=decorations.find(item=>item.id===type);
+  return entry?Math.max(0,entry.quantity-items.filter(item=>item.type===type&&!item.hidden).length):0;
+}
 export const hats=[{id:'none',name:'벗기'},{id:'beret',name:'구름 베레모'},{id:'crown',name:'별 왕관'},{id:'sprout',name:'새싹 머리핀'}];
 export const accessories=[{id:'none',name:'벗기'},{id:'scarf',name:'포근한 스카프'},{id:'bow',name:'리본 타이'},{id:'wings',name:'요정 날개'}];
 export const colors=['#88b5d7','#d994b6','#a6bc83','#c8a0dd','#e5b570','#eee7da'];

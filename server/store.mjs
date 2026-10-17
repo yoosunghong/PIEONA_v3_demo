@@ -39,6 +39,7 @@ export function openStore(filename = './data/pieona.sqlite') {
     CREATE TABLE IF NOT EXISTS messages (id TEXT PRIMARY KEY, conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE, role TEXT NOT NULL, content TEXT NOT NULL, emotion TEXT NOT NULL DEFAULT 'calm', created_at TEXT NOT NULL);
     CREATE INDEX IF NOT EXISTS messages_conversation ON messages(conversation_id,created_at);
     CREATE TABLE IF NOT EXISTS activities (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL REFERENCES users(id), type TEXT NOT NULL, detail TEXT NOT NULL DEFAULT '', anonymous INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS notification_reads (activity_id TEXT PRIMARY KEY REFERENCES activities(id) ON DELETE CASCADE);
     CREATE TABLE IF NOT EXISTS rewards (user_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL, type TEXT NOT NULL, day TEXT NOT NULL, amount INTEGER NOT NULL, PRIMARY KEY(user_id, actor_id, type, day));
     CREATE TABLE IF NOT EXISTS games (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), notes TEXT NOT NULL, hits TEXT NOT NULL DEFAULT '[]', started INTEGER NOT NULL, finished INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS topic_sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), topic TEXT NOT NULL, transcript TEXT NOT NULL, created_at TEXT NOT NULL);

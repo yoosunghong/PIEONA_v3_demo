@@ -197,3 +197,35 @@ test('legacy conversation migration preserves messages and binds existing active
   assert.equal(db.one('SELECT avatar_slot FROM conversations').avatar_slot,'original-slot');assert.equal(db.one('SELECT content FROM messages').content,'이전 버전의 이야기');
   db.run("UPDATE users SET active_slot='another-slot'");db.close();db=openStore(file);assert.equal(db.one('SELECT avatar_slot FROM conversations').avatar_slot,'original-slot');db.close();rmSync(dir,{recursive:true});
 });
+
+test('notification reads persist and only the owner can mark activities read',async()=>{
+  const aid='notification-owner-test',other='notification-other-test';
+  runtime.store.run('INSERT INTO activities VALUES(?,?,?,?,?,?,?)',aid,alice.id,bob.id,'cheer','응원했어요',0,new Date().toISOString());
+  runtime.store.run('INSERT INTO activities VALUES(?,?,?,?,?,?,?)',other,bob.id,alice.id,'minigame','게임 결과',0,new Date().toISOString());
+  let result=await request('/activities',{cookie:alice.cookie});
+  assert.equal(result.body.activities.find(a=>a.id===aid).is_read,0);
+  assert.equal((await request('/activities/read',{method:'POST',cookie:alice.cookie,body:{ids:[aid,other]}})).status,200);
+  result=await request('/activities',{cookie:alice.cookie});
+  assert.equal(result.body.activities.find(a=>a.id===aid).is_read,1);
+  const theirs=await request('/activities',{cookie:bob.cookie});
+  assert.equal(theirs.body.activities.find(a=>a.id===other).is_read,0);
+  assert.equal((await request('/activities/read',{method:'POST',body:{ids:[aid]}})).status,401);
+});
+
+test('conversation portraits respect anonymous visitor identity',async()=>{
+  const cid=await conversation(bob,alice,true,true);
+  const owner=await request('/conversations',{cookie:alice.cookie});
+  const record=owner.body.conversations.find(c=>c.id===cid);
+  assert.equal(record.viewer_profile,null);
+  assert.equal(record.viewer_id,null);
+  assert.ok(record.target_profile.appearance);
+  const viewer=await request('/conversations',{cookie:bob.cookie});
+  assert.ok(viewer.body.conversations.find(c=>c.id===cid).viewer_profile.appearance);
+});
+
+test('world saves reject placing more than ten of the same decoration',async()=>{
+  const items=Array.from({length:11},()=>({id:crypto.randomUUID(),type:'bench',x:-4,z:3,rotation:0}));
+  const result=await request('/me/world',{cookie:alice.cookie,method:'PATCH',body:{village:{items}}});
+  assert.equal(result.status,400);
+  assert.match(result.body.error,/보유 수량/);
+});

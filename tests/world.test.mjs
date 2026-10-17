@@ -10,6 +10,7 @@ import {existsSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {decorations} from '../shared/world.mjs';
+import {villageScenery,sceneryDefinitions} from '../shared/scenery.mjs';
 
 let runtime,url,owner,visitor,third;
 async function request(path,user,body,method=body?'POST':'GET'){const r=await fetch(url+'/api'+path,{method,headers:{'Content-Type':'application/json',...(user?{Cookie:user.cookie}:{})},body:body===undefined?undefined:JSON.stringify(body)});return {status:r.status,body:await r.json(),cookie:r.headers.get('set-cookie')?.split(';')[0]};}
@@ -429,4 +430,41 @@ test('stored furniture does not collide with placed items or consume the 24 plac
   assert.equal(saved.status,200,JSON.stringify(saved.body));
   assert.equal(saved.body.user.village.items.length,26);
   assert.equal((await request('/me/world',user,{village:{items:[...stored.map(item=>({...item,hidden:false}))]}},'PATCH')).status,400);
+});
+
+test('bulk storage persists every scenery group including perimeter rocks, small trees and the pond',async()=>{
+  const user=await register('all_scenery_storage');
+  const scenery=villageScenery({}).map(({id,x,z,rotation})=>({id:id.slice(8),x,z,rotation,hidden:true}));
+  const saved=await request('/me/world',user,{village:{scenery,sign:{hidden:true},guestbook:{hidden:true}}},'PATCH');
+  assert.equal(saved.status,200,JSON.stringify(saved.body));
+  assert.equal(saved.body.user.village.scenery.length,sceneryDefinitions.length);
+  assert.ok(saved.body.user.village.scenery.every(item=>item.hidden));
+  const restored=scenery.map(item=>item.id==='edge-tree-0'?{...item,x:-4,z:4,rotation:1,hidden:false}:item);
+  const response=await request('/me/world',user,{village:{scenery:restored}},'PATCH');
+  assert.equal(response.status,200,JSON.stringify(response.body));
+  assert.deepEqual((await request('/users/'+user.id,visitor)).body.user.village.scenery,restored);
+});
+
+import {villageSign} from '../shared/sign.mjs';
+import {villageGuestbook} from '../shared/guestbook.mjs';
+import {canPlaceDecoration} from '../src/villageEditorState.mjs';
+test('editor complete snapshots save for every theme and accepted object moves',async()=>{
+  for(const theme of ['default','campfire','cafe','twilight','sunset']){
+    const user=await register('snapshot_'+theme);
+    await request('/me/world',user,{village:{theme}},'PATCH');
+    const village={theme,items:[]};
+    const scenery=villageScenery(village).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden}));
+    const body={village:{...village,sign:villageSign(village),guestbook:villageGuestbook(village),scenery}};
+    const saved=await request('/me/world',user,body,'PATCH');
+    assert.equal(saved.status,200,theme+': '+JSON.stringify(saved.body));
+    const editorItems=[...villageScenery(saved.body.user.village),{...body.village.sign,id:'village-sign'},{...body.village.guestbook,id:'village-guestbook'}];
+    for(const item of editorItems.filter(item=>item.id.startsWith('scenery:')).filter(item=>['scenery:tree-0','scenery:edge-rock-0','scenery:cafe'].includes(item.id))){
+      const point=[{x:item.x+.25,z:item.z},{x:item.x-.25,z:item.z},{x:item.x,z:item.z+.25}].find(point=>canPlaceDecoration(editorItems,point.x,point.z,item.id));
+      if(!point)continue;
+      const scenery=body.village.scenery.map(entry=>entry.id===item.id.slice(8)?{...entry,...point}:entry);
+      const result=await request('/me/world',user,{village:{...body.village,scenery}},'PATCH');
+      assert.equal(result.status,200,theme+' '+item.id+': '+JSON.stringify(result.body));
+      runtime.store.run('UPDATE users SET village=? WHERE id=?',JSON.stringify(saved.body.user.village),user.id);
+    }
+  }
 });

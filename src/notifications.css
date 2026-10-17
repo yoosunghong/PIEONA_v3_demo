@@ -1,0 +1,10 @@
+.notification-button{position:relative;display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;flex-shrink:0;border:1px solid #cbd4c8;border-radius:50%;background:var(--paper,#fffdf8);color:var(--ink,#4c5b48);cursor:pointer}
+.notification-button:hover{background:#edf3e9;border-color:#879d7d}
+.notification-button:focus-visible{outline:2px solid #68855a;outline-offset:3px}
+.notification-dot{position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:#e24d4d;box-shadow:0 0 0 2px #fffdf8}
+.notification-list .activity-row>div{flex:1;min-width:0;overflow-wrap:anywhere}
+.notification-list .activity-row>.text-button{flex-shrink:0}
+.conversation-row>.conversation-portraits{display:flex;flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;width:max-content}
+.conversation-portraits .avatar-badge{width:48px;height:48px;flex-shrink:0}
+.conversation-row>.conversation-summary{flex:1;min-width:0;overflow-wrap:anywhere}
+@media(max-width:600px){.notification-button{width:32px;height:32px}.conversation-portraits .avatar-badge{width:40px;height:40px}.conversation-row>.conversation-portraits{gap:3px}}

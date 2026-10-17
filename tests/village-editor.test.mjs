@@ -77,3 +77,18 @@ test('stored scenery and furniture free their positions and storage can be undon
   const tree=villageScenery({scenery:[{id:'tree-0',x:-5,z:0,rotation:2,hidden:true}]}).find(item=>item.id==='scenery:tree-0');
   assert.equal(tree.hidden,true);assert.equal(tree.rotation,2);
 });
+
+import {remainingDecoration} from '../shared/world.mjs';
+test('decoration stock starts at ten and follows placement, storage and undo',()=>{
+  assert.ok(decorations.every(entry=>entry.quantity===10));
+  assert.equal(remainingDecoration([],'bench'),10);
+  const placed=Array.from({length:10},(_,i)=>({id:String(i),type:'bench'}));
+  assert.equal(remainingDecoration(placed,'bench'),0);
+  assert.equal(remainingDecoration(placed,'lantern'),10);
+  const stored=placed.map((item,i)=>i===0?{...item,hidden:true}:item);
+  assert.equal(remainingDecoration(stored,'bench'),1);
+  const history=editorHistory({past:[],present:stored,future:[]},{type:'change',items:placed});
+  assert.equal(remainingDecoration(editorHistory(history,{type:'undo'}).present,'bench'),1);
+  assert.equal(remainingDecoration(editorHistory(editorHistory(history,{type:'undo'}),{type:'redo'}).present,'bench'),0);
+  assert.equal(remainingDecoration(placed,'unknown'),0);
+});

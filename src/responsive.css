@@ -121,3 +121,6 @@
 @media (max-width: 600px) and (max-height: 450px) {
   .app-shell .touch-joystick { display: none; }
 }
+
+/* Keep sign feedback clear of the bottom editing and return controls. */
+.toast.toast-sign-view { top: calc(88px + env(safe-area-inset-top)); bottom: auto; width: max-content; pointer-events: none; }
