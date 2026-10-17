@@ -86,6 +86,24 @@ async function connectPlayer(user){
 }
 const joinVillage=(socket,villageId)=>socket.timeout(2000).emitWithAck('village:join',{villageId});
 
+test('bench sitting and standing reach neighbours and snapshots; invalid and distant seats are rejected',async()=>{
+  const host=await connectPlayer(owner),guest=await connectPlayer(visitor);
+  try{
+    await joinVillage(host,owner.id);await joinVillage(guest,owner.id);
+    const base={villageId:owner.id,x:3,z:-2,rotation:.5,moving:false,jumpStarted:0};
+    let seen=villageEvent(host,'village:move',m=>m.userId===visitor.id);guest.emit('village:move',base);await seen;
+    const seated={...base,z:-2.6,seatId:'scenery:bench-0'};
+    seen=villageEvent(host,'village:move',m=>m.seatId===seated.seatId);guest.emit('village:move',seated);assert.equal((await seen).moving,false);
+    let snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).seatId,seated.seatId);
+    for(const invalid of [{...seated,seatId:'missing'},{...seated,seatId:42},{...seated,moving:true},{...seated,x:0},{...seated,jumpStarted:Date.now()}])guest.emit('village:move',invalid);
+    snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).seatId,seated.seatId);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).x,3);
+    const standing={...base,seatId:null};seen=villageEvent(host,'village:move',m=>m.seatId===null);guest.emit('village:move',standing);await seen;
+    snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).seatId,null);
+    seen=villageEvent(host,'village:move',m=>m.x===-4);guest.emit('village:move',{...standing,x:-4,z:0});await seen;
+    guest.emit('village:move',seated);snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).seatId,null);
+  }finally{await closePlayers(host,guest);}
+});
+
 test('a standing jump reaches neighbours and survives room snapshots without moving horizontally',async()=>{
   const host=await connectPlayer(owner),guest=await connectPlayer(visitor);
   try{

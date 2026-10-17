@@ -14,11 +14,12 @@ export function configureScenePanning(controls,mode,{portrait=false}={}){
 }
 export function constrainScenePanning(camera,controls,mode,options={}){
   if(!canPanScene(mode,options.portrait))return;
-  const target=controls.target,radius=Math.hypot(target.x,target.z);
+  const target=controls.target,center=options.panCenter||[0,sceneView(mode,options).target[1],0];
+  const radius=Math.hypot(target.x-center[0],target.z-center[2]);
   const scale=radius>VILLAGE_CAMERA_PAN_RADIUS?VILLAGE_CAMERA_PAN_RADIUS/radius:1;
-  const centerY=sceneView(mode,options).target[1];
+  const centerY=center[1];
   const y=THREE.MathUtils.clamp(target.y,centerY-VILLAGE_CAMERA_PAN_HEIGHT,centerY+VILLAGE_CAMERA_PAN_HEIGHT);
-  const dx=target.x*scale-target.x,dy=y-target.y,dz=target.z*scale-target.z;
+  const dx=center[0]+(target.x-center[0])*scale-target.x,dy=y-target.y,dz=center[2]+(target.z-center[2])*scale-target.z;
   if(!dx&&!dy&&!dz)return;
   target.set(target.x+dx,y,target.z+dz);
   // Translate both ends together so hitting a limit never changes the viewing angle or zoom.

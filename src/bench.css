@@ -1,0 +1,6 @@
+.bench-prompt{position:absolute;left:50%;bottom:142px;transform:translateX(-50%);z-index:5;display:flex;flex-direction:column;align-items:center;gap:7px;white-space:nowrap;pointer-events:none}
+.bench-prompt.is-seated{left:auto;right:24px;transform:none;align-items:flex-end}
+.bench-prompt button{display:flex;align-items:center;gap:10px;min-height:48px;padding:10px 20px;border:1px solid #b4cde0;border-radius:24px;background:#f7fbfff5;color:#254e73;box-shadow:0 6px 24px #284e7326;font-weight:700;pointer-events:auto}
+.bench-prompt button:hover{background:#e3f1fc}.bench-prompt kbd{display:grid;place-items:center;width:28px;height:28px;border:1px solid #abc5dc;border-bottom-width:3px;border-radius:7px;background:#fff;font:700 15px inherit}
+.bench-prompt small{padding:4px 10px;border-radius:12px;background:#f7fbffeb;color:#395c7b;font-size:12px}
+@media(max-width:700px){.bench-prompt{bottom:160px}.bench-prompt.is-seated{right:12px}.bench-prompt button{min-height:44px;padding:8px 16px}.bench-prompt small{font-size:11px}}

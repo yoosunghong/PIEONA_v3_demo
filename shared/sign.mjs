@@ -1,6 +1,12 @@
 import {validPlacement} from './world.mjs';
 export const SIGN_ID='village-sign';
 export const signColors=['#20364c','#999999','#fffaf4','#fa5d70','#fa91b5','#f5964f','#f8df70','#62a978','#55bce7','#338afb','#aa59cf','#965e36'];
+export const MAX_CUSTOM_SIGN_COLORS=24;
+export const isSignColor=value=>typeof value==='string'&&/^#[0-9a-f]{6}([0-9a-f]{2})?$/i.test(value);
+export function rgbaSignColor(r,g,b,a){
+  if(![r,g,b].every(value=>Number.isInteger(value)&&value>=0&&value<=255)||!Number.isFinite(a)||a<0||a>1)return null;
+  return '#'+[r,g,b,Math.round(a*255)].map(value=>value.toString(16).padStart(2,'0')).join('');
+}
 export const signShapes=['planks','arrow','hanging'];
 export const MAX_SIGN_STROKES=300;
 export const MAX_SIGN_POINTS=16000;

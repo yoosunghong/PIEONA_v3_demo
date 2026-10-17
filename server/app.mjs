@@ -1,4 +1,5 @@
 import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance} from '../shared/scenery.mjs';
+import {villageBenches,BENCH_REACH} from '../shared/benches.mjs';
 import {generateTopic} from './topic.mjs';
 import express from 'express';
 import helmet from 'helmet';
@@ -17,7 +18,7 @@ import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAct
 import {installCrabGames} from './crabGames.mjs';
 import {crabSeconds} from '../shared/crab.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
-import {villageSign,signColors,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
+import {villageSign,isSignColor,MAX_CUSTOM_SIGN_COLORS,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
 import {villageGuestbook,GUESTBOOK_PAGE_SIZE,GUESTBOOK_MAX_LENGTH,guestbookLength} from '../shared/guestbook.mjs';
 
 const scrypt = promisify(scryptCallback);
@@ -129,8 +130,8 @@ export function createApp(options = {}) {
     const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=6.7,'마을 안에 놓아주세요.');
     const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
-    const stroke=z.object({tool:z.enum(['draw','erase']),color:z.enum(signColors),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
-    const signSchema=z.object({hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
+    const stroke=z.object({tool:z.enum(['draw','erase']),color:z.string().max(9).refine(isSignColor),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
+    const signSchema=z.object({customColors:z.array(z.string().max(9).refine(isSignColor)).max(MAX_CUSTOM_SIGN_COLORS).optional(),hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
     const guestbookSchema=z.object({hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional()}).strict();
     const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
@@ -521,12 +522,20 @@ export function createApp(options = {}) {
       if(data.jumpStarted!==undefined&&(!Number.isFinite(data.jumpStarted)||data.jumpStarted<0||data.jumpStarted>Date.now()+5000))return;
       if(![x,z,rotation].every(value=>typeof value==='number'&&Number.isFinite(value))||typeof moving!=='boolean')return;
       const member=villageVisitors.get(current.villageId)?.get(uid);if(!member)return;
+      if(data.seatId!==undefined){
+        if(data.seatId!==null&&typeof data.seatId!=='string')return;
+        if(data.seatId){
+          const bench=villageBenches(JSON.parse(target.village)).find(bench=>bench.id===data.seatId);
+          if(!bench||moving||data.jumpStarted||Math.hypot(x-bench.x,z-bench.z)>.15||Math.hypot(member.x-bench.x,member.z-bench.z)>BENCH_REACH+.2)return;
+          member.seatId=bench.id;
+        }else member.seatId=null;
+      }else if(member.seatId!==undefined)member.seatId=null;
       const time=Date.now();if(moving&&time-member.lastMove<60&&data.jumpStarted===member.jumpStarted)return;
       member.lastMove=time;
-      const radius=Math.hypot(x,z),factor=radius>5.8?5.8/radius:1;
+      const radius=Math.hypot(x,z),factor=!member.seatId&&radius>5.8?5.8/radius:1;
       member.x=x*factor;member.z=z*factor;member.rotation=Math.atan2(Math.sin(rotation),Math.cos(rotation));member.moving=moving;
       if(data.jumpStarted!==undefined)member.jumpStarted=data.jumpStarted;
-      const update={villageId:current.villageId,userId:uid,x:member.x,z:member.z,rotation:member.rotation,moving,...(member.jumpStarted!==undefined?{jumpStarted:member.jumpStarted}:{})};
+      const update={villageId:current.villageId,userId:uid,x:member.x,z:member.z,rotation:member.rotation,moving,...(member.jumpStarted!==undefined?{jumpStarted:member.jumpStarted}:{}),...(member.seatId!==undefined?{seatId:member.seatId}:{})};
       const room=socket.to(`village:${current.villageId}`);
       // Moving samples can be dropped; the final pose must be delivered reliably.
       if(moving)room.volatile.emit('village:move',update);else room.emit('village:move',update);

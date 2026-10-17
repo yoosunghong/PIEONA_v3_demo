@@ -31,8 +31,8 @@
 .studio-back:hover{background:#aaaacb50}
 .studio-heading:before{content:'';position:absolute;z-index:-1;left:-25px;top:-25px;width:var(--catalog-width);height:105px;background:linear-gradient(110deg,#191b32e6,#252c475c);pointer-events:none}
 .studio-catalog{position:absolute;top:104px;left:0;bottom:0;width:var(--catalog-width);display:flex;flex-direction:column;overflow:hidden;border-radius:23px 23px 0 0;background:linear-gradient(140deg,#696b81a3,#41445bbd);backdrop-filter:blur(24px);box-shadow:14px 0 50px #20203918;z-index:2}
-.studio-tabs{display:flex;align-items:center;padding:11px 24px 6px;gap:3px;flex-shrink:0}
-.studio-tabs button{flex:1;background:transparent;font-size:14px;font-weight:600;height:43px;border-radius:28px;color:#e5e6f0}
+.studio-tabs{display:flex;align-items:center;padding:11px 24px 6px;gap:3px;flex-shrink:0;overflow-x:auto}
+.studio-tabs button{flex:1 0 auto;white-space:nowrap;padding:0 10px;background:transparent;font-size:14px;font-weight:600;height:43px;border-radius:28px;color:#e5e6f0}
 .studio-tabs button.active{background:#e2efff;color:#3a60b1;box-shadow:0 2px 8px #2828400a}
 .studio-search{display:flex;gap:5px;padding:9px 24px 10px;flex-shrink:0}
 .studio-search label{display:flex;flex-direction:row;align-items:center;flex:1;min-width:0;gap:10px;background:#daddeb30;color:#eceefa;border-radius:26px;padding:0 16px;height:43px;margin:0}
@@ -216,3 +216,4 @@
 
 .studio-card-count{position:absolute;top:8px;right:8px;min-width:23px;padding:2px 6px;border-radius:10px;background:#edf3fb;color:#365780;font-size:12px;font-weight:700;text-align:center}
 .studio-card:disabled{opacity:.45;cursor:not-allowed}
+.studio-card-stock{font-size:10px;color:var(--studio-muted);white-space:nowrap}

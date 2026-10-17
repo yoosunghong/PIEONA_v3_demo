@@ -93,3 +93,28 @@ test('the artwork and sign placement survive a SQLite server restart',async()=>{
     assert.deepEqual((await request('/me',user,undefined,'GET',base)).body.user.village.sign,sign);
   }finally{if(instance)await instance.close();rmSync(dir,{recursive:true,force:true});}
 });
+
+import {rgbaSignColor,isSignColor,MAX_CUSTOM_SIGN_COLORS} from '../shared/sign.mjs';
+test('RGBA colors normalize to bounded canvas colors with alpha',()=>{
+  assert.equal(rgbaSignColor(255,128,0,.5),'#ff800080');
+  assert.equal(rgbaSignColor(0,0,0,0),'#00000000');
+  assert.equal(rgbaSignColor(255,255,255,1),'#ffffffff');
+  for(const values of [[256,0,0,1],[-1,0,0,1],[1.5,0,0,1],[0,0,0,2],[0,0,0,NaN]])assert.equal(rgbaSignColor(...values),null);
+  assert.equal(isSignColor('#aAbBcC80'),true);
+  for(const value of ['red','url(evil)','#12345g','#123456789'])assert.equal(isSignColor(value),false);
+});
+test('custom RGBA palette and transparent strokes persist; deleting swatches preserves artwork',async()=>{
+  const strokes=[{...ink(),color:'#12345680'}];
+  const customColors=['#12345680','#ff000000'];
+  const saved=await request('/me/world',owner,{village:{sign:{strokes,customColors}}});
+  assert.equal(saved.status,200,JSON.stringify(saved.body));
+  assert.deepEqual(saved.body.user.village.sign.customColors,customColors);
+  assert.deepEqual((await request('/users/'+owner.id,visitor)).body.user.village.sign.strokes,strokes);
+  const deleted=await request('/me/world',owner,{village:{sign:{customColors:[]}}});
+  assert.equal(deleted.status,200);
+  assert.deepEqual(deleted.body.user.village.sign.strokes,strokes);
+  assert.deepEqual((await request('/me',owner)).body.user.village.sign.customColors,[]);
+  for(const colors of [['url(evil)'],['#123456789'],Array(MAX_CUSTOM_SIGN_COLORS+1).fill('#123456')]){
+    assert.equal((await request('/me/world',owner,{village:{sign:{customColors:colors}}})).status,400);
+  }
+});
