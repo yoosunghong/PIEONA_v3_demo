@@ -41,3 +41,27 @@ test('undo and redo preserve placement, movement, rotation, deletion, and branch
   assert.deepEqual(editorHistory(history,{type:'redo'}).present,[original]);
   assert.deepEqual(changes[0],[original]);
 });
+import {villageScenery,sceneryDefinitions} from '../shared/scenery.mjs';
+
+test('existing scenery has stable IDs and saved placements survive without changing untouched scenery',()=>{
+  const original=villageScenery({});
+  assert.equal(original.length,sceneryDefinitions.length);
+  assert.equal(new Set(original.map(item=>item.id)).size,original.length);
+  const moved=villageScenery({scenery:[{id:'tree-0',x:-4,z:3.5,rotation:2}]});
+  assert.deepEqual(moved.find(item=>item.id==='scenery:tree-0'),{...original[0],x:-4,z:3.5,rotation:2});
+  assert.deepEqual(moved.slice(1),original.slice(1));
+  assert.equal(villageScenery({theme:'campfire'}).find(item=>item.id==='scenery:campfire').x,1.2);
+});
+
+test('scenery movement protects stage, paths and neighbors and participates in undo/redo',()=>{
+  const items=villageScenery({}),id='scenery:tree-0';
+  assert.equal(canPlaceDecoration(items,0,0,id),false);
+  assert.equal(canPlaceDecoration(items,0,4,id),false);
+  assert.equal(canPlaceDecoration(items,8,0,id),false);
+  assert.equal(canPlaceDecoration(items,3.8,-2.7,id),false);
+  assert.equal(canPlaceDecoration(items,-5,0,id),true);
+  const next=items.map(item=>item.id===id?{...item,x:-5,z:0,rotation:1}:item);
+  const state=editorHistory({past:[],present:items,future:[]},{type:'change',items:next});
+  assert.deepEqual(editorHistory(state,{type:'undo'}).present,items);
+  assert.deepEqual(editorHistory(editorHistory(state,{type:'undo'}),{type:'redo'}).present,next);
+});

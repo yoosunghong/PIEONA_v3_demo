@@ -2,6 +2,8 @@
 export const CRAB_STEP=1000/30, CRAB_COUNTDOWN=3000, BEACH_HALF=19;
 export const PLAYER_SPEED=5.8, CRAB_RADIUS=.42, PLAYER_RADIUS=.38;
 export const CHAIN_POINTS_PER_SECOND=2;
+// A new patrol every 2.8s at first, accelerating smoothly to one every .7s.
+export const crabSpawnInterval=seconds=>Math.max(700,2800*Math.exp(-Math.max(0,seconds)/42));
 export const crabSeconds=s=>Math.max(0,(s.elapsed-CRAB_COUNTDOWN)/1000);
 export const crabBaseScore=p=>Math.floor(Math.max(0,(p.survived-CRAB_COUNTDOWN))/100+1e-7);
 export const crabChainBonus=p=>Math.floor((p.chainBonus||0)+1e-7);
@@ -20,7 +22,7 @@ function spawn(s,initial=false){
   s.crabs.push({id:n,x,z,cx:x,cz:z,phase:random(s)*Math.PI*2,rx:1+random(s)*2,rz:1+random(s)*2,rate:(dynamic?.9:.38)+random(s)*.3,dynamic,mode:'patrol',owner:null,angle:0});
 }
 export function newCrabGame(players,seed=12345){
-  const s={elapsed:0,seed:seed>>>0,nextId:0,nextSpawn:CRAB_COUNTDOWN+6500,players:[],crabs:[],ended:false,winner:null};
+  const s={elapsed:0,seed:seed>>>0,nextId:0,nextSpawn:CRAB_COUNTDOWN+crabSpawnInterval(0),players:[],crabs:[],ended:false,winner:null};
   s.players=players.map((id,i)=>({id,x:players.length===1?0:(i?4:-4),z:0,angle:0,alive:true,survived:0,chainBonus:0,input:{x:0,z:0},inputAt:-1000,inputSeq:0,trail:[],chain:[]}));
   for(const p of s.players){
     for(let i=0;i<640;i++)p.trail.push({x:p.x,z:clamp(p.z+i*PLAYER_SPEED*CRAB_STEP/1000)});
@@ -58,7 +60,7 @@ export function stepCrab(s,dt=CRAB_STEP){
     p.trail.unshift({x:p.x,z:p.z});p.trail.length=Math.min(p.trail.length,640);
     p.survived=s.elapsed;
   }
-  while(s.elapsed>=s.nextSpawn&&s.crabs.length<100){spawn(s);s.nextSpawn+=Math.max(1600,6500-seconds*32);}
+  while(s.elapsed>=s.nextSpawn&&s.crabs.length<100){spawn(s);s.nextSpawn+=crabSpawnInterval(crabSeconds({elapsed:s.nextSpawn}));}
   for(const c of s.crabs){
     if(c.mode==='patrol'){
       const a=c.phase+seconds*c.rate,goal={x:clamp(c.cx+Math.cos(a)*c.rx),z:clamp(c.cz+Math.sin(a)*c.rz)};

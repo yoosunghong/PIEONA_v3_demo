@@ -1,3 +1,4 @@
+import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance} from '../shared/scenery.mjs';
 import {generateTopic} from './topic.mjs';
 import express from 'express';
 import helmet from 'helmet';
@@ -125,22 +126,32 @@ export function createApp(options = {}) {
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
+    const sceneryItem=z.object({id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=6,'마을 안에 놓아주세요.');
     const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.enum(signColors),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
     const signSchema=z.object({x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
     const guestbookSchema=z.object({x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional()}).strict();
-    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
-    if(data.village?.items){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
+    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
     const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
+    if(data.village?.items){const items=data.village.items;if(new Set(items.map(i=>i.id)).size!==items.length||items.some(i=>!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
     if(data.village?.guestbook)nextVillage.guestbook={...villageGuestbook(oldVillage),...data.village.guestbook};
     if(data.village?.sign||data.village?.items||data.village?.guestbook){
       const sign=villageSign(nextVillage);
-      if(!validPlacement(sign.x,sign.z)||(nextVillage.items||[]).some(item=>Math.hypot(item.x-sign.x,item.z-sign.z)<.8))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
+      if(!validPlacement(sign.x,sign.z,nextVillage.scenery)||(nextVillage.items||[]).some(item=>Math.hypot(item.x-sign.x,item.z-sign.z)<.8))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
       const book=villageGuestbook(nextVillage);
-      if(!validPlacement(book.x,book.z)||[...(nextVillage.items||[]),sign].some(item=>Math.hypot(item.x-book.x,item.z-book.z)<.8))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
+      if(!validPlacement(book.x,book.z,nextVillage.scenery)||[...(nextVillage.items||[]),sign].some(item=>Math.hypot(item.x-book.x,item.z-book.z)<.8))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
+    }
+    if(data.village?.scenery){
+      const before=villageScenery(oldVillage),after=villageScenery(nextVillage);
+      const objects=[...after,...(nextVillage.items||[]),villageSign(nextVillage),villageGuestbook(nextVillage)];
+      for(const object of after){
+        const old=before.find(item=>item.id===object.id);
+        if(old.x===object.x&&old.z===object.z)continue;
+        if(!validSceneryPlacement(object.x,object.z)||objects.some(other=>other!==object&&Math.hypot(other.x-object.x,other.z-object.z)<sceneryClearance(object.id,other.id)))fail(400,'광장·산책로·다른 오브젝트를 피해 배치해주세요.');
+      }
     }
     const saved=characterLooks(JSON.parse(user.appearance),JSON.parse(user.character_looks));
     for(const [character,look] of Object.entries(data.characterLooks||{}))if(look)saved[character]={...look,character};
@@ -298,7 +309,10 @@ export function createApp(options = {}) {
     for(const race of races.values()){
       const player=race.players.find(p=>p.socketId===socket.id);if(!player||player.left)continue;
       player.left=true;
-      if(race.kind==='crab')crabs.leave(player.userId,race.id);
+      if(race.kind==='crab'){
+        crabs.abandon(player.gameId,player.userId);race.rematch=null;
+        raceEmit(race,'crab:rematch',{id:race.id,gameId:player.gameId,status:'unavailable'});
+      }
       if(player.gameId)store.run('UPDATE games SET finished=2 WHERE id=? AND finished=0',player.gameId);
       if(!race.started){raceEmit(race,'runner:cancelled',{id:race.id,reason:'상대가 준비 중에 나갔어요.'});races.delete(race.id);emitVillage(race.villageId);}
       else if(race.kind!=='crab')for(const other of race.players)if(other!==player)io.to(other.socketId).emit('runner:opponent-left',{id:race.id,userId:player.userId});
@@ -439,6 +453,31 @@ export function createApp(options = {}) {
     });
     runnerRequest('runner:cancel-invite',(data,ack)=>{const invite=invites.get(data?.id);if(invite&&invite.fromSocket===socket.id)cancelInvite(invite,'초대가 취소됐어요.');ack({ok:true});});
     runnerRequest('runner:leave',(_,ack)=>{leaveRace(socket);if(socket.data.village)emitVillage(socket.data.village.villageId);ack({ok:true});});
+    runnerRequest('crab:rematch',(data,ack)=>{
+      const {id:raceId,gameId,action}=z.object({id:z.string().uuid(),gameId:z.string().uuid(),action:z.enum(['request','accept','decline','cancel'])}).strict().parse(data);
+      const race=races.get(raceId),player=race?.players.find(p=>p.socketId===socket.id&&!p.left);
+      if(!player||race.kind!=='crab'||player.gameId!==gameId)fail(404,'재대결할 게임을 찾을 수 없어요.');
+      if(race.players.some(p=>p.left||!io.sockets.sockets.has(p.socketId)))fail(409,'상대가 해변을 떠났어요.');
+      const broadcast=(status)=>raceEmit(race,'crab:rematch',{id:race.id,status,from:race.rematch?.from});
+      if(action==='cancel'||action==='decline'){
+        if(!race.rematch)fail(409,'대기 중인 재대결 요청이 없어요.');
+        if((action==='cancel')!==(race.rematch.from===uid))fail(403,'재대결 요청에 응답할 수 없어요.');
+        broadcast(action==='cancel'?'cancelled':'declined');race.rematch=null;ack({ok:true});return;
+      }
+      if(!race.players.every(p=>store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished===1))fail(409,'두 사람의 기록 저장이 끝나면 다시 도전해주세요.');
+      for(const p of race.players){checkTarget({user:userById(p.userId)},race.villageId);if(io.sockets.sockets.get(p.socketId)?.data.village?.villageId!==race.villageId)fail(409,'같은 마을에 있어야 해요.');if(busy(p.userId))fail(409,'상대가 다른 게임을 진행 중이에요.');}
+      if(isBlocked(store,race.players[0].userId,race.players[1].userId))fail(403,'함께할 수 없는 이웃이에요.');
+      if(race.rematch&&race.rematch.expires<Date.now()){broadcast('expired');race.rematch=null;}
+      if(action==='request'){
+        if(race.rematch)fail(409,'이미 재대결 응답을 기다리고 있어요.');
+        race.rematch={from:uid,expires:Date.now()+30000};broadcast('pending');ack({ok:true});return;
+      }
+      if(!race.rematch||race.rematch.from===uid)fail(409,'상대의 재대결 요청이 없어요.');
+      const started=Date.now()+1000,room=crabs.start(race.players,race.villageId,undefined,started);
+      race.started=started;race.settledAt=null;race.rematch=null;
+      for(const p of race.players){const participant=room.players.find(v=>v.userId===p.userId);p.gameId=participant.gameId;io.to(p.socketId).emit('runner:started',{id:race.id,game:crabs.info(room,participant)});}
+      ack({ok:true});
+    });
     runnerRequest('runner:ready',(data,ack)=>{
       const race=races.get(data?.id),player=race?.players.find(p=>p.socketId===socket.id);
       if(!player)fail(404,'함께할 달리기를 찾을 수 없어요.');player.ready=true;
@@ -493,7 +532,7 @@ export function createApp(options = {}) {
     });
     socket.on('disconnect',()=>{if(![...io.sockets.sockets.values()].some(other=>other.data.userId===uid))crabs.leave(uid);leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
   });
-  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(Date.now()-r.started>(r.kind==='crab'?3600000:RUN_EXPIRY)||r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished)){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
+  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(r.rematch&&r.rematch.expires<Date.now()){raceEmit(r,'crab:rematch',{id:r.id,status:'expired'});r.rematch=null;}const settled=r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished);if(settled&&!r.settledAt)r.settledAt=Date.now();if(Date.now()-r.started>(r.kind==='crab'?3600000:RUN_EXPIRY)||(settled&&(r.kind!=='crab'||r.players.every(p=>p.left)||Date.now()-r.settledAt>300000))){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
   const maintenance=setInterval(()=>{store.run('DELETE FROM sessions WHERE expires<?',Date.now());for(const socket of io.sockets.sockets.values())if(!sessionUser(socket.request.headers))socket.disconnect(true);},60000);maintenance.unref();
   app.use('/resource',express.static(resolve('resource'),{maxAge:'7d',immutable:true}));
   const dist=resolve('dist');if(existsSync(dist)){app.use(express.static(dist,{maxAge:'1h',setHeaders(res,path){if(path.endsWith('.html'))res.set('Cache-Control','no-store');}}));app.get('/{*splat}',(req,res,next)=>req.path.startsWith('/api/')?next():res.set('Cache-Control','no-store').sendFile(resolve(dist,'index.html')));}

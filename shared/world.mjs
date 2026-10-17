@@ -38,7 +38,7 @@ export const villageThemes=[
 ];
 export const defaultVillage={items:[],theme:'default'};
 // Keep the central host platform and the main path free of furniture.
-export function validPlacement(x,z){return Number.isFinite(x)&&Number.isFinite(z)&&Math.hypot(x,z)>=2.85&&Math.hypot(x,z)<=5.6&&!(Math.abs(x)<.85&&z>0)&&![[-3.65,-.2,1.5],[3.35,1.2,1.65],[2.1,-3.5,.85]].some(([a,b,r])=>Math.hypot(x-a,z-b)<r);}
+export function validPlacement(x,z,scenery){return Number.isFinite(x)&&Number.isFinite(z)&&Math.hypot(x,z)>=2.85&&Math.hypot(x,z)<=5.6&&!(Math.abs(x)<.85&&z>0)&&![[-3.65,-.2,1.5],[3.35,1.2,1.65],[2.1,-3.5,.85]].some(([a,b,r],i)=>{const moved=scenery?.find(item=>item.id===['cafe','pond','campfire'][i]);return Math.hypot(x-(moved?.x??a),z-(moved?.z??b))<r;});}
 
 export const characters=[
   {id:'pio',name:'피오',folder:'Meshy_AI_biped',animation:'Joyful_Dance_with_Hand_Sway'},

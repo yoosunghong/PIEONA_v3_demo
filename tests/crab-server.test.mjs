@@ -93,6 +93,42 @@ test('simultaneous contacts yield a draw on both clients and each result can be 
   }finally{a.disconnect();b.disconnect();}
 });
 
+test('rematches require opponent consent, support decline/cancel, and reject stale or forged requests',async()=>{
+  const a=await connect(owner),b=await connect(guest);
+  try{
+    const game=await match(a,b),send=(s,gameId,action)=>emit(s,'crab:rematch',{id:game.id,gameId,action});
+    assert.equal((await send(a,game.a.id,'request')).ok,false);
+    await tick(game.a.started+6000);
+    await request(`/crab-games/${game.a.id}/finish`,owner,{});
+    assert.equal((await send(a,game.a.id,'request')).ok,false);
+    await request(`/crab-games/${game.b.id}/finish`,guest,{});
+    // Let the race cleanup timer run: settled crab races must remain available.
+    await new Promise(r=>setTimeout(r,150));
+    assert.equal((await send(b,game.a.id,'request')).ok,false);
+    const pending=once(b,'crab:rematch');assert.equal((await send(a,game.a.id,'request')).ok,true);
+    assert.equal((await pending).status,'pending');
+    assert.equal((await send(a,game.a.id,'accept')).ok,false);
+    assert.equal((await send(a,game.a.id,'decline')).ok,false);
+    const declined=once(a,'crab:rematch');assert.equal((await send(b,game.b.id,'decline')).ok,true);assert.equal((await declined).status,'declined');
+    assert.equal((await send(a,game.a.id,'request')).ok,true);
+    assert.equal((await send(b,game.b.id,'cancel')).ok,false);
+    assert.equal((await send(a,game.a.id,'cancel')).ok,true);
+    assert.equal((await send(b,game.b.id,'accept')).ok,false);
+    assert.equal((await send(a,game.a.id,'request')).ok,true);
+    const nextA=once(a,'runner:started'),nextB=once(b,'runner:started');clock=Date.now();
+    assert.equal((await send(b,game.b.id,'accept')).ok,true);
+    const ra=await nextA,rb=await nextB;assert.equal(ra.id,game.id);assert.notEqual(ra.game.id,game.a.id);assert.notEqual(ra.game.roomId,game.a.roomId);
+    assert.equal(ra.game.roomId,rb.game.roomId);assert.deepEqual(ra.game.snapshot,rb.game.snapshot);assert.equal(ra.game.snapshot.ended,false);assert.equal(ra.game.snapshot.players[0].score,0);
+    assert.equal((await send(a,game.a.id,'request')).ok,false);
+    // Leaving a rematch must affect the new room, not the previous room.
+    await emit(b,'runner:leave',{});
+    const state=(await request(`/crab-games/${ra.game.id}/state`,owner)).body.snapshot;assert.equal(state.ended,true);assert.equal(state.winner,owner.id);
+    await request(`/crab-games/${ra.game.id}/finish`,owner,{});
+    assert.equal((await send(a,ra.game.id,'request')).ok,false);
+    assert.equal((await request(`/crab-games/${game.a.id}/finish`,owner,{})).status,200);
+  }finally{await emit(a,'runner:leave',{});a.disconnect();b.disconnect();}
+});
+
 test('survival rewards use authoritative elapsed time, settle once, and share daily and village caps',()=>{
   // Supply terminal simulation fixtures directly to the service; transport and
   // ownership are exercised against real HTTP and sockets above.

@@ -9,7 +9,19 @@
 
 > Use case: stylized-concept. Asset type: landscape 1536x1024 premium cozy 3D social game minigame card banner. Primary request: a funny tense chase on a sunlit tropical beach, a cute small adventurer with a straw hat and mint green beach clothes running away from a long winding single-file procession of bright coral-red crabs with expressive raised claws and eyestalks; more crabs patrolling in the distance. High elevated top-down three-quarter view, clear curled crab trail, turquoise sea and white foamy waves along the left edge, warm peach golden sand, tiny seashells, palm trees and striped beach parasols at edges. Polished charming claylike 3D game render, soft ambient occlusion and long warm shadows, vivid teal / coral / sand palette, playful summer atmosphere. Readable composition at small card size, main runner and crabs near center, no text, no letters, no logos, no watermark.
 
-## Original runtime assets
+## Paradise artwork refresh (2026-10-17)
+
+- Tool: built-in ImageGen. Project asset: `public/images/minigames/crab-paradise.webp` (1536 × 1024, WebP quality 86, about 260 KiB).
+- Used by the game card, introduction and result card. Original banner preserved.
+- Final generation prompt:
+
+> Create a premium cozy 3D game illustration, landscape 1536x1024, for a cute Korean beach crab chase minigame. Rounded toy-like coral orange crabs with big friendly eyes and raised claws running in a winding procession on warm ivory sand, sparkling shallow turquoise ocean on the left, distant lush palm trees, tiny seashells, soft sunny lighting, pastel teal and peach palette, polished family game key art with detailed soft shadows. Composition: cluster of crabs across center and right, lower left mostly clean softly lit sand so interface text can overlay. No people, no typography, no letters, no logos, no UI, no borders. Charming, energetic, crisp, high quality stylized 3D render.
+
+- Runtime additions: instanced sea sparkles, starfish clusters, expanding spawn rings. The 100-crab draw budget test remains within 65 meshes.
+- Spawns: first patrol after 2.8 seconds of active play, exponential acceleration to a 700 ms minimum at about 58 seconds; 100-crab cap retained.
+- Results: explicit victory, defeat, draw and solo game-over badges. Solo retry and multiplayer rematch actions remain in the card footer. Rematches require both saved results and the opponent's explicit acceptance, expire after 30 seconds, and support rejection/cancellation.
+
+## Runtime asset implementation
 
 - `src/crabWorld.js`: instanced crabs with animated legs, claws and eye stalks; sand texture; moving foam; palm trees; parasols; buoy ropes; shells; footprints.
 - `src/crabAudio.mjs`: synthesized surf ambience and recruitment / collision cues through Web Audio.

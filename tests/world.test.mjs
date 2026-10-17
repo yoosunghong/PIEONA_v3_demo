@@ -387,3 +387,17 @@ test('character wardrobes preserve legacy looks and independently persist every 
   }
   assert.deepEqual((await request('/me',user)).body.user.characterLooks,before.characterLooks);
 });
+
+test('scenery placement saves, reaches visitors and rejects invalid IDs, positions and duplicates',async()=>{
+  const user=await register('scenery_owner');
+  const scenery=[{id:'tree-0',x:-5,z:0,rotation:2},{id:'campfire',x:3,z:-4,rotation:1}];
+  assert.equal((await request('/me/world',user,{village:{scenery}},'PATCH')).status,200);
+  assert.deepEqual((await request('/me',user)).body.user.village.scenery,scenery);
+  assert.deepEqual((await request('/users/'+user.id,visitor)).body.user.village.scenery,scenery);
+  for(const invalid of [[{...scenery[0],id:'unknown'}],[{...scenery[0],x:30}],[{...scenery[0],x:0,z:0}],[{...scenery[0],x:3.8,z:-2.7}],[{...scenery[0],rotation:4}],[scenery[0],scenery[0]]]){
+    assert.equal((await request('/me/world',user,{village:{scenery:invalid}},'PATCH')).status,400);
+  }
+  assert.deepEqual((await request('/me',user)).body.user.village.scenery,scenery);
+  assert.equal((await request('/me/world',user,{village:{theme:'sunset'}},'PATCH')).status,200);
+  assert.deepEqual((await request('/me',user)).body.user.village.scenery,scenery);
+});

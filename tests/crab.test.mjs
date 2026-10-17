@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {newCrabGame,stepCrab,advanceCrab,crabInput,crabSnapshot,crabScore,crabBaseScore,crabChainBonus,crabScoreRate,chainTarget,CRAB_COUNTDOWN,CRAB_STEP,BEACH_HALF,PLAYER_SPEED} from '../shared/crab.mjs';
+import {newCrabGame,stepCrab,advanceCrab,crabInput,crabSnapshot,crabScore,crabBaseScore,crabChainBonus,crabScoreRate,chainTarget,crabSpawnInterval,CRAB_COUNTDOWN,CRAB_STEP,BEACH_HALF,PLAYER_SPEED} from '../shared/crab.mjs';
 
 test('countdown freezes players and crabs; each player starts with a two-crab procession',()=>{
   const s=newCrabGame(['a','b'],17),before=crabSnapshot(s);advanceCrab(s,CRAB_COUNTDOWN-CRAB_STEP);
@@ -56,4 +56,15 @@ test('any crab including the player own chain or opponent chain is fatal; ties r
 test('difficulty adds more crabs and dynamic patrols over time with deterministic bounded ecology',()=>{
   const s=newCrabGame([],77),copy=newCrabGame([],77);advanceCrab(s,120000);advanceCrab(copy,120000);
   assert.deepEqual(s,copy);assert.ok(s.crabs.length>35);assert.ok(s.crabs.some(c=>c.dynamic));assert.ok(s.crabs.every(c=>Math.abs(c.x)<=BEACH_HALF&&Math.abs(c.z)<=BEACH_HALF));assert.ok(s.crabs.length<=100);
+});
+
+test('patrols first appear after 2.8 seconds, accelerate each wave, and stop at the ecology cap',()=>{
+  const s=newCrabGame([],77);advanceCrab(s,CRAB_COUNTDOWN+2750);assert.equal(s.crabs.length,12);
+  advanceCrab(s,CRAB_COUNTDOWN+2850);assert.equal(s.crabs.length,13);
+  assert.ok(s.nextSpawn-(CRAB_COUNTDOWN+2800)<2800);
+  for(let seconds=0;seconds<58;seconds++)assert.ok(crabSpawnInterval(seconds+1)<crabSpawnInterval(seconds));
+  assert.equal(crabSpawnInterval(0),2800);assert.equal(crabSpawnInterval(600),700);
+  const counts=[s.crabs.length];for(const time of [20000,40000,60000]){advanceCrab(s,CRAB_COUNTDOWN+time);counts.push(s.crabs.length);}
+  assert.ok(counts[3]-counts[2]>counts[2]-counts[1]);
+  advanceCrab(s,600000);assert.equal(s.crabs.length,100);
 });

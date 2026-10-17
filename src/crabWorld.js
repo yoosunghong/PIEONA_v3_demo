@@ -53,6 +53,12 @@ export function createCrabWorld(scene){
     if(i<75){const shell=mesh(sphere,i%3?cream:coral,x,.025,z,.07+rand()*.1,.045,.11);shell.rotation.y=rand()*6;}
     else if(Math.abs(x)>20||Math.abs(z)>21)mesh(sphere,rock,x,.3,z,.4+rand()*.8,.4,.6);
   }
+  // Tiny starfish and shell clusters keep the beach lively without obscuring hazards.
+  for(const [x,z] of [[-18,-22],[12,22],[22,-9],[-21,13],[6,-22]]){
+    mesh(sphere,coral,x,.04,z,.18,.07,.18);
+    for(let i=0;i<5;i++){const a=i*Math.PI*2/5,arm=mesh(sphere,coral,x+Math.cos(a)*.17,.04,z+Math.sin(a)*.17,.27,.045,.065);arm.rotation.y=-a;}
+    for(let i=0;i<3;i++)mesh(sphere,cream,x+.6+i*.21,.06,z+.4,.13,.07,.18);
+  }
   // Bake hundreds of static props and foam beads into a handful of draws.
   // Waves keep their own moving parent; everything else uses world transforms.
   root.updateMatrixWorld(true);
@@ -69,6 +75,12 @@ export function createCrabWorld(scene){
   const staticMeshes=[];root.traverse(o=>{if(o.isMesh&&!o.isInstancedMesh&&!animated.has(o))staticMeshes.push(o);});batchMeshes(staticMeshes,root);
   const red=mat('#f76c4f'),orange=mat('#ff9871'),white=mat('#fff9e9'),black=mat('#243940'),shadow=mat('#a87453',{transparent:true,opacity:.18,depthWrite:false});
   const dummy=new THREE.Object3D(),color=new THREE.Color(),parts=[];
+  const sparkleMaterial=new THREE.MeshBasicMaterial({color:'#eeffff',transparent:true,opacity:.65,depthWrite:false});materials.push(sparkleMaterial);
+  const sparkles=new THREE.InstancedMesh(geo(new THREE.PlaneGeometry(1,1)),sparkleMaterial,65);sparkles.instanceMatrix.setUsage(THREE.DynamicDrawUsage);sparkles.frustumCulled=false;root.add(sparkles);
+  const sparklePositions=Array.from({length:65},()=>({x:-22-rand()*15,z:(rand()*2-1)*35,phase:rand()*Math.PI*2}));
+  const arrivalMaterial=new THREE.MeshBasicMaterial({color:'#fff7ca',transparent:true,opacity:.7,depthWrite:false,side:THREE.DoubleSide});materials.push(arrivalMaterial);
+  const arrivals=new THREE.InstancedMesh(geo(new THREE.RingGeometry(.65,.72,24)),arrivalMaterial,100);arrivals.instanceMatrix.setUsage(THREE.DynamicDrawUsage);arrivals.frustumCulled=false;root.add(arrivals);
+  const appeared=new Map();let previousCount=0;
   function part(g,m,pose){const inst=new THREE.InstancedMesh(g,m,100);inst.instanceMatrix.setUsage(THREE.DynamicDrawUsage);inst.castShadow=false;inst.receiveShadow=true;inst.frustumCulled=false;root.add(inst);parts.push({inst,pose});return inst;}
   const body=part(sphere,red,(t)=>[0,.28+Math.sin(t*14)*.025,0,.46,.24,.34,0,0,0]);
   part(sphere,orange,()=>[0,.23,.24,.31,.11,.14,0,0,0]);
@@ -90,7 +102,11 @@ export function createCrabWorld(scene){
   const old=new Map();
   return {
     update(snapshot,time,dt){
-      if(snapshot.elapsed<lastElapsed){footprints.length=0;lastSteps.clear();old.clear();}lastElapsed=snapshot.elapsed;
+      if(snapshot.elapsed<lastElapsed){footprints.length=0;lastSteps.clear();old.clear();appeared.clear();previousCount=0;}lastElapsed=snapshot.elapsed;
+      for(let i=0;i<sparklePositions.length;i++){const p=sparklePositions[i],size=.04+Math.pow(Math.max(0,Math.sin(time*1.6+p.phase)),8)*.3;dummy.position.set(p.x+Math.sin(time*.5+p.phase)*.15,.025,p.z);dummy.rotation.set(-Math.PI/2,0,Math.PI/4);dummy.scale.set(size,size,1);dummy.updateMatrix();sparkles.setMatrixAt(i,dummy.matrix);}sparkles.instanceMatrix.needsUpdate=true;
+      if(snapshot.crabs.length>previousCount&&previousCount)for(const c of snapshot.crabs)if(!old.has(c.id))appeared.set(c.id,time);
+      previousCount=snapshot.crabs.length;let arrivalCount=0;
+      for(const c of snapshot.crabs){const born=appeared.get(c.id);if(born===undefined)continue;const age=time-born;if(age>1){appeared.delete(c.id);continue;}dummy.position.set(c.x,.035,c.z);dummy.rotation.set(-Math.PI/2,0,0);dummy.scale.setScalar(1+age*1.7);dummy.updateMatrix();arrivals.setMatrixAt(arrivalCount++,dummy.matrix);}arrivals.count=arrivalCount;arrivals.instanceMatrix.needsUpdate=true;
       for(const p of snapshot.players){const last=lastSteps.get(p.id)||{x:p.x,z:p.z,side:1};
         if(Math.hypot(p.x-last.x,p.z-last.z)>.5&&p.alive){const side=-last.side;footprints.push({x:p.x+Math.cos(p.angle)*side*.18,z:p.z-Math.sin(p.angle)*side*.18,angle:p.angle,born:time});lastSteps.set(p.id,{x:p.x,z:p.z,side});}
         else if(!lastSteps.has(p.id))lastSteps.set(p.id,last);
@@ -109,6 +125,6 @@ export function createCrabWorld(scene){
       }inst.instanceMatrix.needsUpdate=true;if(inst===body&&inst.instanceColor)inst.instanceColor.needsUpdate=true;}
       for(const c of crabs){const prev=old.get(c.id)||{x:c.x,z:c.z,angle:c.angle};old.set(c.id,{x:prev.x+(c.x-prev.x)*blend,z:prev.z+(c.z-prev.z)*blend,angle:prev.angle+Math.atan2(Math.sin(c.angle-prev.angle),Math.cos(c.angle-prev.angle))*blend});}
     },
-    dispose(){root.removeFromParent();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());parts.forEach(p=>p.inst.dispose());batches.forEach(b=>b.dispose());printMesh.dispose();}
+    dispose(){root.removeFromParent();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());parts.forEach(p=>p.inst.dispose());batches.forEach(b=>b.dispose());printMesh.dispose();sparkles.dispose();arrivals.dispose();}
   };
 }
