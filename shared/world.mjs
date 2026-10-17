@@ -24,7 +24,7 @@ export const decorations = [
 ];
 // The legacy 2D catalog also uses these symbols for saved items.
 const decorIcons=['🪑','🏮','🌸','⛱️','⛲','🛒','🪵','🌷','🪨','🐰','🍄','🎠','🌸','🪧','🌿','🍄','📬','🧺','🌼','🏛️','💎'];
-decorations.forEach((item,index)=>{item.icon=decorIcons[index];item.quantity=10;});
+decorations.forEach((item,index)=>{item.icon=decorIcons[index];item.quantity=item.id==='statue'?Infinity:10;});
 // Placed items use stock; storing or undoing a placement returns it.
 export function remainingDecoration(items,type){
   const entry=decorations.find(item=>item.id===type);

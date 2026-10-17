@@ -32,3 +32,9 @@
 @keyframes theme-panel-enter{from{transform:translateX(100%)}to{transform:translateX(0)}}
 @media(prefers-reduced-motion:reduce){.modal.side-panel{animation:none}}
 @media(max-width:570px){.app-shell .world-top>div{max-width:calc(100% - 108px)}.app-shell .village-theme-button{font-size:11px;padding:8px;gap:4px}.app-shell .village-theme-button>svg{width:15px}.modal.side-panel{width:min(340px,100%);border-radius:18px 0 0 18px}}
+
+/* Keep action buttons in the title's flow: nicknames and village hints can wrap. */
+.app-shell .world-top .stage-controls{position:static;inset:auto;max-width:100%;margin-top:16px;align-items:center;flex-wrap:wrap;isolation:isolate}
+.app-shell .world-top{isolation:isolate}
+.app-shell .world-top .stage-capture-button{background:#f8fcff}
+@media(max-width:800px){.app-shell .world-top .stage-controls{margin-top:10px;gap:5px}.app-shell .world-top .stage-capture-button{flex-direction:row;gap:4px;padding:8px;font-size:11px}}

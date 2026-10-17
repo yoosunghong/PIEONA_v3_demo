@@ -79,8 +79,9 @@ test('stored scenery and furniture free their positions and storage can be undon
 });
 
 import {remainingDecoration} from '../shared/world.mjs';
-test('decoration stock starts at ten and follows placement, storage and undo',()=>{
-  assert.ok(decorations.every(entry=>entry.quantity===10));
+test('statues have unlimited stock while other decorations follow placement, storage and undo',()=>{
+  assert.ok(decorations.filter(entry=>entry.id!=='statue').every(entry=>entry.quantity===10));
+  assert.equal(decorations.find(entry=>entry.id==='statue').quantity,Infinity);
   assert.equal(remainingDecoration([],'bench'),10);
   const placed=Array.from({length:10},(_,i)=>({id:String(i),type:'bench'}));
   assert.equal(remainingDecoration(placed,'bench'),0);
@@ -91,4 +92,5 @@ test('decoration stock starts at ten and follows placement, storage and undo',()
   assert.equal(remainingDecoration(editorHistory(history,{type:'undo'}).present,'bench'),1);
   assert.equal(remainingDecoration(editorHistory(editorHistory(history,{type:'undo'}),{type:'redo'}).present,'bench'),0);
   assert.equal(remainingDecoration(placed,'unknown'),0);
+  assert.equal(remainingDecoration(Array.from({length:30},(_,i)=>({id:String(i),type:'statue'})),'statue'),Infinity);
 });

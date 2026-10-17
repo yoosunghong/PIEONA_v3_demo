@@ -4,6 +4,14 @@
 .notification-dot{position:absolute;top:1px;right:1px;width:9px;height:9px;border-radius:50%;background:#e24d4d;box-shadow:0 0 0 2px #fffdf8}
 .notification-list .activity-row>div{flex:1;min-width:0;overflow-wrap:anywhere}
 .notification-list .activity-row>.text-button{flex-shrink:0}
+.notification-list .activity-icon{flex:0 0 46px;width:46px;height:46px;border:0;border-radius:15px}
+.notification-list .activity-purple{background:#eee5ff;color:#7843ba}
+.notification-list .activity-blue{background:#e1efff;color:#286eb3}
+.notification-list .activity-amber{background:#fff0cd;color:#a76a12}
+.notification-list .activity-pink{background:#ffe5ee;color:#b94171}
+.notification-list .activity-green{background:#e4f2df;color:#4c7d35}
+.notification-list .activity-teal{background:#def3ef;color:#277f78}
+.activity-kind{display:block;margin-bottom:4px;font-size:11px;font-weight:700;color:#58708b}
 .conversation-row>.conversation-portraits{display:flex;flex-direction:row;align-items:center;gap:6px;flex:0 0 auto;width:max-content}
 .conversation-portraits .avatar-badge{width:48px;height:48px;flex-shrink:0}
 .conversation-row>.conversation-summary{flex:1;min-width:0;overflow-wrap:anywhere}

@@ -229,3 +229,9 @@ test('world saves reject placing more than ten of the same decoration',async()=>
   assert.equal(result.status,400);
   assert.match(result.body.error,/보유 수량/);
 });
+
+test('world saves allow more than ten statues',async()=>{
+  const items=Array.from({length:11},(_,i)=>({id:crypto.randomUUID(),type:'statue',x:-5.25+(i%4)*.5,z:-1.75+Math.floor(i/4)*.5,rotation:0}));
+  const result=await request('/me/world',{cookie:alice.cookie,method:'PATCH',body:{village:{items}}});
+  assert.notEqual(result.status,400);
+});

@@ -1,0 +1,21 @@
+.onboarding-modal{width:min(640px,100%)}
+.onboarding-modal>header>.icon-button{display:none}
+.onboarding-modal .onboarding{padding:24px 28px;text-align:center}
+.onboarding-modal .onboarding form{gap:16px}
+.onboarding-modal .onboarding h3{margin:4px 0 8px;line-height:1.6;font-size:22px}
+.onboarding-sprout{margin:0 auto 16px;color:#65896d}
+.onboarding-step{color:#527499;font-size:13px;font-weight:700}
+.onboarding-modal .balance-progress{margin:0 0 8px}
+.onboarding-choices{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.onboarding-choice{min-width:0;overflow:hidden;border:2px solid #d9e4eb;border-radius:18px;background:#f7faf8;text-align:left;color:#315477}
+.onboarding-choice:hover{border-color:#8eafc5}
+.onboarding-choice[aria-pressed=true]{border-color:#3d719e;box-shadow:0 0 0 2px #c4ddef;background:#e9f3fa}
+.balance-illustration{display:block;aspect-ratio:1.18;background-size:200% 100%;background-repeat:no-repeat;background-color:#edf4ec}
+.illustration-a{background-position:left center}.illustration-b{background-position:right center}
+.onboarding-choice-label{display:flex;align-items:center;gap:8px;padding:14px 10px;font-size:14px;font-weight:600;line-height:1.6}
+.onboarding-choice-label b{display:grid;place-items:center;flex-shrink:0;border-radius:50%;width:26px;height:26px;background:#fff;color:#426d8e}
+.onboarding-response{gap:10px;text-align:left;line-height:1.8}.onboarding-response textarea{width:100%;min-height:125px;resize:vertical;font:inherit}
+.onboarding-controls{display:flex;justify-content:space-between;gap:10px}.onboarding-controls button{display:flex;gap:6px;align-items:center;justify-content:center}
+.onboarding-traits{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin:20px 0}.onboarding-traits span{border-radius:20px;padding:7px 11px;background:#e9f1e8;color:#426451;font-size:13px}
+.onboarding-example{display:flex;gap:12px;text-align:left;padding:18px;border-radius:16px;background:#edf4fb;margin:18px 0}.onboarding-example>svg{flex-shrink:0}.onboarding-example strong{font-size:13px}.onboarding-example p{font-size:15px;line-height:1.7;margin:10px 0;white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:570px){.onboarding-modal .onboarding{padding:20px 16px}.onboarding-choices{gap:9px}.onboarding-choice-label{font-size:12px;padding:11px 7px;gap:5px}.onboarding-choice-label b{width:22px;height:22px}.onboarding-modal .onboarding h3{font-size:19px}.onboarding-controls .primary{font-size:13px;padding:12px}.onboarding-modal .balance-progress>span{width:24px}}

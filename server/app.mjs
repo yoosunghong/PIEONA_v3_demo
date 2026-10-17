@@ -20,6 +20,7 @@ import {crabSeconds} from '../shared/crab.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
 import {villageSign,isSignColor,MAX_CUSTOM_SIGN_COLORS,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
 import {villageGuestbook,GUESTBOOK_PAGE_SIZE,GUESTBOOK_MAX_LENGTH,guestbookLength} from '../shared/guestbook.mjs';
+import {balanceQuestions as questions,scenarioQuestions} from '../shared/onboarding.mjs';
 
 const scrypt = promisify(scryptCallback);
 const hashToken = value => createHash('sha256').update(value).digest('hex');
@@ -28,13 +29,7 @@ const fail = (status, message) => { const e = new Error(message); e.status = sta
 const nickname = z.string().trim().min(1).max(20);
 const visibility = z.enum(['private','close','public']);
 const categories = z.enum(['취향','가치관','경험','말투','일상']);
-export const questions = [
-  { id: 'weekend', title: '나만의 완벽한 주말은?', a: '포근한 집에서 충전', b: '새로운 곳으로 모험', category: '취향' },
-  { id: 'friend', title: '친구가 힘든 하루를 보냈다면?', a: '먼저 마음을 들어주기', b: '함께 해결책 찾아보기', category: '가치관' },
-  { id: 'cafe', title: '작은 카페에서 고르고 싶은 자리는?', a: '햇살 드는 조용한 창가', b: '사람들이 모이는 큰 테이블', category: '취향' },
-  { id: 'gift', title: '더 마음이 가는 선물은?', a: '진심이 담긴 손편지', b: '취향에 꼭 맞는 작은 물건', category: '가치관' },
-  { id: 'talk', title: '우리의 대화는 어떤 느낌이면 좋을까?', a: '다정하고 차분한 대화', b: '장난스럽고 활기찬 대화', category: '말투' }
-];
+export {questions};
 
 export function createApp(options = {}) {
   const store = options.store || openStore(process.env.DATABASE_PATH);
@@ -136,7 +131,7 @@ export function createApp(options = {}) {
     const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
     const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
-    if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
+    if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>Number.isFinite(entry.quantity)&&items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
     if(data.village?.guestbook)nextVillage.guestbook={...villageGuestbook(oldVillage),...data.village.guestbook};
     if(data.village?.sign||data.village?.items||data.village?.guestbook){
@@ -187,6 +182,7 @@ export function createApp(options = {}) {
     const data=z.object({content:z.string().max(GUESTBOOK_MAX_LENGTH*2).trim().min(1).refine(text=>guestbookLength(text)<=GUESTBOOK_MAX_LENGTH,'방명록은 최대 200자까지 남길 수 있어요.'),anonymous:z.boolean().default(false),visibility:z.enum(['public','private']).default('public')}).strict().parse(req.body);
     const entryId=id();
     store.run('INSERT INTO guestbook_entries(id,owner_id,author_id,content,anonymous,visibility,created_at) VALUES(?,?,?,?,?,?,?)',entryId,target.id,req.user.id,data.content,Number(data.anonymous),data.visibility,now());
+    if(target.id!==req.user.id)activity(target.id,req.user.id,'guestbook','방명록에 새 글을 남겼어요',data.anonymous);
     guestbookChanged(target.id);res.status(201).json({ok:true});
   });
   app.delete('/api/villages/:id/guestbook/:entryId',auth,(req,res)=>{
@@ -201,15 +197,21 @@ export function createApp(options = {}) {
     const period=s.questionFrequency==='often'?Math.floor(Date.now()/(4*3600000)):date;
     const answered=store.one("SELECT 1 FROM events WHERE user_id=? AND name='question_answered' AND detail=?", req.user.id,JSON.stringify({period}));
     const skipped=store.one("SELECT 1 FROM events WHERE user_id=? AND name='question_skipped' AND detail=?", req.user.id,JSON.stringify({period}));
-    res.json({balance:questions,daily:s.questionFrequency==='off'||answered||skipped?null:prompts[seed%prompts.length],period});
+    res.json({balance:questions,scenarios:scenarioQuestions,daily:s.questionFrequency==='off'||answered||skipped?null:prompts[seed%prompts.length],period});
   });
   app.post('/api/questions/status', auth, (req,res) => { const data=z.object({action:z.enum(['answered','skipped','reset'])}).parse(req.body); const s=settingsOf(req.user); const period=s.questionFrequency==='often'?Math.floor(Date.now()/(4*3600000)):day(); if(data.action==='reset') store.run("DELETE FROM events WHERE user_id=? AND name IN ('question_answered','question_skipped') AND detail=?",req.user.id,JSON.stringify({period})); else event(req.user.id,`question_${data.action}`,{period}); res.json({ok:true}); });
   app.post('/api/balance', auth, (req,res) => {
     const answers=z.array(z.object({id:z.string(),choice:z.enum(['a','b'])})).length(5).parse(req.body.answers);
     if(new Set(answers.map(a=>a.id)).size!==5||answers.some(a=>!questions.find(q=>q.id===a.id))) fail(400,'다섯 질문에 모두 답해주세요.');
+    const responses=req.body.responses===undefined?null:z.array(z.object({id:z.enum(scenarioQuestions.map(q=>q.id)),text:z.string().trim().min(1).max(240)}).strict()).length(scenarioQuestions.length).parse(req.body.responses);
+    if(responses&&new Set(responses.map(r=>r.id)).size!==scenarioQuestions.length)fail(400,'두 상황에 모두 답해주세요.');
     store.transaction(()=>{
       store.run("DELETE FROM memories WHERE owner_id=? AND source='balance'",req.user.id);
       for(const answer of answers){const q=questions.find(q=>q.id===answer.id); const time=now(); store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',id(),req.user.id,`${q.title} → ${q[answer.choice]}`,q.category,'private',1,'balance',time,time);}
+      if(responses){
+        store.run("DELETE FROM memories WHERE owner_id=? AND source='onboarding'",req.user.id);
+        for(const response of responses){const q=scenarioQuestions.find(q=>q.id===response.id),time=now();store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',id(),req.user.id,`${q.title} 내가 실제로 할 말: “${response.text}”`,q.category,'private',1,'onboarding',time,time);}
+      }
       store.run('UPDATE users SET balance=?,revision=revision+1 WHERE id=?',JSON.stringify(answers),req.user.id); event(req.user.id,'balance_completed');
     }); emitWorld(); res.json({user:profile(userById(req.user.id),req.user.id)});
   });

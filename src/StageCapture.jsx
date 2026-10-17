@@ -6,18 +6,18 @@ import {captureFilename,filterCaptures,photoDate,photoFrames} from './captureMod
 import {deleteCapture,listCaptures,saveCapture} from './captureStore.mjs';
 import {downloadCapture,renderCapture} from './captureCanvas.mjs';
 
-export default function StageCapture({shot,ownerId,themeId='default',notify,onClose,onNewCapture,onMemory,closeGuard}){
+export default function StageCapture({shot,ownerId,themeId='default',notify,onClose,onNewCapture,closeGuard}){
   const [photos,setPhotos]=useState([]),[selected,setSelected]=useState(shot?.id||null),[draft,setDraft]=useState(shot||null);
   const [saving,setSaving]=useState(false),[exitAction,setExitAction]=useState(null);
   const [loading,setLoading]=useState(true),[loadError,setLoadError]=useState(false),[reload,setReload]=useState(0);
-  const [character,setCharacter]=useState('all'),[favorites,setFavorites]=useState(false),[query,setQuery]=useState(''),[sort,setSort]=useState('newest'),[list,setList]=useState(false);
+  const [favorites,setFavorites]=useState(false),[query,setQuery]=useState(''),[sort,setSort]=useState('newest'),[list,setList]=useState(false);
   const [preview,setPreview]=useState(''),[previewError,setPreviewError]=useState(''),[saveState,setSaveState]=useState('saved');
   const [menu,setMenu]=useState(false),[confirmDelete,setConfirmDelete]=useState(false),[deleting,setDeleting]=useState(false),[help,setHelp]=useState(false),[tag,setTag]=useState('');
   const saveQueue=useRef(Promise.resolve()),pending=useRef(0),failedPhotos=useRef(new Map()),previewVersion=useRef(0),titleRef=useRef(null);
   const rootRef=useRef(null),wasConfirm=useRef(false);
   const photo=draft?.id===selected?draft:photos.find(item=>item.id===selected);
   const isNew=!!draft&&!photos.some(item=>item.id===draft.id);
-  const visible=filterCaptures(photos,{character,favorites,query,sort});
+  const visible=filterCaptures(photos,{favorites,query,sort});
   const index=visible.findIndex(item=>item.id===selected);
 
   function requestAction(action){if(saving)return;if(draft)setExitAction(()=>action);else action();}
@@ -132,7 +132,6 @@ export default function StageCapture({shot,ownerId,themeId='default',notify,onCl
         <span className="capture-rail-sprout"><Leaf size={29} strokeWidth={1.4}/></span>
         <button className={!favorites?'active':''} onClick={()=>setFavorites(false)} aria-pressed={!favorites}><Images size={27}/><span>앨범</span></button>
         <button className={favorites?'active':''} onClick={()=>setFavorites(true)} aria-pressed={favorites}><Heart size={26}/><span>좋아한 순간</span></button>
-        <button onClick={onMemory}><BookOpen size={26}/><span>도감</span></button>
         <span className="capture-rail-bottom">LITTLE<br/>MEMORIES</span>
       </aside>
       <div className="capture-album-paper">
@@ -141,10 +140,6 @@ export default function StageCapture({shot,ownerId,themeId='default',notify,onCl
           <div className="capture-heading-tools"><label className="capture-sort"><span className="sr-only">사진 정렬</span><select value={sort} onChange={event=>setSort(event.target.value)}><option value="newest">최신순</option><option value="oldest">오래된순</option></select></label><button className="capture-round" aria-label={list?'격자 보기':'목록 보기'} onClick={()=>setList(value=>!value)}>{list?<Grid2X2 size={17}/>:<List size={17}/>}</button><button className="capture-round" aria-label="보관함 닫기" onClick={onClose}><X size={18}/></button></div>
         </header>
         <div className="capture-album-filters">
-          <div className="capture-character-tabs" role="group" aria-label="함께한 피어나 필터">
-            <button className={character==='all'?'active':''} aria-pressed={character==='all'} onClick={()=>setCharacter('all')}><Leaf size={18}/>전체</button>
-            {characters.map(item=><button key={item.id} className={character===item.id?'active':''} aria-pressed={character===item.id} onClick={()=>setCharacter(item.id)}><AvatarPortrait user={{appearance:{character:item.id}}}/>{item.name}</button>)}
-          </div>
           <label className="capture-search"><Search size={15}/><input aria-label="사진 검색" placeholder="기억 찾기" value={query} onChange={event=>setQuery(event.target.value)}/></label>
         </div>
         {help&&<div className="capture-help-note" role="status">캡처 후 제목과 이야기를 적고 앨범에 저장을 누르면 이 기기의 브라우저에 자아별로 보관돼요. 저장한 최종 사진은 제목과 이야기를 포함한 PNG로 내려받을 수 있어요. 브라우저 데이터를 지우면 보관함도 삭제돼요.</div>}
@@ -156,7 +151,7 @@ export default function StageCapture({shot,ownerId,themeId='default',notify,onCl
               <button className="capture-photo-open" onClick={()=>open(item.id)} aria-label={item.title+' 사진 열기'}><span className="capture-thumbnail"><img loading="lazy" src={item.image} alt={item.title}/><span className="capture-frame-mark" aria-hidden="true">{photoFrames.find(frame=>frame.id===item.frame)?.symbol}</span></span><time dateTime={new Date(item.at).toISOString()}>{photoDate(item.at,'.')}</time><strong>{item.title}</strong>{list&&<span className="capture-list-location"><MapPin size={13}/>{item.location}</span>}</button>
               <button className={'capture-card-heart'+(item.favorite?' active':'')} aria-label={item.favorite?'즐겨찾기 해제':'즐겨찾기에 추가'} aria-pressed={item.favorite} onClick={()=>change(item.id,{favorite:!item.favorite})}><Heart size={23} fill={item.favorite?'currentColor':'#ffffffbb'}/></button>
             </article>)}
-          </div>:<div className="capture-empty"><span className="capture-empty-art"><Images size={43} strokeWidth={1.1}/><Leaf size={22}/></span><h3>{query||character!=='all'?'아직 이곳에는 기억이 없어요':favorites?'마음에 드는 순간에 하트를 남겨보세요':'우리 마을의 첫 순간을 담아볼까요?'}</h3><p>{query||character!=='all'?'다른 피어나를 선택하거나 검색어를 바꿔보세요.':favorites?'사진 위의 하트를 누르면 이곳에서 모아볼 수 있어요.':'햇살 좋은 오후도, 이웃과의 만남도 한 장의 추억이 돼요.'}</p><button className="capture-action" onClick={onNewCapture}><Camera size={17}/>지금 사진 찍기</button></div>}
+          </div>:<div className="capture-empty"><span className="capture-empty-art"><Images size={43} strokeWidth={1.1}/><Leaf size={22}/></span><h3>{query?'아직 이곳에는 기억이 없어요':favorites?'마음에 드는 순간에 하트를 남겨보세요':'우리 마을의 첫 순간을 담아볼까요?'}</h3><p>{query?'검색어를 바꿔보세요.':favorites?'사진 위의 하트를 누르면 이곳에서 모아볼 수 있어요.':'햇살 좋은 오후도, 이웃과의 만남도 한 장의 추억이 돼요.'}</p><button className="capture-action" onClick={onNewCapture}><Camera size={17}/>지금 사진 찍기</button></div>}
         </div>
         <footer className="capture-album-footer"><span>{favorites?'좋아한 순간':'간직한 순간'} <strong>{visible.length}</strong><span className="capture-footer-note">이 브라우저에 보관 중</span></span><button className="capture-new-photo" onClick={onNewCapture}><Plus size={15}/>새 순간 담기</button></footer>
       </div>

@@ -93,6 +93,30 @@ test('public entries are shared, private entries are owner-only, anonymous names
   assert.equal(JSON.stringify((await request('/users/'+host.id,visitor)).body).includes('비밀 인사'),false);
   assert.equal((await request(book(other),visitor)).body.total,0);
 });
+test('new guestbook entries notify only the owner, preserve anonymity and support read receipts',async()=>{
+  const host=await register('notification_host');
+  const socket=io(url,{extraHeaders:{Cookie:host.cookie},transports:['websocket'],forceNew:true});
+  try{
+    await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
+    const refreshed=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Missing owner refresh')),2000);socket.once('refresh',()=>{clearTimeout(timer);resolve();});});
+    assert.equal((await request(book(host),visitor,{content:'비밀 내용은 알림에 넣지 않아요',anonymous:true,visibility:'private'})).status,201);
+    await refreshed;
+    let activities=(await request('/activities',host)).body.activities;
+    assert.equal(activities.length,1);
+    const item=activities[0];assert.equal(item.type,'guestbook');assert.equal(item.actor_id,null);assert.equal(item.nickname,'익명의 이웃');assert.equal(item.is_read,0);
+    assert.ok(!JSON.stringify(item).includes('비밀 내용'));assert.ok(!JSON.stringify(item).includes(visitor.id));
+    assert.equal((await request('/activities/read',visitor,{ids:[item.id]})).status,200);
+    assert.equal((await request('/activities',host)).body.activities[0].is_read,0);
+    await request('/activities/read',host,{ids:[item.id]});
+    assert.equal((await request('/activities',host)).body.activities[0].is_read,1);
+    await request(book(host),host,{content:'나의 글'});
+    assert.equal((await request('/activities',host)).body.activities.length,1);
+    await request(book(host),other,{content:'공개 인사'});
+    activities=(await request('/activities',host)).body.activities;
+    assert.equal(activities.length,2);assert.ok(activities.some(a=>a.actor_id===other.id&&a.type==='guestbook'));
+  }finally{socket.disconnect();}
+});
+
 test('pages count only visible entries, are newest first, and clamp after owner deletion',async()=>{
   const host=await register('pages_host');
   for(let n=0;n<GUESTBOOK_PAGE_SIZE+1;n++)await request(book(host),visitor,{content:'글 '+n});
