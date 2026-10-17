@@ -1,6 +1,6 @@
 import {BEACH_HALF,PLAYER_SPEED,CRAB_COUNTDOWN} from '../shared/crab.mjs';
 
-export const CRAB_CAMERA_HALF=8.2;
+export const CRAB_CAMERA_HALF=12;
 const clamp=n=>Math.max(-BEACH_HALF,Math.min(BEACH_HALF,n));
 function move(p,input,ms){
   const length=Math.max(1,Math.hypot(input.x,input.z)),dt=Math.max(0,ms)/1000;

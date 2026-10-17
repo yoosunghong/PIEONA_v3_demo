@@ -24,6 +24,7 @@ test('solo crab game validates ownership and input; the server owns movement and
   assert.equal((await request('/crab-games',owner,{targetId:owner.id,score:9999})).status,400);
   const created=await request('/crab-games',owner,{targetId:owner.id});assert.equal(created.status,201);const g=created.body;
   assert.equal(g.kind,'crab');assert.equal(g.snapshot.crabs.length,14);
+  assert.equal(g.snapshot.players[0].lives,3);assert.deepEqual(g.snapshot.items.map(i=>i.type),['steal','launch','zigzag']);
   assert.equal((await request(`/crab-games/${g.id}/state`,guest)).status,404);
   assert.equal((await request(`/crab-games/${g.id}/finish`,owner,{})).status,400);
   assert.equal((await request(`/games/${g.id}/finish`,owner,{})).status,400);
@@ -45,7 +46,10 @@ test('solo crab game validates ownership and input; the server owns movement and
 
 test('fatal contact settles once, records survival seconds, preserves anonymity and counts game completion',async()=>{
   const g=(await request('/crab-games',owner,{targetId:owner.id,anonymous:true})).body;
-  await tick(g.started+6000);
+  await tick(g.started+4500);
+  const hurt=(await request(`/crab-games/${g.id}/state`,owner)).body.snapshot;
+  assert.equal(hurt.ended,false);assert.equal(hurt.players[0].lives,2);assert.equal(hurt.players[0].alive,true);
+  await tick(g.started+9000);
   const snapshot=(await request(`/crab-games/${g.id}/state`,owner)).body.snapshot;assert.equal(snapshot.ended,true);
   const result=await request(`/crab-games/${g.id}/finish`,owner,{});assert.equal(result.status,200);assert.ok(result.body.seconds>0);assert.ok(result.body.score<50);assert.equal(result.body.gold,0);
   assert.deepEqual((await request(`/crab-games/${g.id}/finish`,owner,{})).body,result.body);
@@ -86,7 +90,7 @@ test('crab invitations share one beach and clock, reject forged opponent inputs 
 test('simultaneous contacts yield a draw on both clients and each result can be saved independently',async()=>{
   const a=await connect(owner),b=await connect(guest);
   try{
-    const game=await match(a,b);await tick(game.a.started+6000);
+    const game=await match(a,b);await tick(game.a.started+9000);
     const sa=(await request(`/crab-games/${game.a.id}/state`,owner)).body.snapshot,sb=(await request(`/crab-games/${game.b.id}/state`,guest)).body.snapshot;
     assert.equal(sa.ended,true);assert.equal(sa.winner,null);assert.deepEqual(sa,sb);
     assert.equal((await request(`/crab-games/${game.a.id}/finish`,owner,{})).status,200);assert.equal((await request(`/crab-games/${game.b.id}/finish`,guest,{})).status,200);
@@ -98,7 +102,7 @@ test('rematches require opponent consent, support decline/cancel, and reject sta
   try{
     const game=await match(a,b),send=(s,gameId,action)=>emit(s,'crab:rematch',{id:game.id,gameId,action});
     assert.equal((await send(a,game.a.id,'request')).ok,false);
-    await tick(game.a.started+6000);
+    await tick(game.a.started+9000);
     await request(`/crab-games/${game.a.id}/finish`,owner,{});
     assert.equal((await send(a,game.a.id,'request')).ok,false);
     await request(`/crab-games/${game.b.id}/finish`,guest,{});

@@ -10,7 +10,7 @@ export function createCrabAudio(){
     }context.resume().catch(()=>{});
   }
   function tone(kind){if(!context||!enabled)return;const osc=context.createOscillator(),gain=context.createGain(),now=context.currentTime;
-    osc.type='sine';osc.frequency.setValueAtTime(kind==='end'?280:780,now);osc.frequency.exponentialRampToValueAtTime(kind==='end'?80:420,now+.23);gain.gain.setValueAtTime(volume*.22,now);gain.gain.exponentialRampToValueAtTime(.001,now+.3);osc.connect(gain);gain.connect(context.destination);osc.start();osc.stop(now+.31);
+    osc.type='sine';osc.frequency.setValueAtTime(kind==='end'?280:kind==='hit'?160:780,now);osc.frequency.exponentialRampToValueAtTime(kind==='end'?80:kind==='hit'?65:420,now+.23);gain.gain.setValueAtTime(volume*.22,now);gain.gain.exponentialRampToValueAtTime(.001,now+.3);osc.connect(gain);gain.connect(context.destination);osc.start();osc.stop(now+.31);
   }
   return {unlock,tone,set(on,v,playing){enabled=on;volume=v;active=playing;if(master)master.gain.setTargetAtTime(on&&playing?v*.55:0,context.currentTime,.2);},dispose(){context?.close().catch(()=>{});}};
 }

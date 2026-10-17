@@ -9,7 +9,7 @@ test('the beach keeps a bounded draw budget with a hundred crabs and no moving s
   globalThis.document={createElement:()=>({width:0,height:0,getContext:()=>({fillRect(){}})})};
   const scene=new THREE.Scene();let world;
   try{
-    world=createCrabWorld(scene);const snapshot=crabSnapshot(newCrabGame(['a']));
+    world=createCrabWorld(scene,{loadTexture:false});const snapshot=crabSnapshot(newCrabGame(['a']));
     while(snapshot.crabs.length<100)snapshot.crabs.push({...snapshot.crabs[0],id:snapshot.crabs.length+200});
     world.update(snapshot,1,1/60);let draws=0,movingShadows=0,instances=0;
     scene.traverse(o=>{if(o.isMesh)draws++;if(o.isInstancedMesh){instances+=o.count;if(o.instanceMatrix.usage===THREE.DynamicDrawUsage&&o.castShadow)movingShadows++;}});

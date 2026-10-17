@@ -41,6 +41,6 @@ test('clock jitter never reverses local time and the closer camera preserves the
   const clock={start:100,time:0};assert.equal(crabClientTime(clock,4100),4000);
   syncCrabClock(clock,3980,4100,4140);assert.ok(crabClientTime(clock,4140)>=4000);
   const desktop=crabCameraSize(16/9),phone=crabCameraSize(390/844);
-  assert.ok(desktop.halfHeight<9);assert.ok(Math.abs(desktop.halfWidth/desktop.halfHeight-16/9)<1e-9);
-  assert.ok(phone.halfWidth<9);assert.ok(Math.abs(phone.halfWidth/phone.halfHeight-390/844)<1e-9);
+  assert.ok(desktop.halfHeight>=10&&desktop.halfHeight<=12);assert.ok(Math.abs(desktop.halfWidth/desktop.halfHeight-16/9)<1e-9);
+  assert.ok(phone.halfWidth>=10&&phone.halfWidth<=12);assert.ok(Math.abs(phone.halfWidth/phone.halfHeight-390/844)<1e-9);
 });

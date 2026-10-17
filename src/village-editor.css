@@ -211,3 +211,4 @@
 }
 @media(max-width:700px) and (max-height:650px){.studio-selection{bottom:287px}.studio-selection>div{padding:7px 10px}.studio-selection footer{padding:5px 9px}}
 .studio-stored-card small{font-size:10px;color:var(--studio-muted)}.studio-stored-card canvas{width:60px;height:60px}.studio-selection footer>span{min-width:0}.studio-selection footer button{white-space:nowrap;flex-shrink:0}
+.village-studio .studio-clear-all{padding:4px 8px;border-radius:10px;background:var(--studio-danger-bg);color:var(--studio-danger);font-size:11px;white-space:nowrap;gap:4px}.village-studio .studio-clear-all:hover:not(:disabled){box-shadow:0 0 0 1px var(--studio-danger)}

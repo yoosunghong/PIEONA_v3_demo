@@ -58,7 +58,7 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
   }
   function back(){cancelInvite();if(race)onLeaveRace();setGame(null);}
   const reward=()=>{onReward();setRevision(value=>value+1);};
-  if(game||race)return <><div className="game-back"><button className="text-button" onClick={back}><ArrowLeft size={16}/>게임 목록으로</button></div>{game==='rhythm'?<Rhythm target={target} notify={notify} onReward={reward} anonymous={hideName}/>:(game==='crab'||race?.kind==='crab')?<CrabChase target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>:<Runner target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>}</>;
+  if(game||race)return <><div className="game-back"><button className="text-button" onClick={back}><ArrowLeft size={16}/>게임 목록으로</button></div>{game==='rhythm'?<Rhythm target={target} notify={notify} onReward={reward} anonymous={hideName}/>:(game==='crab'||race?.kind==='crab')?<CrabChase onHome={back} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>:<Runner target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>}</>;
 
   return <div className="panel-body game-hub">
     <section className="playground-catalog" aria-label="미니게임 선택">
