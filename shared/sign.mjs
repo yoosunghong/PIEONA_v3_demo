@@ -10,7 +10,7 @@ export function rgbaSignColor(r,g,b,a){
 export const signShapes=['planks','arrow','hanging'];
 export const MAX_SIGN_STROKES=300;
 export const MAX_SIGN_POINTS=16000;
-export const defaultSign={x:-2,z:4.25,rotation:0,shape:'planks',strokes:[]};
+export const defaultSign={x:-2,z:-3.6,rotation:0,shape:'planks',strokes:[]};
 export function villageSign(village){
   if(village?.sign)return {...defaultSign,...village.sign};
   const free=(x,z)=>validPlacement(x,z)&&!(village?.items||[]).filter(item=>!item.hidden).some(item=>Math.hypot(item.x-x,item.z-z)<.8);

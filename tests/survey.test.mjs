@@ -66,7 +66,7 @@ test('survey validates all eleven questions, optional text, no-experience and se
 });
 
 test('all stage modes save via partial updates, retain furniture and appear after login to visitors',async()=>{
-  const user=await register(),visitor=await register(),items=[{id:randomUUID(),type:'bench',x:-3,z:3.5,rotation:0}];
+  const user=await register(),visitor=await register(),items=[{id:randomUUID(),type:'bench',x:-3,z:-3.5,rotation:0}];
   await request('/me/world',user,{village:{items}},'PATCH');
   for(const theme of ['default','campfire','cafe','twilight','sunset']){
     assert.equal((await request('/me/world',user,{village:{theme}},'PATCH')).status,200);

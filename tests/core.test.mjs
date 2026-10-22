@@ -234,7 +234,7 @@ test('world saves reject placing more than ten of the same decoration',async()=>
 
 test('world saves allow more than ten statues',async()=>{
   // Exercise stock limits using valid spacing, outside the cafe and other facilities.
-  const positions=[[-4,-3],[-3,-3],[-2,-3],[-4,3],[-3,3],[-2,3],[2,3],[3,3],[4,3],[3,-3],[4,-3]];
+  const positions=[[-5,-2],[-5,-1],[-5,1],[-5,2],[-4,-3],[-4,-2],[-4,2],[-3,-4],[-3,-3],[-3,-2],[-3,2]];
   const items=positions.map(([x,z])=>({id:crypto.randomUUID(),type:'statue',x,z,rotation:0}));
   const result=await request('/me/world',{cookie:alice.cookie,method:'PATCH',body:{village:{items}}});
   assert.equal(result.status,200,JSON.stringify(result.body));

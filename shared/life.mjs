@@ -8,7 +8,7 @@ export function fishingCameraView(anchor,aspect=1){
   return {position:[anchor.x+4.8*distance,1.1+2.4*distance,anchor.z+.75+4.95*distance],target:[anchor.x,1.1,anchor.z+.75]};
 }
 // Keep the access lane and dock clear without rewriting existing saved layouts.
-export const inLifeArea=(x,z)=>Math.abs(x)<2.55&&z>5.7||GARDEN_BEDS.some(b=>Math.hypot(x-b.x,z-b.z)<.8)||Math.hypot(x-KITCHEN.x,z-KITCHEN.z)<.9;
+export const inLifeArea=(x,z)=>Math.abs(x)<2.55&&z>5.7||Math.hypot(x-STORAGE.x,z-STORAGE.z)<.75||GARDEN_BEDS.some(b=>Math.hypot(x-b.x,z-b.z)<.8)||Math.hypot(x-KITCHEN.x,z-KITCHEN.z)<.9||[...GARDEN_BEDS,KITCHEN].some(b=>Math.hypot(x-b.approach.x,z-b.approach.z)<.6);
 export const RARITIES = {common:'일반',uncommon:'고급',rare:'희귀',special:'특별'};
 export const ITEM_DEFINITIONS = [
   ['SARDINE','정어리','common','🐟','작지만 반짝이는 바다의 은빛 친구.'],

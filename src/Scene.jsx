@@ -250,6 +250,11 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       const s=state.current,key=villageMovementKey(e);
       if(!key||!s?.inputEnabled||s.paused)return;
       if(s.mode!=='village'&&ownerId!==s.viewerId)return;
+      const member=s.villageMembers.find(member=>member.userId===s.viewerId);
+      if(s.mode==='village'&&(member?.seatId?.startsWith('fishing:')||['Moving','Gardening','Cooking'].includes(member?.activityState))){
+        // A quick tap can end before the next frame samples heldKeys.
+        e.preventDefault();if(!e.repeat)callbacks.current.onInteract?.('life:stop');return;
+      }
       if(s.mode==='home')callbacks.current.onWalk?.();
       e.preventDefault();if(key===' '){if(!e.repeat)jumpRequested=true;}else heldKeys.add(key);
     }

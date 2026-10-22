@@ -1,3 +1,4 @@
+import {inLifeArea} from './life.mjs';
 // Stable IDs preserve the original scenery in villages without saved placements.
 export const perimeterRocks=Array.from({length:42},(_,i)=>{
   const angle=i*Math.PI*2/42,radius=6.48+Math.sin(i*7)*.12;
@@ -25,7 +26,7 @@ export function villageScenery(village={}){
     return {type:'scenery',name:def.name,x:point.x,z:point.z,rotation:0,...saved,id:'scenery:'+def.id};
   });
 }
-export function validSceneryPlacement(x,z){return Number.isFinite(x)&&Number.isFinite(z)&&Math.hypot(x,z)<=6.7&&Math.hypot(x,z)>=2.85&&!(Math.abs(x)<.85&&z>0&&z<5.8);}
+export function validSceneryPlacement(x,z){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z)&&Math.hypot(x,z)<=6.7&&Math.hypot(x,z)>=2.85&&!(Math.abs(x)<.85&&z>0&&z<5.8);}
 
 export function sceneryClearance(id,otherId){
   if(isScenery(otherId))return .8;

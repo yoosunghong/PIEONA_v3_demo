@@ -17,7 +17,7 @@ async function request(path,user,body,method=body?'POST':'GET'){const r=await fe
 async function register(username){const r=await request('/auth/register',null,{username,password:'test-password-world'});assert.equal(r.status,201);await request('/me',{cookie:r.cookie},{nickname:username},'PATCH');return {...r.body.user,cookie:r.cookie};}
 before(async()=>{runtime=createApp({testing:true,store:openStore(':memory:')});await new Promise(r=>runtime.server.listen(0,'127.0.0.1',r));url=`http://127.0.0.1:${runtime.server.address().port}`;owner=await register('garden_owner');visitor=await register('garden_visitor');third=await register('garden_third');});
 after(async()=>runtime.close());
-const piece=()=>({id:randomUUID(),type:'planter',x:-3,z:3.5,rotation:0});
+const piece=()=>({id:randomUUID(),type:'planter',x:-3,z:-3.5,rotation:0});
 
 test('game entry HTML is reloaded instead of keeping an old runner bundle in browser cache',{skip:!existsSync('dist/index.html')&&'Build the client to check served HTML cache headers'},async()=>{
   for(const path of ['/','/index.html','/runner-preview']){
@@ -424,7 +424,7 @@ test('scenery placement saves, reaches visitors and rejects invalid IDs, positio
 test('storing and restoring objects preserves their identity, placement and sign artwork',async()=>{
   const user=await register('storage_owner');
   const furniture={...piece(),hidden:true};
-  const sign={x:-2,z:4.25,rotation:1,hidden:true,strokes:[{tool:'draw',color:'#20364c',size:10,points:[[.2,.3],[.4,.5]]}]};
+  const sign={x:-2,z:-3.6,rotation:1,hidden:true,strokes:[{tool:'draw',color:'#20364c',size:10,points:[[.2,.3],[.4,.5]]}]};
   const guestbook={x:2,z:4.25,rotation:2,hidden:true};
   const scenery=[{id:'tree-0',x:-5,z:0,rotation:2,hidden:true}];
   const saved=await request('/me/world',user,{village:{items:[furniture],sign,guestbook,scenery}},'PATCH');
@@ -457,7 +457,7 @@ test('bulk storage persists every scenery group including perimeter rocks, small
   assert.equal(saved.status,200,JSON.stringify(saved.body));
   assert.equal(saved.body.user.village.scenery.length,sceneryDefinitions.length);
   assert.ok(saved.body.user.village.scenery.every(item=>item.hidden));
-  const restored=scenery.map(item=>item.id==='edge-tree-0'?{...item,x:-4,z:4,rotation:1,hidden:false}:item);
+  const restored=scenery.map(item=>item.id==='edge-tree-0'?{...item,x:-5,z:0,rotation:1,hidden:false}:item);
   const response=await request('/me/world',user,{village:{scenery:restored}},'PATCH');
   assert.equal(response.status,200,JSON.stringify(response.body));
   assert.deepEqual((await request('/users/'+user.id,visitor)).body.user.village.scenery,restored);
@@ -466,6 +466,7 @@ test('bulk storage persists every scenery group including perimeter rocks, small
 import {villageSign} from '../shared/sign.mjs';
 import {villageGuestbook} from '../shared/guestbook.mjs';
 import {canPlaceDecoration} from '../src/villageEditorState.mjs';
+
 test('editor saves preserve legacy overlaps while validating new, moved and restored objects',async()=>{
   const user=await register('legacy_overlap');
   const first={...piece(),x:-3,z:3.5},second={...piece(),x:-3.25,z:3.5};

@@ -15,20 +15,20 @@ test('every catalog entry has a finite, visible 3D model and a category',()=>{
   }
 });
 test('placement protects the plaza, scenery, perimeter and other items while allowing moving itself',()=>{
-  const items=[{id:'bench',type:'bench',x:-3,z:3.5,rotation:0}];
+  const items=[{id:'bench',type:'bench',x:-3,z:-3.5,rotation:0}];
   assert.equal(canPlaceDecoration(items,0,0),false);
   assert.equal(canPlaceDecoration(items,0,4),false);
   assert.equal(canPlaceDecoration(items,3.35,1.2),false);
   assert.equal(canPlaceDecoration(items,10,10),false);
-  assert.equal(canPlaceDecoration(items,-3,3.5),false);
-  assert.equal(canPlaceDecoration(items,-3,3.5,'bench'),true);
-  assert.equal(canPlaceDecoration(items,-3.75,3.5),false);
-  assert.equal(canPlaceDecoration(items,-4,3.5),true);
+  assert.equal(canPlaceDecoration(items,-3,-3.5),false);
+  assert.equal(canPlaceDecoration(items,-3,-3.5,'bench'),true);
+  assert.equal(canPlaceDecoration(items,-3.75,-3.5),false);
+  assert.equal(canPlaceDecoration(items,-4,-3.5),true);
   assert.equal(canPlaceDecoration(items,NaN,3),false);
   assert.equal(snapPosition(3.14),3.25);
 });
 test('undo and redo preserve placement, movement, rotation, deletion, and branch history',()=>{
-  const original={id:'bench',type:'bench',x:-3,z:3.5,rotation:0};
+  const original={id:'bench',type:'bench',x:-3,z:-3.5,rotation:0};
   let history={past:[],present:[],future:[]};
   const changes=[[original],[{...original,x:-4}],[{...original,x:-4,rotation:1}],[]];
   for(const items of changes)history=editorHistory(history,{type:'change',items});
@@ -47,8 +47,8 @@ test('existing scenery has stable IDs and saved placements survive without chang
   const original=villageScenery({});
   assert.equal(original.length,sceneryDefinitions.length);
   assert.equal(new Set(original.map(item=>item.id)).size,original.length);
-  const moved=villageScenery({scenery:[{id:'tree-0',x:-4,z:3.5,rotation:2}]});
-  assert.deepEqual(moved.find(item=>item.id==='scenery:tree-0'),{...original[0],x:-4,z:3.5,rotation:2});
+  const moved=villageScenery({scenery:[{id:'tree-0',x:-4,z:-3.5,rotation:2}]});
+  assert.deepEqual(moved.find(item=>item.id==='scenery:tree-0'),{...original[0],x:-4,z:-3.5,rotation:2});
   assert.deepEqual(moved.slice(1),original.slice(1));
   assert.equal(villageScenery({theme:'campfire'}).find(item=>item.id==='scenery:campfire').x,1.2);
 });
@@ -67,7 +67,7 @@ test('scenery movement protects stage, paths and neighbors and participates in u
 });
 
 test('stored scenery and furniture free their positions and storage can be undone',()=>{
-  const furniture={id:'bench',type:'bench',x:-3,z:3.5,rotation:2};
+  const furniture={id:'bench',type:'bench',x:-3,z:-3.5,rotation:2};
   const stored=[{...furniture,hidden:true},...villageScenery({}).map(item=>({...item,hidden:true}))];
   assert.equal(canPlaceDecoration(stored,furniture.x,furniture.z),true);
   assert.equal(canPlaceDecoration(stored,3.35,1.2),true);

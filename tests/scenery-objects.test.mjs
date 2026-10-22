@@ -5,6 +5,7 @@ import {createGardenDetails} from '../src/gardenDetails.js';
 import {registerGardenDetails,registerScenery} from '../src/sceneryObjects.js';
 import {perimeterRocks,sceneryDefinitions,villageScenery,validSceneryPlacement} from '../shared/scenery.mjs';
 import {disposeObject} from '../src/worldAssets.js';
+import {inLifeArea} from '../shared/life.mjs';
 
 function rig(){
   const world=new THREE.Scene(),roots=new Map(),water=new THREE.Mesh(new THREE.CircleGeometry(1),new THREE.MeshBasicMaterial());
@@ -26,7 +27,7 @@ test('every perimeter rock, shrub and pink tree has a registered and persistent 
     assert.ok(sceneryDefinitions.some(item=>item.id===id),id);
     assert.ok(root.children.some(child=>child===part));
   }
-  for(const item of perimeterRocks)assert.ok(validSceneryPlacement(item.x,item.z),item.id);
+  for(const item of perimeterRocks)assert.equal(validSceneryPlacement(item.x,item.z),!inLifeArea(item.x,item.z),item.id);
   const stored=villageScenery({scenery:[{id:'edge-tree-0',x:-4,z:4,rotation:2,hidden:true}]});
   assert.equal(stored.find(item=>item.id==='scenery:edge-tree-0').hidden,true);
   disposeObject(world);

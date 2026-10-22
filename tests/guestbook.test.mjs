@@ -57,7 +57,7 @@ test('foreground scenery can be suppressed for reading without hiding the book o
   disposeObject(world);
 });
 test('book placement is owner scoped, preserves other village fields and rejects collisions and duplicates',async()=>{
-  const guestbook={x:2.75,z:4,rotation:3};
+  const guestbook={x:1.5,z:4.5,rotation:3};
   assert.equal((await request('/me/world',null,{village:{guestbook}},'PATCH')).status,401);
   assert.equal((await request('/me/world',owner,{village:{guestbook}},'PATCH')).status,200);
   const visible=(await request('/users/'+owner.id,visitor)).body.user.village;
@@ -160,7 +160,7 @@ test('entries and placement survive a database restart and remain independent of
   const dir=mkdtempSync(join(tmpdir(),'pieona-book-')),file=join(dir,'book.sqlite');let instance;
   try{
     instance=createApp({testing:true,store:openStore(file)});await new Promise(r=>instance.server.listen(0,'127.0.0.1',r));let base=`http://127.0.0.1:${instance.server.address().port}`;
-    const user=await register('persist_book',base),guestbook={x:3,z:3.75,rotation:2};
+    const user=await register('persist_book',base),guestbook={x:1.5,z:4.5,rotation:2};
     await request('/me/world',user,{village:{guestbook}},'PATCH',base);await request(book(user),user,{content:'오래 남길 인사'},'POST',base);
     const slot=(await request('/slots',user,{nickname:'다른 자아'},'POST',base)).body;
     await request('/slots/'+slot.id+'/activate',user,{},'POST',base);
