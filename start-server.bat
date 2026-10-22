@@ -1,26 +1,17 @@
 @echo off
 setlocal
 cd /d "%~dp0"
+title PIEONA Server - Close this window to stop
 echo Restarting PIEONA server and tunnel...
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\stop.ps1"
-if errorlevel 1 goto stop_failed
+if errorlevel 1 goto failed
 
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start.ps1"
-if errorlevel 1 goto start_failed
-
-echo.
-echo PIEONA restart complete. Refresh your browser with Ctrl+F5.
-pause
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\start.ps1" %*
+if errorlevel 1 goto failed
 exit /b 0
 
-:stop_failed
+:failed
 echo.
-echo Failed to stop PIEONA. Restart was cancelled.
-pause
-exit /b 1
-
-:start_failed
-echo.
-echo Server startup failed. Check logs\server-error.log and logs\tunnel-error.log.
+echo PIEONA stopped or startup failed. See the messages above and logs\.
 pause
 exit /b 1

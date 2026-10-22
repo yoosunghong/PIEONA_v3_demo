@@ -67,12 +67,19 @@ export function openStore(filename = './data/pieona.sqlite') {
   db.exec(`CREATE TABLE IF NOT EXISTS avatar_experience (message_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), avatar_slot TEXT NOT NULL, amount INTEGER NOT NULL);
     CREATE INDEX IF NOT EXISTS avatar_experience_owner ON avatar_experience(owner_id,avatar_slot);
     INSERT OR IGNORE INTO avatar_experience SELECT m.id,c.target_id,c.avatar_slot,10 FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE m.role='assistant';`);
+  let transactionDepth=0,savepointId=0;
   return {
     db,
     one: (sql, ...args) => db.prepare(sql).get(...args),
     all: (sql, ...args) => db.prepare(sql).all(...args),
     run: (sql, ...args) => db.prepare(sql).run(...args),
-    transaction(fn) { db.exec('BEGIN IMMEDIATE'); try { const result = fn(); db.exec('COMMIT'); return result; } catch (e) { db.exec('ROLLBACK'); throw e; } },
+    transaction(fn) {
+      const nested=transactionDepth>0,name=`life_sp_${++savepointId}`;
+      db.exec(nested?`SAVEPOINT ${name}`:'BEGIN IMMEDIATE');transactionDepth++;
+      try { const result=fn();db.exec(nested?`RELEASE ${name}`:'COMMIT');return result; }
+      catch(e){db.exec(nested?`ROLLBACK TO ${name}; RELEASE ${name}`:'ROLLBACK');throw e;}
+      finally{transactionDepth--;}
+    },
     close: () => db.close()
   };
 }

@@ -15,7 +15,7 @@ async function register(username){const r=await request('/auth/register',null,{u
 async function tick(at){clock=at;await new Promise(r=>setTimeout(r,80));}
 async function connect(user){const s=io(url,{extraHeaders:{Cookie:user.cookie},transports:['websocket'],forceNew:true});await new Promise((resolve,reject)=>{s.once('connect',resolve);s.once('connect_error',reject);});return s;}
 const emit=(s,name,data)=>new Promise((resolve,reject)=>s.timeout(3000).emit(name,data,(err,r)=>err?reject(err):resolve(r)));
-const once=(s,name)=>new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Missing '+name)),3000);s.once(name,data=>{clearTimeout(timer);resolve(data);});});
+const once=(s,name,accept=()=>true)=>new Promise((resolve,reject)=>{const listener=data=>{if(!accept(data))return;clearTimeout(timer);s.off(name,listener);resolve(data);};const timer=setTimeout(()=>{s.off(name,listener);reject(new Error('Missing '+name));},3000);s.on(name,listener);});
 before(async()=>{runtime=createApp({testing:true,store:openStore(':memory:'),crabClock:()=>clock});await new Promise(r=>runtime.server.listen(0,'127.0.0.1',r));url=`http://127.0.0.1:${runtime.server.address().port}`;owner=await register('crab_owner');guest=await register('crab_guest');});
 after(async()=>runtime.close());
 
@@ -81,7 +81,7 @@ test('crab invitations share one beach and clock, reject forged opponent inputs 
   try{
     const game=await match(a,b);assert.equal(game.a.roomId,game.b.roomId);assert.equal(game.a.started,game.b.started);assert.deepEqual(game.a.snapshot,game.b.snapshot);assert.equal(game.a.snapshot.players.length,2);assert.equal(game.a.snapshot.crabs.length,16);
     assert.equal((await emit(b,'crab:input',{id:game.a.id,x:1,z:0,seq:1})).ok,false);
-    const terminal=once(a,'crab:snapshot');await emit(b,'runner:leave',{});const snapshot=await terminal;assert.equal(snapshot.ended,true);assert.equal(snapshot.winner,owner.id);
+    const terminal=once(a,'crab:snapshot',snapshot=>snapshot.ended);await emit(b,'runner:leave',{});const snapshot=await terminal;assert.equal(snapshot.ended,true);assert.equal(snapshot.winner,owner.id);
     const result=await request(`/crab-games/${game.a.id}/finish`,owner,{});assert.equal(result.status,200);assert.equal(result.body.winner,owner.id);
     assert.equal((await request(`/crab-games/${game.b.id}/finish`,guest,{})).status,409);
     await emit(a,'runner:leave',{});

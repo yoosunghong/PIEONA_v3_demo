@@ -32,7 +32,7 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
   const [connected,setConnected]=useState(!!socket?.connected);
   const [soloReplay,setSoloReplay]=useState(null);
   const selectedGame=GAMES.find(item=>item.id===selected),GameIcon=selectedGame.Icon;
-  const neighbors=members.filter(member=>member.userId!==me.id);
+  const neighbors=members.filter(member=>member.userId!==me.id&&member.actorKind!=='COMPANION');
   const friendLimit=maxGamePlayers(selected)-1;
   const chosenFriends=neighbors.filter(member=>selectedFriends.includes(member.userId)&&!member.runnerBusy);
   const visibleFriends=neighbors.filter(member=>(member.nickname||'새싹').toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).sort((a,b)=>sort==='name'?(a.nickname||'').localeCompare(b.nickname||'','ko'):Number(a.runnerBusy)-Number(b.runnerBusy)||(a.nickname||'').localeCompare(b.nickname||'','ko'));
