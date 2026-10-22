@@ -1,0 +1,202 @@
+TAP version 13
+# (node:3172) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: solo crab game validates ownership and input; the server owns movement and early settlement
+ok 1 - solo crab game validates ownership and input; the server owns movement and early settlement
+  ---
+  duration_ms: 478.4246
+  type: 'test'
+  ...
+# Subtest: fatal contact settles once, records survival seconds, preserves anonymity and counts game completion
+ok 2 - fatal contact settles once, records survival seconds, preserves anonymity and counts game completion
+  ---
+  duration_ms: 222.5527
+  type: 'test'
+  ...
+# Subtest: the generic abandon endpoint releases the crab session and prevents recording abandoned games
+ok 3 - the generic abandon endpoint releases the crab session and prevents recording abandoned games
+  ---
+  duration_ms: 14.0751
+  type: 'test'
+  ...
+# Subtest: crab invitations share one beach and clock, reject forged opponent inputs and award a forfeit win
+ok 4 - crab invitations share one beach and clock, reject forged opponent inputs and award a forfeit win
+  ---
+  duration_ms: 41.0737
+  type: 'test'
+  ...
+# Subtest: simultaneous contacts yield a draw on both clients and each result can be saved independently
+ok 5 - simultaneous contacts yield a draw on both clients and each result can be saved independently
+  ---
+  duration_ms: 125.1017
+  type: 'test'
+  ...
+# Subtest: rematches require opponent consent, support decline/cancel, and reject stale or forged requests
+ok 6 - rematches require opponent consent, support decline/cancel, and reject stale or forged requests
+  ---
+  duration_ms: 331.1221
+  type: 'test'
+  ...
+# Subtest: survival rewards use authoritative elapsed time, settle once, and share daily and village caps
+ok 7 - survival rewards use authoritative elapsed time, settle once, and share daily and village caps
+  ---
+  duration_ms: 4.3515
+  type: 'test'
+  ...
+# (node:42064) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: eight runners wait for every acceptance and readiness, share a track, and continue after one leaves
+ok 8 - eight runners wait for every acceptance and readiness, share a track, and continue after one leaves
+  ---
+  duration_ms: 967.511
+  type: 'test'
+  ...
+# Subtest: eight crab players spawn apart, keep playing after departures, and settle the last survivor
+ok 9 - eight crab players spawn apart, keep playing after departures, and settle the last survivor
+  ---
+  duration_ms: 198.6688
+  type: 'test'
+  ...
+# Subtest: group crab rematches require every participant to consent
+ok 10 - group crab rematches require every participant to consent
+  ---
+  duration_ms: 167.4061
+  type: 'test'
+  ...
+# Subtest: runner replay waits for all results and consent, keeps old records and resets the entire party
+ok 11 - runner replay waits for all results and consent, keeps old records and resets the entire party
+  ---
+  duration_ms: 239.1453
+  type: 'test'
+  ...
+# Subtest: invites reject duplicates, excess capacity, cross-guest blocks, busy and absent players
+ok 12 - invites reject duplicates, excess capacity, cross-guest blocks, busy and absent players
+  ---
+  duration_ms: 101.2159
+  type: 'test'
+  ...
+# Subtest: a decline or village departure cancels the whole invitation and releases reservations
+ok 13 - a decline or village departure cancels the whole invitation and releases reservations
+  ---
+  duration_ms: 47.8455
+  type: 'test'
+  ...
+# Subtest: one unacknowledged jump lands even through many delayed broadcasts
+ok 14 - one unacknowledged jump lands even through many delayed broadcasts
+  ---
+  duration_ms: 2.1535
+  type: 'test'
+  ...
+# Subtest: airborne jump presses are ignored without queuing another jump, while lanes remain usable
+ok 15 - airborne jump presses are ignored without queuing another jump, while lanes remain usable
+  ---
+  duration_ms: 0.42
+  type: 'test'
+  ...
+# Subtest: late acknowledgement does not rewind or restart the visible jump
+ok 16 - late acknowledgement does not rewind or restart the visible jump
+  ---
+  duration_ms: 0.4078
+  type: 'test'
+  ...
+# Subtest: remote running, lane changes and jump keep animating after local game over
+ok 17 - remote running, lane changes and jump keep animating after local game over
+  ---
+  duration_ms: 0.2533
+  type: 'test'
+  ...
+# Subtest: remote runners disappear on elimination before settlement and reappear for a fresh round
+ok 18 - remote runners disappear on elimination before settlement and reappear for a fresh round
+  ---
+  duration_ms: 0.1995
+  type: 'test'
+  ...
+# Subtest: delayed snapshots preserve unacknowledged lane and jump inputs
+ok 19 - delayed snapshots preserve unacknowledged lane and jump inputs
+  ---
+  duration_ms: 0.7592
+  type: 'test'
+  ...
+# Subtest: out of order replies cannot overwrite newer server state
+ok 20 - out of order replies cannot overwrite newer server state
+  ---
+  duration_ms: 0.2891
+  type: 'test'
+  ...
+# Subtest: track time never reverses when clock corrections arrive
+ok 21 - track time never reverses when clock corrections arrive
+  ---
+  duration_ms: 0.2883
+  type: 'test'
+  ...
+# (node:16712) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: solo game validates ownership and inputs, saves authoritative anonymous records once
+ok 22 - solo game validates ownership and inputs, saves authoritative anonymous records once
+  ---
+  duration_ms: 318.4843
+  type: 'test'
+  ...
+# Subtest: generic abandon frees the volley room and cannot produce a completed record
+ok 23 - generic abandon frees the volley room and cannot produce a completed record
+  ---
+  duration_ms: 24.7211
+  type: 'test'
+  ...
+# Subtest: last socket disconnect abandons a solo match and permits a fresh match
+ok 24 - last socket disconnect abandons a solo match and permits a fresh match
+  ---
+  duration_ms: 118.7582
+  type: 'test'
+  ...
+# Subtest: friend invitation shares one match, authenticates inputs and resolves opponent departure
+ok 25 - friend invitation shares one match, authenticates inputs and resolves opponent departure
+  ---
+  duration_ms: 36.8917
+  type: 'test'
+  ...
+# Subtest: volley replays support decline and cancel, reset the court and reject old game inputs
+ok 26 - volley replays support decline and cancel, reset the court and reject old game inputs
+  ---
+  duration_ms: 212.5417
+  type: 'test'
+  ...
+# Subtest: prediction retains a short movement tap and jump across delayed snapshots until acknowledged
+ok 27 - prediction retains a short movement tap and jump across delayed snapshots until acknowledged
+  ---
+  duration_ms: 1.9594
+  type: 'test'
+  ...
+# Subtest: future scheduled matches stay frozen until their shared start
+ok 28 - future scheduled matches stay frozen until their shared start
+  ---
+  duration_ms: 0.628
+  type: 'test'
+  ...
+# Subtest: continuous frame simulation matches fixed-step physics and does not mutate server snapshots
+ok 29 - continuous frame simulation matches fixed-step physics and does not mutate server snapshots
+  ---
+  duration_ms: 1.6872
+  type: 'test'
+  ...
+# Subtest: clock corrections never rewind and a network gap caps simulation work
+ok 30 - clock corrections never rewind and a network gap caps simulation work
+  ---
+  duration_ms: 1.4413
+  type: 'test'
+  ...
+# Subtest: score changes snap to the next serve and terminal snapshots clear pending inputs
+ok 31 - score changes snap to the next serve and terminal snapshots clear pending inputs
+  ---
+  duration_ms: 0.533
+  type: 'test'
+  ...
+1..31
+# tests 31
+# suites 0
+# pass 31
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6278.7738

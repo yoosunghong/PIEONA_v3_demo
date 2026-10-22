@@ -43,6 +43,8 @@
 @media(max-width:370px){.crab-stats>span{min-width:132px;max-width:143px}.crab-pressure,.crab-duel-status{width:127px}.crab-game .crab-intro h2{font-size:46px}.crab-intro-copy{padding-inline:19px}.crab-result-actions .crab-start,.crab-secondary{font-size:12px}}
 @media(prefers-reduced-motion:reduce){.crab-result-overlay,.crab-result,.crab-pickup{animation:none}.crab-pressure i,.crab-minimap{transition:none}}
 /* Keep the complete result and its actions visible in short desktop/landscape stages. */
+.crab-duel-status{max-height:calc(100% - 390px);overflow-y:auto;pointer-events:auto;scrollbar-width:thin}
+.crab-duel-status>span{flex-shrink:0}
 .crab-stage{container-type:size}
 @container (max-height:600px){
   .crab-game .crab-result-art{height:100px;background-size:contain}

@@ -1,7 +1,7 @@
 import React,{useEffect,useRef,useState} from 'react';
 import * as THREE from 'three';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
-import {ArrowLeft,ArrowRight,ArrowUp,Play,RotateCcw,Flag,Timer,Flower2,Volume2,VolumeX,Sprout} from 'lucide-react';
+import {ArrowLeft,ArrowRight,ArrowUp,Play,Flag,Timer,Flower2,Volume2,VolumeX,Sprout} from 'lucide-react';
 import {api} from './api';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
@@ -10,12 +10,13 @@ import {useBackgroundMusic} from './BackgroundMusic';
 import {createRunnerWorld} from './runnerWorld';
 import {createRunnerAudio} from './runnerAudio.mjs';
 import {newRun,runScore,runDistance,runSpeed,RUN_DISTANCE,RUN_DURATION,RUN_MAX_SPEED,RUN_SPEED_INTERVAL,RUN_SPEED_STEP,SEED_POINTS} from '../shared/runner.mjs';
-import {reconcileRun,runTime,predictRunInput,acknowledgeJump,visualJumpTime,runnerPose} from '../shared/runnerSync.mjs';
+import {reconcileRun,runTime,predictRunInput,acknowledgeJump,visualJumpTime,runnerPose,remoteRunnerVisible} from '../shared/runnerSync.mjs';
+import GameReplay,{useGameRematch} from './GameReplay';
 import './runner.css';
 
-export default function Runner({target,me,notify,onReward,anonymous,socket,race}){
+export default function Runner({target,me,notify,onReward,anonymous,socket,race,onSoloReplay,autoStart=false}){
   const [status,setStatus]=useState('ready'),[game,setGame]=useState(null),[hud,setHud]=useState(newRun()),[result,setResult]=useState(null),[ready,setReady]=useState(false),[error,setError]=useState(''),[snapshot,setSnapshot]=useState(null),[audioBlocked,setAudioBlocked]=useState(false),[ending,setEnding]=useState(null),[spectating,setSpectating]=useState(false);
-  const music=useBackgroundMusic(),audio=useRef(),mount=useRef(),selfTag=useRef(),otherTag=useRef(),resultTitle=useRef();
+  const music=useBackgroundMusic(),audio=useRef(),mount=useRef(),selfTag=useRef(),otherTags=useRef(new Map()),resultTitle=useRef();
   const [pickups,setPickups]=useState([]),pickupCount=useRef(0),effects=useRef();
   useEffect(()=>{effects.current=createRunnerAudio(window.AudioContext||window.webkitAudioContext);return()=>effects.current?.dispose();},[]);
   useEffect(()=>{
@@ -30,10 +31,11 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
   const raceRef=useRef(race);raceRef.current=race;
   const musicRef=useRef(music);musicRef.current=music;
   const ref=useRef({active:true,state:newRun(),authoritative:newRun(),pending:[],seq:0,requests:new Set(),queue:Promise.resolve(),lastInput:-200,clock:{start:0,time:0,correction:0},lastSnapshot:0});
+  const rematch=useGameRematch({race,socket,gameId:game?.id,notify});
   function begin(g,start){
     Object.assign(ref.current,{game:g,state:newRun(),authoritative:newRun(),pending:[],seq:0,requests:new Set(),queue:Promise.resolve(),lastInput:-200,finished:false,finishing:false,ended:false,visualJump:null,clock:{start,time:0,correction:0}});
     pickupCount.current=0;setPickups([]);
-    setResult(null);setEnding(null);setSpectating(false);setHud(newRun());setGame(g);setStatus('playing');
+    latestSnapshot.current=null;setSnapshot(null);setResult(null);setEnding(null);setSpectating(false);setHud(newRun());setGame(g);setStatus('playing');
   }
   useEffect(()=>{ref.current.active=true;return()=>{const s=ref.current;s.active=false;if(raceRef.current)socket?.emit('runner:leave',{});if(s.game&&!s.finished)api(`/games/${s.game.id}/abandon`,{method:'POST'}).catch(()=>{});};},[]);
   useEffect(()=>{if(!race||!ready)return;socket?.timeout(5000).emit('runner:ready',{id:race.id},(err,r)=>{if(err||!r?.ok)notify(r?.error||'함께 출발하지 못했어요. 목록으로 돌아가 다시 초대해주세요.');});},[race?.id,ready,socket]);
@@ -51,11 +53,12 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
   }
   useEffect(()=>{
     if(!race||!socket)return;
-    const receive=data=>{if(data.id!==race.id)return;ref.current.lastSnapshot=performance.now();latestSnapshot.current=data;setSnapshot(data);const own=data.players.find(p=>p.userId===me.id);if(own)apply({state:own.state,elapsed:data.elapsed});};
+    const receive=data=>{if(data.id!==race.id||data.round!==ref.current.game?.round)return;ref.current.lastSnapshot=performance.now();latestSnapshot.current=data;setSnapshot(data);const own=data.players.find(p=>p.userId===me.id);if(own)apply({state:own.state,elapsed:data.elapsed});};
     socket.on('runner:snapshot',receive);return()=>socket.off('runner:snapshot',receive);
   },[race?.id,socket,me.id]);
   const latestSnapshot=useRef();latestSnapshot.current=snapshot;
   async function start(){effects.current?.unlock();setStatus('loading');setResult(null);try{const sent=performance.now();const g=await api('/games',{method:'POST',body:{targetId:target.id,kind:'runner',anonymous}});if(!ref.current.active){api(`/games/${g.id}/abandon`,{method:'POST'}).catch(()=>{});return;}begin(g,(sent+performance.now())/2);}catch(e){if(ref.current.active){notify(e.message);setStatus('ready');}}}
+  useEffect(()=>{if(autoStart&&ready&&!race&&!ref.current.autoStarted){ref.current.autoStarted=true;start();}},[autoStart,ready]);
   function playMusic(){if(!audio.current||!musicRef.current?.enabled)return;audio.current.play().then(()=>setAudioBlocked(false)).catch(e=>{if(e.name==='NotAllowedError')setAudioBlocked(true);});}
   useEffect(()=>{
     if(status!=='playing')return;
@@ -84,35 +87,37 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
     }).finally(()=>s.requests.delete(request));
   }
   async function finish(){
-    const s=ref.current;if(!s.game||s.finishing||s.finished)return;s.finishing=true;
-    try{await Promise.allSettled([...s.requests]);const r=await api(`/games/${s.game.id}/finish`,{method:'POST'});s.finished=true;if(s.active){setResult(r);setStatus('finished');onReward();}}
-    catch(e){if(s.active){notify(e.message);setStatus('settle');}}
-    finally{s.finishing=false;}
+    const s=ref.current;if(!s.game||s.finishing||s.finished)return;s.finishing=true;const gameId=s.game.id;
+    try{await Promise.allSettled([...s.requests]);const r=await api(`/games/${gameId}/finish`,{method:'POST'});if(s.game?.id!==gameId)return;s.finished=true;if(s.active){setResult(r);setStatus('finished');onReward();}}
+    catch(e){if(s.active&&s.game?.id===gameId){notify(e.message);setStatus('settle');}}
+    finally{if(s.game?.id===gameId)s.finishing=false;}
   }
   useEffect(()=>{
     if(status!=='playing')return;let inFlight=false;
     const poll=setInterval(async()=>{
       const s=ref.current;if(inFlight||s.finishing||s.finished)return;
       if(raceRef.current&&performance.now()-s.lastSnapshot<1500)return;
-      inFlight=true;try{await s.queue;const sent=performance.now(),data=await api(`/games/${s.game.id}/state`);apply(data,sent);}catch(e){if(s.active)notify(e.message);}finally{inFlight=false;}
+      inFlight=true;const gameId=s.game.id;try{await s.queue;const sent=performance.now(),data=await api(`/games/${gameId}/state`);if(s.game?.id===gameId)apply(data,sent);}catch(e){if(s.active&&s.game?.id===gameId)notify(e.message);}finally{inFlight=false;}
     },850);
     function key(e){if(e.repeat||e.ctrlKey||e.metaKey||e.altKey||/INPUT|TEXTAREA|SELECT/.test(e.target.tagName))return;const action=['a','arrowleft'].includes(e.key.toLowerCase())?'left':['d','arrowright'].includes(e.key.toLowerCase())?'right':[' ','arrowup','w'].includes(e.key.toLowerCase())?'jump':null;if(action){e.preventDefault();input(action);}}
     window.addEventListener('keydown',key);return()=>{clearInterval(poll);window.removeEventListener('keydown',key);};
   },[status]);
   useEffect(()=>{
-    const el=mount.current;let disposed=false,frame,renderer,avatar,opponentAvatar,runMotion,opponentMotion;setReady(false);setError('');
+    const el=mount.current;let disposed=false,frame,renderer,avatar,runMotion;const opponents=[];setReady(false);setError('');
     try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true,powerPreference:'high-performance'});}catch{setError('3D 화면을 열 수 없어요. 브라우저의 하드웨어 가속을 확인해주세요.');return;}
     renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.5));renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.22;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;el.appendChild(renderer.domElement);
     const world=new THREE.Scene();world.fog=new THREE.Fog('#d8eaff',48,110);
     const camera=new THREE.PerspectiveCamera(55,1,.1,160);camera.position.set(0,4.1,7.8);camera.lookAt(0,1.6,-10);
     world.add(new THREE.HemisphereLight('#e8f5ff','#c9bdad',2.2));const sun=new THREE.DirectionalLight('#fff3d6',3.2);sun.position.set(-9,16,7);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-9,right:9,top:12,bottom:-12,near:.5,far:48});sun.shadow.bias=-.0005;world.add(sun);world.add(sun.target);
     const environment=createRunnerWorld(world);
-    const player=new THREE.Group(),opponent=new THREE.Group();world.add(player,opponent);player.rotation.y=opponent.rotation.y=Math.PI;opponent.visible=false;
+    const player=new THREE.Group();world.add(player);player.rotation.y=Math.PI;
+    const participants=raceRef.current?.players||[{userId:me.id}];
+    const laneOffset=id=>(participants.findIndex(p=>p.userId===id)-(participants.length-1)/2)*Math.min(.9,1.8/Math.max(1,participants.length-1));
+    for(const p of participants.filter(p=>p.userId!==me.id)){const group=new THREE.Group();group.rotation.y=Math.PI;group.visible=false;world.add(group);opponents.push({p,group});}
     const shadowMat=new THREE.MeshBasicMaterial({color:'#5b7192',transparent:true,opacity:.16,depthWrite:false}),shadowGeo=new THREE.CircleGeometry(.65,24),shadows=[];
-    for(let i=0;i<2;i++){const o=new THREE.Mesh(shadowGeo,shadowMat);o.rotation.x=-Math.PI/2;o.position.y=.012;world.add(o);shadows.push(o);}
+    for(let i=0;i<participants.length;i++){const o=new THREE.Mesh(shadowGeo,shadowMat);o.rotation.x=-Math.PI/2;o.position.y=.012;world.add(o);shadows.push(o);}
     function prepare(asset,look,parent){const model=clone(asset);const size=new THREE.Box3().setFromObject(model).getSize(new THREE.Vector3());model.scale.setScalar(2.25/size.y);const bounds=new THREE.Box3().setFromObject(model),center=bounds.getCenter(new THREE.Vector3());model.position.set(-center.x,-bounds.min.y,-center.z);parent.add(model);dressAvatar(model,look);return model;}
-    const other=raceRef.current?.players.find(p=>p.userId!==me.id);
-    Promise.all([loadAsset(me.appearance?.character),other?loadAsset(other.appearance?.character):Promise.resolve(null)]).then(([asset,otherAsset])=>{if(disposed)return;avatar=prepare(asset,me.appearance,player);runMotion=createRunMotion(avatar);if(other){opponentAvatar=prepare(otherAsset,other.appearance,opponent);opponentMotion=createRunMotion(opponentAvatar);}setReady(true);}).catch(()=>{if(!disposed)setError('캐릭터를 불러오지 못했어요. 게임 목록으로 돌아가 다시 시도해주세요.');});
+    Promise.all([loadAsset(me.appearance?.character),...opponents.map(o=>loadAsset(o.p.appearance?.character))]).then(([asset,...others])=>{if(disposed)return;avatar=prepare(asset,me.appearance,player);runMotion=createRunMotion(avatar);opponents.forEach((o,i)=>{o.avatar=prepare(others[i],o.p.appearance,o.group);o.motion=createRunMotion(o.avatar);});setReady(true);}).catch(()=>{if(!disposed)setError('캐릭터를 불러오지 못했어요. 게임 목록으로 돌아가 다시 시도해주세요.');});
     const clock=new THREE.Clock(),tagPoint=new THREE.Vector3();let currentGame,lastHud=0;
     function positionTag(tag,model){if(!tag)return;tagPoint.set(model.position.x,model.position.y+2.65,model.position.z).project(camera);tag.style.left=`${(tagPoint.x*.5+.5)*100}%`;tag.style.top=`${(-tagPoint.y*.5+.5)*100}%`;tag.hidden=!model.visible;}
     function render(){
@@ -125,24 +130,24 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
       const predicted=pose.state,moving=!!s.game&&pose.moving;
       environment.update(t,runDistance(t),predicted.resolved);
       const blend=1-Math.exp(-18*dt);
-      player.position.x+=((predicted.lane-1)*2.4-(raceRef.current ? .45 : 0)-player.position.x)*blend;
+      player.position.x+=((predicted.lane-1)*2.4+laneOffset(me.id)-player.position.x)*blend;
       player.position.y=pose.jump+(runMotion?.update(time,moving)||0);
-      player.visible=!(predicted.lastCollision&&matchTime-predicted.lastCollision<650&&Math.floor(matchTime/90)%2);
-      const other=latestSnapshot.current?.players.find(p=>p.userId!==me.id);
-      if(opponentAvatar){
-        opponent.visible=!other?.left;
+      player.visible=predicted.lives>0&&!s.ended&&!s.finished&&!(predicted.lastCollision&&matchTime-predicted.lastCollision<650&&Math.floor(matchTime/90)%2);
+      for(const [index,o] of opponents.entries())if(o.avatar){
+        const opponent=o.group,other=latestSnapshot.current?.players.find(p=>p.userId===o.p.userId);
+        opponent.visible=remoteRunnerVisible(other,matchTime);
         const remote=runnerPose(other?.state||newRun(),s.game?.notes||[],matchTime,{finished:!other||other.finished});
-        opponent.position.x+=((remote.state.lane-1)*2.4+.45-opponent.position.x)*(1-Math.exp(-12*dt));opponent.position.z=-1.7;
-        const y=remote.jump+(opponentMotion?.update(time,remote.moving)||0);opponent.position.y+=(y-opponent.position.y)*(1-Math.exp(-24*dt));
+        opponent.position.x+=((remote.state.lane-1)*2.4+laneOffset(o.p.userId)-opponent.position.x)*(1-Math.exp(-12*dt));opponent.position.z=-1.7-index*.85;
+        const y=remote.jump+(o.motion.update(time,remote.moving)||0);opponent.position.y+=(y-opponent.position.y)*(1-Math.exp(-24*dt));
       }
-      shadows.forEach((o,i)=>{const p=i?opponent:player;o.visible=p.visible;o.position.x=p.position.x;o.position.z=p.position.z;o.scale.setScalar(Math.max(.45,1-p.position.y*.17));});
-      renderer.render(world,camera);positionTag(selfTag.current,player);positionTag(otherTag.current,opponent);
+      shadows.forEach((o,i)=>{const p=i?opponents[i-1].group:player;o.visible=p.visible;o.position.x=p.position.x;o.position.z=p.position.z;o.scale.setScalar(Math.max(.45,1-p.position.y*.17));});
+      renderer.render(world,camera);positionTag(selfTag.current,player);for(const o of opponents)positionTag(otherTags.current.get(o.p.userId),o.group);
       if(s.game&&time-lastHud>.1){lastHud=time;if(s.active&&!s.ended&&!s.finished)setHud(predicted);}
     }render();
     const observer=new ResizeObserver(()=>{const {width,height}=el.getBoundingClientRect();if(width&&height){renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();}});observer.observe(el);
-    return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();for(const model of [avatar,opponentAvatar])model?.traverse(o=>{if(o.userData.generated)disposeObject(o);if(o.isSkinnedMesh)o.skeleton.dispose();});environment.dispose();shadowGeo.dispose();shadowMat.dispose();renderer.dispose();renderer.domElement.remove();};
+    return()=>{disposed=true;cancelAnimationFrame(frame);observer.disconnect();for(const model of [avatar,...opponents.map(o=>o.avatar)])model?.traverse(o=>{if(o.userData.generated)disposeObject(o);if(o.isSkinnedMesh)o.skeleton.dispose();});environment.dispose();shadowGeo.dispose();shadowMat.dispose();renderer.dispose();renderer.domElement.remove();};
   },[me.id,JSON.stringify(me.appearance),race?.id]);
-  const distance=runDistance(hud.elapsed),other=race?.players.find(p=>p.userId!==me.id),progress=distance/RUN_DISTANCE*100,seconds=Math.max(0,((game?.duration||RUN_DURATION)-hud.elapsed)/1000);
+  const distance=runDistance(hud.elapsed),progress=distance/RUN_DISTANCE*100,seconds=Math.max(0,((game?.duration||RUN_DURATION)-hud.elapsed)/1000);
   const players=race?race.players:[{userId:me.id,nickname:me.nickname}];
   const ranked=players.map(p=>({...p,live:snapshot?.players.find(v=>v.userId===p.userId)})).sort((a,b)=>(b.live?.score??(b.userId===me.id?runScore(hud):0))-(a.live?.score??(a.userId===me.id?runScore(hud):0)));
   return <div className="panel-body runner sky-runner" onPointerDownCapture={()=>effects.current?.unlock()}>
@@ -151,9 +156,9 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
       <div className="runner-viewport" ref={mount} aria-label="하늘섬 구름 달리기 3D 트랙"/>
       <div className="sky-top"><div className="sky-brand"><Flower2/><div><b>PIEONA</b><small>미니게임 · 하늘 달리기</small></div></div><div className="sky-timer"><Timer size={19}/>{String(Math.floor(seconds/60)).padStart(2,'0')}:{(seconds%60).toFixed(1).padStart(4,'0')}</div></div>
       <div className="sky-progress" aria-label={`완주 거리 ${Math.floor(distance)} / ${RUN_DISTANCE}m`}><div><span style={{width:`${progress}%`}}/></div><Flag size={19}/><small>{Math.floor(distance).toLocaleString()} / {RUN_DISTANCE.toLocaleString()}m</small></div>
-      <div className="sky-standings"><strong>{ranked.findIndex(p=>p.userId===me.id)+1}<small> / {players.length}</small></strong><ol>{ranked.map(p=><li key={p.userId} className={p.userId===me.id?'is-me':''}><Flower2 size={16}/><span>{p.nickname}{p.userId===me.id?' · 나':''}</span><small>{p.live?.left?'나감':(p.userId===me.id?runScore(hud):p.live?.score||0).toLocaleString()}</small></li>)}</ol></div>
+      <div className="sky-standings"><strong>{ranked.findIndex(p=>p.userId===me.id)+1}<small> / {players.length}</small></strong><ol>{ranked.map(p=><li key={p.userId} className={p.userId===me.id?'is-me':''}><Flower2 size={16}/><span>{p.nickname}{p.userId===me.id?' · 나':''}</span><small>{p.live?.left?'나감':p.live?.state.lives===0?'탈락':p.live?.finished?'완주':(p.userId===me.id?runScore(hud):p.live?.score||0).toLocaleString()}</small></li>)}</ol></div>
       <div className="sky-hint"><span>{runSpeed(hud.elapsed).toFixed(1)} m/s · {runSpeed(hud.elapsed)>=RUN_MAX_SPEED?'최고 속도!':`${RUN_SPEED_INTERVAL/1000}초마다 +${RUN_SPEED_STEP} m/s`}</span><br/><strong>분홍 울타리는 점프해요.</strong><br/><span>초록 링 씨앗을 모으면 +{SEED_POINTS}점!</span><div className="sky-seeds" aria-label={`씨앗 ${hud.collectedSeeds||0}개 수집`}><Sprout size={19}/><b key={hud.collectedSeeds||0}>{hud.collectedSeeds||0}개</b><small>+{((hud.collectedSeeds||0)*SEED_POINTS).toLocaleString()}점</small></div></div>
-      <span className="sky-name self" ref={selfTag}>{me.nickname} · 나</span>{other&&<span className="sky-name" ref={otherTag}>{other.nickname}</span>}
+      <span className="sky-name self" ref={selfTag}>{me.nickname} · 나</span>{players.filter(p=>p.userId!==me.id).map(p=><span key={p.userId} className="sky-name" ref={el=>{if(el)otherTags.current.set(p.userId,el);else otherTags.current.delete(p.userId);}}>{p.nickname}</span>)}
       <div className="sky-pickups" aria-live="polite" aria-atomic="false">{pickups.map(id=><span key={id} className="sky-pickup" style={{'--pickup-x':`${(id%3-1)*46}px`}} onAnimationEnd={()=>setPickups(current=>current.filter(value=>value!==id))}><Sprout size={23}/>+{SEED_POINTS}점</span>)}</div>
       <div className="sky-lives" aria-label={`남은 목숨 ${hud.lives}개`}>{'♥'.repeat(hud.lives)}<span>{'♥'.repeat(3-hud.lives)}</span></div>
       {status==='playing'&&hud.elapsed<3000&&<div className="sky-countdown" role="status"><b>{Math.max(1,Math.ceil((3000-hud.elapsed)/1000))}</b><span>하늘을 향해, 준비!</span></div>}
@@ -168,14 +173,14 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race}
             <h3 ref={resultTitle} tabIndex={-1}>{ending.lives?'하늘섬 완주!':'잠깐 쉬어가도 괜찮아'}</h3>
             <strong>{(result?.score??runScore(ending)).toLocaleString()}<small> SCORE</small></strong>
             <p>{result?`장애물 ${result.hits} / ${result.total}개 통과 · 씨앗 ${result.collectedSeeds}개 (+${(result.collectedSeeds*SEED_POINTS).toLocaleString()}점) · +${result.gold} 골드`:status==='settle'?'기록 저장을 다시 시도해주세요.':'달린 기록을 저장하고 있어요…'}</p>
-            {status==='finished'&&!race&&<button className="primary" onClick={start}><RotateCcw size={16}/>다시 달리기</button>}
+            <GameReplay race={race} me={me} rematch={rematch} settled={status==='finished'} onReplay={start} onSoloReplay={onSoloReplay} waiting={snapshot?.players.some(p=>!p.left&&!p.finished)} unavailable={snapshot?.players.some(p=>p.left)} requiresConnection={!!race}/>
             {status==='settle'&&<button className="primary" onClick={finish}>기록 저장 다시 시도</button>}
             {race&&<button className="secondary" onClick={()=>setSpectating(true)}>상대 달리기 지켜보기</button>}
           </div>
         </div>
       </div>}
     </div>
-    <div className="sky-footer"><div><span className="eyebrow">CLOUD RUN · SKY KINGDOM</span><h3>구름 위로, 함께 달려요</h3><p>{target.nickname}의 마을 · {race?'이웃과 함께하는 2인 달리기':'나의 캐릭터로 떠나는 하늘섬'}</p></div>{status==='playing'?<strong className="sky-score">{runScore(hud).toLocaleString()}<small> SCORE</small></strong>:!race&&status!=='finished'&&status!=='settle'?<button className="primary" disabled={!ready||status==='loading'} onClick={start}><Play size={17}/>{status==='loading'?'출발 준비 중…':'달리기 시작'}</button>:null}</div>
-    {race&&!game?<p className="runner-guide" role="status">{ready?'두 사람의 준비가 끝나면 함께 출발해요…':'캐릭터와 트랙을 준비하고 있어요…'}</p>:ending?<div className="runner-end-summary"><span>{result?`${result.score.toLocaleString()}점 · +${result.gold} 골드 · 마을 기록 저장 완료`:'달리기 종료 · 기록 저장 중'}</span>{spectating&&<button className="text-button" onClick={()=>setSpectating(false)}>내 결과 보기</button>}</div>:<p className="runner-guide"><strong>← → / A · D</strong> 길 바꾸기 <span>·</span> <strong>스페이스 / ↑ / W</strong> 점프 <span>·</span> 목숨 3개로 {RUN_DISTANCE.toLocaleString()}m를 완주해요. 속도가 점점 올라가요! 씨앗 1개당 +{SEED_POINTS}점 · 장애물 8개 통과부터 보상.</p>}
+    <div className="sky-footer"><div><span className="eyebrow">CLOUD RUN · SKY KINGDOM</span><h3>구름 위로, 함께 달려요</h3><p>{target.nickname}의 마을 · {race?`이웃과 함께하는 ${players.length}인 달리기`:'나의 캐릭터로 떠나는 하늘섬'}</p></div>{status==='playing'?<strong className="sky-score">{runScore(hud).toLocaleString()}<small> SCORE</small></strong>:!race&&status!=='finished'&&status!=='settle'?<button className="primary" disabled={!ready||status==='loading'} onClick={start}><Play size={17}/>{status==='loading'?'출발 준비 중…':'달리기 시작'}</button>:null}</div>
+    {race&&!game?<p className="runner-guide" role="status">{ready?'모두의 준비가 끝나면 함께 출발해요…':'캐릭터와 트랙을 준비하고 있어요…'}</p>:ending?<div className="runner-end-summary"><span>{result?`${result.score.toLocaleString()}점 · +${result.gold} 골드 · 마을 기록 저장 완료`:'달리기 종료 · 기록 저장 중'}</span>{spectating&&<button className="text-button" onClick={()=>setSpectating(false)}>내 결과 보기</button>}</div>:<p className="runner-guide"><strong>← → / A · D</strong> 길 바꾸기 <span>·</span> <strong>스페이스 / ↑ / W</strong> 점프 <span>·</span> 목숨 3개로 {RUN_DISTANCE.toLocaleString()}m를 완주해요. 속도가 점점 올라가요! 씨앗 1개당 +{SEED_POINTS}점 · 장애물 8개 통과부터 보상.</p>}
   </div>;
 }

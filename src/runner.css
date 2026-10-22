@@ -1,5 +1,8 @@
 .modal.wide:has(.sky-runner){width:min(1220px,96vw);max-width:1220px}
 .sky-runner.panel-body{padding:12px 22px 20px}
+.sky-runner .sky-standings{max-height:calc(100% - 190px);display:flex;flex-direction:column}
+.sky-runner .sky-standings ol{overflow-y:auto;min-height:0;pointer-events:auto;scrollbar-width:thin}
+.sky-standings li>span{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sky-ending{position:absolute;inset:0;z-index:5;display:grid;place-items:center;background:#243d655c;backdrop-filter:blur(4px);animation:sky-result-fade .35s ease-out}
 .sky-result-card{width:min(360px,87%);overflow:hidden;border-radius:24px;background:#fffaf5;color:#365574;box-shadow:0 22px 60px #203b6a45;animation:sky-result-arrive .5s cubic-bezier(.2,.8,.2,1)}
 .sky-result-card>img{width:100%;height:155px;object-fit:cover;display:block}.sky-result-copy{text-align:center;padding:15px 20px 20px}.sky-result-copy .eyebrow{color:#ac7c95;font-size:10px;letter-spacing:3px}.complete .sky-result-copy .eyebrow{color:#57988c}.sky-result-copy h3{font-size:21px;margin:7px 0 10px;outline:none}.sky-result-copy>strong{font-size:31px;color:#5a87b0;font-variant-numeric:tabular-nums}.sky-result-copy>strong small{font-size:10px;letter-spacing:2px}.sky-result-copy p{font-size:12px;margin:8px 0 15px}.sky-result-copy button{margin:0 auto;min-height:42px;justify-content:center}.runner-end-summary{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:15px;color:#6c8499;font-size:12px}

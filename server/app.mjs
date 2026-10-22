@@ -11,13 +11,16 @@ import { promisify } from 'node:util';
 import { resolve } from 'node:path';
 import { existsSync } from 'node:fs';
 import { z } from 'zod';
-import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, defaultSettings } from './store.mjs';
+import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, experienceOf, defaultSettings } from './store.mjs';
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
 import { decorations, hats, accessories, colors, validPlacement, villageThemes, characters, characterLooks } from '../shared/world.mjs';
 import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
 import {installCrabGames} from './crabGames.mjs';
 import {crabSeconds} from '../shared/crab.mjs';
+import {installVolleyGames} from './volleyGames.mjs';
+import {MAX_PARTY_PLAYERS,maxGamePlayers} from '../shared/multiplayer.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
+import {canReadSurvey,surveyStatistics,surveyComments} from './surveyStatistics.mjs';
 import {villageSign,isSignColor,MAX_CUSTOM_SIGN_COLORS,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
 import {villageGuestbook,GUESTBOOK_PAGE_SIZE,GUESTBOOK_MAX_LENGTH,guestbookLength} from '../shared/guestbook.mjs';
 import {balanceQuestions as questions,scenarioQuestions} from '../shared/onboarding.mjs';
@@ -52,6 +55,12 @@ export function createApp(options = {}) {
   const profile = (user, viewer) => publicUser(store, user, viewer, new Set(online.keys()));
   function emitUpdate(userId) { io.to(`user:${userId}`).emit('refresh'); }
   function emitWorld() { io.emit('world:changed'); }
+  function emitSurveyChange(name='survey:changed') {
+    for(const socket of io.sockets.sockets.values()){
+      const user=sessionUser(socket.request.headers);
+      if(canReadSurvey(user)&&(name!=='survey:managers-changed'||user.survey_role==='admin'))socket.emit(name);
+    }
+  }
   function villageMembers(villageId) {
     return Array.from(villageVisitors.get(villageId)?.values() || []).map(({sockets,lastMove,...member})=>{
       const user=userById(member.userId);
@@ -235,7 +244,7 @@ export function createApp(options = {}) {
 
   // The account has one publicly active avatar; independent persona slots can be switched for free.
   const slotSnapshot=user=>({nickname:user.nickname,intro:user.intro,theme:user.theme,settings:settingsOf(user),balance:JSON.parse(user.balance),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id)});
-  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);});return userById(user.id);}
+  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);});return userById(user.id);}
   app.get('/api/slots',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));res.json({active:user.active_slot,slots:store.all('SELECT * FROM avatar_slots WHERE owner_id=? ORDER BY created_at',user.id).map(s=>{const snap=s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot);return{id:s.id,nickname:snap.nickname,theme:snap.theme,memoryCount:snap.memories.length,balanceComplete:!!snap.balance.length,active:s.id===user.active_slot};})});});
   app.post('/api/slots',auth,(req,res)=>{const data=z.object({nickname,theme:z.enum(['sage','rose','ocean','sunset']).default('sage')}).parse(req.body);ensureSlot(userById(req.user.id));if(store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',req.user.id).n>=8)fail(400,'프로토타입에서는 최대 8개의 자아를 키울 수 있어요.');const sid=id();store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,req.user.id,JSON.stringify({nickname:data.nickname,intro:'',theme:data.theme,settings:{...defaultSettings},balance:[],memories:[]}),now());event(req.user.id,'slot_created');res.status(201).json({id:sid});});
   app.post('/api/slots/:id/activate',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));if(locks.has(`owner:${user.id}`))fail(409,'내 아바타의 답변이 끝난 뒤 자아를 전환해주세요.');const slot=store.one('SELECT * FROM avatar_slots WHERE id=? AND owner_id=?',req.params.id,user.id);if(!slot)fail(404,'나의 자아 슬롯을 찾을 수 없어요.');if(slot.id!==user.active_slot){const snapshot=JSON.parse(slot.snapshot);store.transaction(()=>{store.run('UPDATE avatar_slots SET snapshot=? WHERE id=?',JSON.stringify(slotSnapshot(user)),user.active_slot);store.run('DELETE FROM memories WHERE owner_id=?',user.id);for(const m of snapshot.memories)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',m.id,user.id,m.content,m.category,m.visibility,m.confirmed,m.source,m.created_at,m.updated_at);store.run('UPDATE users SET nickname=?,intro=?,theme=?,settings=?,balance=?,active_slot=?,revision=revision+1 WHERE id=?',snapshot.nickname,snapshot.intro,snapshot.theme,JSON.stringify(snapshot.settings),JSON.stringify(snapshot.balance),slot.id,user.id);event(user.id,'slot_activated');});emitWorld();}res.json({user:profile(userById(user.id),user.id)});});
@@ -277,20 +286,23 @@ export function createApp(options = {}) {
       const result=await (options.generateAnswer||generateAnswer)(context,text,history);
       // Recheck after the network wait: privacy edits, friendship changes, logout and deletion revoke in-flight work.
       c=conversationFor(req,c.id,true);target=checkTarget(req,c.target_id);
+      if(c.avatar_slot!==target.active_slot)fail(409,'아바타가 변경됐어요. 새 대화를 시작해주세요.');
       if(!sessionUser(req.headers))fail(401,'로그인이 만료되었어요.');
       if(assembleContext(store,target,req.user.id,text,scene).contextKey!==context.contextKey)fail(409,'기억 또는 공개 설정이 변경됐어요. 다시 전송해 주세요.');
       const added=[];const timestamp=now();
       store.transaction(()=>{
         store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',id(),c.id,'user',text,'calm',timestamp);
-        store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',id(),c.id,'assistant',result.reply,result.emotion,now());
+        const replyId=id();
+        store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',replyId,c.id,'assistant',result.reply,result.emotion,now());
+        store.run('INSERT INTO avatar_experience VALUES(?,?,?,10)',replyId,target.id,c.avatar_slot);
         if(context.own){for(const m of result.memories.slice(0,3)){if(store.one('SELECT 1 FROM memories WHERE owner_id=? AND content=?',req.user.id,m.content))continue;const mid=id();store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',mid,req.user.id,m.content,m.category,'public',1,'conversation',timestamp,timestamp);added.push({id:mid,...m});}if(added.length)store.run('UPDATE users SET revision=revision+1 WHERE id=?',req.user.id);}
         else {rewardVisit(target.id,req.user.id,!!c.anonymous);if(!history.length)activity(target.id,req.user.id,'conversation',c.share&&settingsOf(target).receiveTranscripts?'공유된 아바타 대화가 도착했어요':'아바타와 대화했어요 · 내용 비공개',!!c.anonymous);}
         // An owner request may add public memories itself; keep that turn's history current.
         store.run('UPDATE conversations SET context_key=? WHERE id=?',assembleContext(store,userById(target.id),req.user.id,text,scene).contextKey,c.id);
         event(req.user.id,'message_sent',{owner:context.own,provider:result.provider,memories:added.length});
       });
-      if(added.length)emitWorld();emitUpdate(target.id);
-      res.json({reply:result.reply,emotion:result.emotion,memories:added,provider:result.provider,warning:result.warning,stage:stageOf(store,userById(req.user.id))});
+      emitWorld();emitUpdate(target.id);
+      res.json({reply:result.reply,emotion:result.emotion,memories:added,provider:result.provider,warning:result.warning,stage:stageOf(store,userById(req.user.id)),...experienceOf(store,userById(req.user.id))});
     }finally{locks.delete(lockKey);}
   });
 
@@ -310,25 +322,46 @@ export function createApp(options = {}) {
 
   const runnerNotes=()=>createRunnerNotes(()=>randomBytes(1)[0]%3);
   const crabs=installCrabGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.crabClock});
-  const busy=userId=>crabs.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started);
+  const volleys=installVolleyGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.volleyClock});
+  const busy=(userId,exceptInvite)=>crabs.busy(userId)||volleys.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started)||[...invites.values()].some(i=>i.id!==exceptInvite&&invitePlayers(i).some(p=>p.userId===userId));
   function raceEmit(r,name,data){for(const player of r.players)io.to(player.socketId).emit(name,data);}
-  function cancelInvite(invite,reason){invites.delete(invite.id);for(const sid of [invite.fromSocket,invite.toSocket])io.to(sid).emit('runner:invite-ended',{id:invite.id,reason});}
+  const invitePlayers=invite=>[{userId:invite.from,socketId:invite.fromSocket,anonymous:invite.anonymous},...invite.guests];
+  function cancelInvite(invite,reason){invites.delete(invite.id);for(const p of invitePlayers(invite))io.to(p.socketId).emit('runner:invite-ended',{id:invite.id,reason});}
+  function checkParty(players,villageId){
+    for(const p of players){checkTarget({user:userById(p.userId)},villageId);if(io.sockets.sockets.get(p.socketId)?.data.village?.villageId!==villageId)fail(409,'같은 마을에 있어야 해요.');}
+    for(let i=0;i<players.length;i++)for(let j=i+1;j<players.length;j++)if(isBlocked(store,players[i].userId,players[j].userId))fail(403,'함께할 수 없는 이웃이 있어요.');
+  }
+  function inviteProgress(invite){const data={id:invite.id,accepted:1+invite.guests.filter(p=>p.accepted).length,total:1+invite.guests.length};for(const p of invitePlayers(invite))io.to(p.socketId).emit('runner:invite-progress',data);}
+  const rematchEvent=race=>race.kind==='crab'?'crab:rematch':'game:rematch';
+  function startRace(race){
+    const started=Date.now()+1000,roomId=race.started?undefined:race.id;
+    const round=(race.round||0)+1;
+    if(['crab','volley'].includes(race.kind)){
+      const engine=race.kind==='volley'?volleys:crabs,room=engine.start(race.players,race.villageId,roomId,started);
+      for(const p of race.players){const participant=room.players.find(v=>v.userId===p.userId);p.gameId=participant.gameId;io.to(p.socketId).emit('runner:started',{id:race.id,game:{...engine.info(room,participant),round}});}
+    }else{
+      if(race.started)race.notes=runnerNotes();
+      store.transaction(()=>{for(const p of race.players){raceByGame.delete(p.gameId);p.gameId=id();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous,kind) VALUES(?,?,?,?,?,?,0,?,?)',p.gameId,p.userId,race.villageId,JSON.stringify(race.notes),JSON.stringify(newRun()),started,Number(p.anonymous),'runner');raceByGame.set(p.gameId,race.id);}});
+      for(const p of race.players)io.to(p.socketId).emit('runner:started',{id:race.id,game:{id:p.gameId,kind:'runner',round,notes:race.notes,duration:RUN_DURATION,started,serverTime:Date.now()}});
+    }
+    Object.assign(race,{started,round,settledAt:null,rematch:null});
+  }
   function leaveRace(socket){
-    for(const invite of invites.values())if([invite.fromSocket,invite.toSocket].includes(socket.id))cancelInvite(invite,'상대가 마을을 떠났어요.');
+    for(const invite of invites.values())if(invitePlayers(invite).some(p=>p.socketId===socket.id))cancelInvite(invite,'초대한 친구가 마을을 떠났어요.');
     for(const race of races.values()){
       const player=race.players.find(p=>p.socketId===socket.id);if(!player||player.left)continue;
       player.left=true;
-      if(race.kind==='crab'){
-        crabs.abandon(player.gameId,player.userId);race.rematch=null;
-        raceEmit(race,'crab:rematch',{id:race.id,gameId:player.gameId,status:'unavailable'});
-      }
+      if(race.kind==='volley')volleys.abandon(player.gameId,player.userId);
+      if(race.kind==='crab')crabs.abandon(player.gameId,player.userId);
+      race.rematch=null;
+      raceEmit(race,rematchEvent(race),{id:race.id,gameId:player.gameId,status:'unavailable'});
       if(player.gameId)store.run('UPDATE games SET finished=2 WHERE id=? AND finished=0',player.gameId);
       if(!race.started){raceEmit(race,'runner:cancelled',{id:race.id,reason:'상대가 준비 중에 나갔어요.'});races.delete(race.id);emitVillage(race.villageId);}
-      else if(race.kind!=='crab')for(const other of race.players)if(other!==player)io.to(other.socketId).emit('runner:opponent-left',{id:race.id,userId:player.userId});
+      else if(!['crab','volley'].includes(race.kind))for(const other of race.players)if(other!==player)io.to(other.socketId).emit('runner:opponent-left',{id:race.id,userId:player.userId});
     }
   }
   function publishRace(race){
-    if(race.kind==='crab')return;
+    if(['crab','volley'].includes(race.kind)||race.settledAt)return;
     const elapsed=Math.max(0,Date.now()-race.started);
     const players=race.players.map(player=>{
       const g=store.one('SELECT * FROM games WHERE id=?',player.gameId);
@@ -336,7 +369,7 @@ export function createApp(options = {}) {
       if(!g.finished)store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(state),g.id);
       return {userId:player.userId,nickname:player.nickname,state,score:runScore(state),left:player.left,finished:!!g.finished||!state.lives||elapsed>=RUN_DURATION};
     });
-    raceEmit(race,'runner:snapshot',{id:race.id,elapsed,players});
+    raceEmit(race,'runner:snapshot',{id:race.id,round:race.round,elapsed,players});
   }
   app.post('/api/games',auth,(req,res)=>{
     const {targetId,anonymous,kind}=z.object({targetId:z.string().uuid(),anonymous:z.boolean().default(false),kind:z.enum(['rhythm','runner']).default('rhythm')}).parse(req.body);checkTarget(req,targetId);
@@ -357,14 +390,14 @@ export function createApp(options = {}) {
   }
   app.post('/api/games/:id/action',auth,(req,res)=>{const g=running(req);res.json(actOnRun(g,req.body));const race=races.get(raceByGame.get(g.id));if(race)publishRace(race);});
   app.get('/api/games/:id/state',auth,(req,res)=>{const g=running(req);const state=advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started);store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(state),g.id);res.json({state,elapsed:Date.now()-g.started});});
-  app.post('/api/games/:id/abandon',auth,(req,res)=>{crabs.abandon(req.params.id,req.user.id);store.run('UPDATE games SET finished=2 WHERE id=? AND user_id=? AND finished=0',req.params.id,req.user.id);for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.json({ok:true});});
+  app.post('/api/games/:id/abandon',auth,(req,res)=>{crabs.abandon(req.params.id,req.user.id);volleys.abandon(req.params.id,req.user.id);store.run('UPDATE games SET finished=2 WHERE id=? AND user_id=? AND finished=0',req.params.id,req.user.id);for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.json({ok:true});});
   app.post('/api/games/:id/hit',auth,(req,res)=>{
     const {lane}=z.object({lane:z.number().int().min(0).max(3)}).parse(req.body);const g=store.one("SELECT * FROM games WHERE id=? AND user_id=? AND finished=0 AND kind='rhythm'",req.params.id,req.user.id);if(!g)fail(404,'진행 중인 게임이 아니에요.');
     const elapsed=Date.now()-g.started;const hits=JSON.parse(g.hits);const notes=JSON.parse(g.notes);const index=notes.findIndex((n,i)=>n.lane===lane&&!hits.some(h=>h.index===i)&&Math.abs(n.time-elapsed)<=300);
     let rating='miss';if(index>=0){rating=Math.abs(notes[index].time-elapsed)<130?'perfect':'good';hits.push({index,rating});store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(hits),g.id);}res.json({rating,combo:hits.length});
   });
   app.post('/api/games/:id/finish',auth,(req,res)=>{
-    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(g.kind==='crab')fail(400,'해변 게임 기록은 해변 게임 화면에서 저장해주세요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>(g.kind==='runner'?RUN_EXPIRY:120000))fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
+    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(['crab','volley'].includes(g.kind))fail(400,'해당 게임 화면에서 기록을 저장해주세요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>(g.kind==='runner'?RUN_EXPIRY:120000))fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
     const state=g.kind==='runner'?advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started):null;
     if(state?state.lives>0&&state.elapsed<RUN_DURATION:Date.now()-g.started<30000)fail(400,'게임이 끝나면 정산할 수 있어요.');
     const hits=state?state.dodged:JSON.parse(g.hits).length;const score=state?runScore(state):JSON.parse(g.hits).reduce((n,h)=>n+(h.rating==='perfect'?100:65),0);let gold=0;
@@ -378,7 +411,7 @@ export function createApp(options = {}) {
     });emitUpdate(req.user.id);emitVillage(g.target_id);io.to([`village:${g.target_id}`,`user:${g.target_id}`]).emit('games:changed',{villageId:g.target_id});res.json({score,gold,hits,total:g.kind==='runner'?JSON.parse(g.notes).filter(n=>n.kind!=='seed').length:40,lives:state?.lives,collectedSeeds:state?.collectedSeeds||0});
   });
   app.get('/api/villages/:id/records',auth,(req,res)=>{
-    checkTarget(req,req.params.id);const kind=z.enum(['rhythm','runner','crab']).parse(req.query.kind||'rhythm');
+    checkTarget(req,req.params.id);const kind=z.enum(['rhythm','runner','crab','volley']).parse(req.query.kind||'rhythm');
     // Filter before ranking/limiting; anonymous records never expose a user or game ID.
     const records=store.all(`SELECT g.user_id,g.anonymous,g.score,g.started,g.hits,u.nickname FROM games g JOIN users u ON u.id=g.user_id WHERE g.target_id=? AND g.kind=? AND g.finished=1 AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.owner_id=? AND b.blocked_id=g.user_id) OR (b.blocked_id=? AND b.owner_id=g.user_id)) ORDER BY g.score DESC,g.started DESC LIMIT 30`,req.params.id,kind,req.user.id,req.user.id);
     res.json({records:records.map((r,i)=>({rank:i+1,nickname:r.anonymous?'익명의 이웃':r.nickname||'새싹',score:r.score,playedAt:new Date(r.started).toISOString(),isMe:r.user_id===req.user.id,...(kind==='crab'?{seconds:crabSeconds({elapsed:JSON.parse(r.hits).survived||0})}:{})}))});
@@ -400,6 +433,34 @@ export function createApp(options = {}) {
     const completed=!!participation?.completed,deferred=!completed&&participation?.deferred_until>Date.now();
     res.json({completed,deferred,eligible:!completed&&!deferred&&(counts.games>=1||counts.ownChats>=10||counts.otherChats>=5)});
   });
+  function surveyReader(req,res,next){if(!canReadSurvey(req.user))return res.status(403).json({error:'설문 통계를 볼 권한이 없어요.'});next();}
+  function surveyAdmin(req,res,next){if(req.user.survey_role!=='admin')return res.status(403).json({error:'관리자만 매니저 권한을 변경할 수 있어요.'});next();}
+  app.get('/api/survey/statistics',auth,surveyReader,(req,res)=>res.json(surveyStatistics(store)));
+  app.get('/api/survey/statistics/comments',auth,surveyReader,(req,res)=>{
+    const {question,page}=z.object({question:z.enum(surveyQuestions.filter(q=>q.type!=='rating').map(q=>q.id)),page:z.coerce.number().int().min(1).max(1000000).default(1)}).parse(req.query);
+    res.json(surveyComments(store,question,page));
+  });
+  app.get('/api/survey/managers',auth,surveyAdmin,(req,res)=>{
+    const {q,page}=z.object({q:z.string().trim().max(64).default(''),page:z.coerce.number().int().min(1).max(1000000).default(1)}).parse(req.query);
+    const where='instr(lower(username),lower(?))>0 OR instr(lower(nickname),lower(?))>0';
+    const total=store.one(`SELECT COUNT(*) n FROM users WHERE ${where}`,q,q).n,pages=Math.max(1,Math.ceil(total/20)),current=Math.min(page,pages);
+    const users=store.all(`SELECT id,username,nickname,survey_role AS role FROM users WHERE ${where} ORDER BY CASE survey_role WHEN 'admin' THEN 0 WHEN 'manager' THEN 1 ELSE 2 END,username LIMIT 20 OFFSET ?`,q,q,(current-1)*20);
+    res.json({users,total,page:current,pages});
+  });
+  app.patch('/api/survey/managers/:id',auth,surveyAdmin,(req,res)=>{
+    const {role}=z.object({role:z.enum(['user','manager'])}).strict().parse(req.body);
+    const target=userById(z.string().uuid().parse(req.params.id));
+    if(target.survey_role==='admin')fail(403,'관리자의 권한은 이 화면에서 변경할 수 없어요.');
+    if(target.survey_role!==role){
+      store.transaction(()=>{
+        store.run('UPDATE users SET survey_role=? WHERE id=?',role,target.id);
+        event(req.user.id,'survey_role_changed',{targetId:target.id,role});
+      });
+      io.to(`user:${target.id}`).emit('survey:access',{role});
+      emitUpdate(target.id);emitSurveyChange('survey:managers-changed');
+    }
+    res.json({ok:true});
+  });
   app.post('/api/survey/defer',auth,(req,res)=>{
     store.run('INSERT INTO survey_participation(user_id,deferred_until) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET deferred_until=excluded.deferred_until',req.user.id,Date.now()+86400000);
     emitUpdate(req.user.id);res.json({ok:true});
@@ -419,7 +480,7 @@ export function createApp(options = {}) {
       // No account IDs, timestamps, event records or response IDs link answers to an account.
       store.run('INSERT INTO survey_responses VALUES(?,?,?)',id(),surveyVersion,JSON.stringify(answers));
       store.run('INSERT INTO survey_participation(user_id,completed) VALUES(?,1) ON CONFLICT(user_id) DO UPDATE SET completed=1,deferred_until=0',req.user.id);
-    });emitUpdate(req.user.id);res.status(201).json({ok:true});
+    });emitUpdate(req.user.id);emitSurveyChange();res.status(201).json({ok:true});
   });
   app.get('/api/stats',auth,(req,res)=>{const counts=store.all('SELECT name,COUNT(*) count FROM events WHERE user_id=? GROUP BY name',req.user.id);res.json({events:counts,memories:store.one('SELECT COUNT(*) count FROM memories WHERE owner_id=?',req.user.id).count,visitors:store.one("SELECT COUNT(DISTINCT actor_id) count FROM activities WHERE owner_id=? AND actor_id<>?",req.user.id,req.user.id).count,stage:stageOf(store,req.user)});});
   app.get('/api/export',auth,(req,res)=>{const user=userById(req.user.id);res.set('Content-Disposition','attachment; filename="pieona-my-data.json"');res.json({exportedAt:now(),profile:profile(user,user.id),avatarSlots:store.all('SELECT * FROM avatar_slots WHERE owner_id=?',user.id).map(s=>({id:s.id,snapshot:s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot)})),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id),conversations:store.all('SELECT c.id,c.target_id,c.share,c.created_at,m.role,m.content,m.created_at message_at FROM conversations c LEFT JOIN messages m ON m.conversation_id=c.id WHERE c.viewer_id=?',user.id),events:store.all('SELECT name,detail,created_at FROM events WHERE user_id=?',user.id)});});
@@ -437,70 +498,66 @@ export function createApp(options = {}) {
       publishRace(race);
     });
     runnerRequest('runner:invite',(data,ack)=>{
-      const {userId,anonymous,kind}=z.object({userId:z.string().uuid(),anonymous:z.boolean().default(false),kind:z.enum(['runner','crab']).default('runner')}).strict().parse(data);
-      const villageId=socket.data.village?.villageId;if(!villageId||userId===uid)fail(400,'같은 마을의 이웃을 선택해주세요.');
-      checkTarget({user:userById(uid)},villageId);checkTarget({user:userById(userId)},villageId);
-      if(isBlocked(store,uid,userId))fail(403,'초대할 수 없는 이웃이에요.');
-      const member=villageVisitors.get(villageId)?.get(userId),toSocket=member&&[...member.sockets][0];
-      if(!toSocket)fail(409,'상대가 마을을 떠났어요.');
-      if(busy(uid)||busy(userId)||[...invites.values()].some(i=>[i.from,i.to].some(u=>u===uid||u===userId)))fail(409,'이미 게임이나 초대를 진행 중이에요.');
-      const invite={id:id(),kind,villageId,from:uid,to:userId,fromSocket:socket.id,toSocket,anonymous,expires:Date.now()+30000};invites.set(invite.id,invite);
-      io.to(toSocket).emit('runner:invited',{id:invite.id,kind,villageId,nickname:userById(uid).nickname,expires:invite.expires});ack({ok:true,id:invite.id});
+      const {userId,userIds,anonymous,kind}=z.object({userId:z.string().uuid().optional(),userIds:z.array(z.string().uuid()).min(1).max(MAX_PARTY_PLAYERS-1).optional(),anonymous:z.boolean().default(false),kind:z.enum(['runner','crab','volley']).default('runner')}).strict().refine(v=>!!v.userId!==!!v.userIds).parse(data);
+      const ids=userIds||[userId],villageId=socket.data.village?.villageId;
+      if(!villageId||ids.includes(uid)||new Set(ids).size!==ids.length)fail(400,'같은 마을의 서로 다른 이웃을 선택해주세요.');
+      if(ids.length+1>maxGamePlayers(kind))fail(400,`이 게임은 최대 ${maxGamePlayers(kind)}명까지 함께할 수 있어요.`);
+      const guests=ids.map(userId=>{const member=villageVisitors.get(villageId)?.get(userId),socketId=member&&[...member.sockets][0];if(!socketId)fail(409,'초대할 친구가 마을을 떠났어요.');return {userId,socketId,accepted:false};});
+      const players=[{userId:uid,socketId:socket.id},...guests];checkParty(players,villageId);
+      if(players.some(p=>busy(p.userId)||[...invites.values()].some(i=>invitePlayers(i).some(v=>v.userId===p.userId))))fail(409,'이미 게임이나 초대를 진행 중이에요.');
+      const invite={id:id(),kind,villageId,from:uid,fromSocket:socket.id,guests,anonymous,expires:Date.now()+30000};invites.set(invite.id,invite);
+      for(const p of guests)io.to(p.socketId).emit('runner:invited',{id:invite.id,kind,villageId,nickname:userById(uid).nickname,expires:invite.expires,total:players.length});
+      inviteProgress(invite);ack({ok:true,id:invite.id,total:players.length});
     });
     runnerRequest('runner:respond',(data,ack)=>{
       const {inviteId,accept,anonymous}=z.object({inviteId:z.string().uuid(),accept:z.boolean(),anonymous:z.boolean().default(false)}).strict().parse(data);
-      const invite=invites.get(inviteId);if(!invite||invite.toSocket!==socket.id)fail(404,'초대가 만료됐어요.');
+      const invite=invites.get(inviteId),guest=invite?.guests.find(p=>p.socketId===socket.id);if(!guest)fail(404,'초대가 만료됐어요.');
       if(!accept){cancelInvite(invite,'초대를 거절했어요.');ack({ok:true});return;}
       if(invite.expires<Date.now()){cancelInvite(invite,'초대 시간이 만료됐어요.');fail(409,'초대 시간이 만료됐어요.');}
-      const sender=io.sockets.sockets.get(invite.fromSocket);
-      if(socket.data.village?.villageId!==invite.villageId||sender?.data.village?.villageId!==invite.villageId)fail(409,'같은 마을에 있어야 해요.');
-      checkTarget({user:userById(uid)},invite.villageId);checkTarget({user:userById(invite.from)},invite.villageId);
-      if(isBlocked(store,uid,invite.from)||busy(uid)||busy(invite.from))fail(409,'지금은 함께 시작할 수 없어요.');
+      const players=invitePlayers(invite);
+      try{checkParty(players,invite.villageId);if(players.some(p=>busy(p.userId,invite.id)))fail(409,'지금은 함께 시작할 수 없어요.');}catch(e){cancelInvite(invite,e.message);throw e;}
+      guest.accepted=true;guest.anonymous=anonymous;inviteProgress(invite);
+      if(!invite.guests.every(p=>p.accepted)){ack({ok:true,waiting:true});return;}
       invites.delete(invite.id);
-      const race={id:id(),kind:invite.kind,villageId:invite.villageId,notes:runnerNotes(),created:Date.now(),players:[{userId:invite.from,socketId:invite.fromSocket,anonymous:invite.anonymous},{userId:uid,socketId:socket.id,anonymous}].map(p=>({...p,nickname:userById(p.userId).nickname,appearance:profile(userById(p.userId),p.userId).appearance}))};races.set(race.id,race);emitVillage(race.villageId);
+      const race={id:id(),kind:invite.kind,villageId:invite.villageId,notes:runnerNotes(),created:Date.now(),players:invitePlayers(invite).map(({accepted,...p})=>({...p,nickname:userById(p.userId).nickname,appearance:profile(userById(p.userId),p.userId).appearance}))};races.set(race.id,race);emitVillage(race.villageId);
       raceEmit(race,'runner:matched',{id:race.id,kind:race.kind,villageId:race.villageId,players:race.players.map(({socketId,anonymous,...p})=>p)});ack({ok:true});
     });
     runnerRequest('runner:cancel-invite',(data,ack)=>{const invite=invites.get(data?.id);if(invite&&invite.fromSocket===socket.id)cancelInvite(invite,'초대가 취소됐어요.');ack({ok:true});});
     runnerRequest('runner:leave',(_,ack)=>{leaveRace(socket);if(socket.data.village)emitVillage(socket.data.village.villageId);ack({ok:true});});
-    runnerRequest('crab:rematch',(data,ack)=>{
+    const rematchRequest=(data,ack,kind)=>{
       const {id:raceId,gameId,action}=z.object({id:z.string().uuid(),gameId:z.string().uuid(),action:z.enum(['request','accept','decline','cancel'])}).strict().parse(data);
       const race=races.get(raceId),player=race?.players.find(p=>p.socketId===socket.id&&!p.left);
-      if(!player||race.kind!=='crab'||player.gameId!==gameId)fail(404,'재대결할 게임을 찾을 수 없어요.');
-      if(race.players.some(p=>p.left||!io.sockets.sockets.has(p.socketId)))fail(409,'상대가 해변을 떠났어요.');
-      const broadcast=(status)=>raceEmit(race,'crab:rematch',{id:race.id,status,from:race.rematch?.from});
+      if(!player||(kind&&race.kind!==kind)||player.gameId!==gameId)fail(404,'재대결할 게임을 찾을 수 없어요.');
+      if(race.players.some(p=>p.left||!io.sockets.sockets.has(p.socketId)))fail(409,'함께한 친구가 게임을 떠났어요.');
+      const broadcast=(status)=>raceEmit(race,rematchEvent(race),{id:race.id,status,from:race.rematch?.from,accepted:race.rematch?.accepted,total:race.players.length});
       if(action==='cancel'||action==='decline'){
         if(!race.rematch)fail(409,'대기 중인 재대결 요청이 없어요.');
         if((action==='cancel')!==(race.rematch.from===uid))fail(403,'재대결 요청에 응답할 수 없어요.');
         broadcast(action==='cancel'?'cancelled':'declined');race.rematch=null;ack({ok:true});return;
       }
-      if(!race.players.every(p=>store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished===1))fail(409,'두 사람의 기록 저장이 끝나면 다시 도전해주세요.');
+      if(!race.players.every(p=>store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished===1))fail(409,'모두의 기록 저장이 끝나면 다시 도전해주세요.');
       for(const p of race.players){checkTarget({user:userById(p.userId)},race.villageId);if(io.sockets.sockets.get(p.socketId)?.data.village?.villageId!==race.villageId)fail(409,'같은 마을에 있어야 해요.');if(busy(p.userId))fail(409,'상대가 다른 게임을 진행 중이에요.');}
-      if(isBlocked(store,race.players[0].userId,race.players[1].userId))fail(403,'함께할 수 없는 이웃이에요.');
+      checkParty(race.players,race.villageId);
       if(race.rematch&&race.rematch.expires<Date.now()){broadcast('expired');race.rematch=null;}
       if(action==='request'){
         if(race.rematch)fail(409,'이미 재대결 응답을 기다리고 있어요.');
-        race.rematch={from:uid,expires:Date.now()+30000};broadcast('pending');ack({ok:true});return;
+        race.rematch={from:uid,accepted:[uid],expires:Date.now()+30000};broadcast('pending');ack({ok:true});return;
       }
       if(!race.rematch||race.rematch.from===uid)fail(409,'상대의 재대결 요청이 없어요.');
-      const started=Date.now()+1000,room=crabs.start(race.players,race.villageId,undefined,started);
-      race.started=started;race.settledAt=null;race.rematch=null;
-      for(const p of race.players){const participant=room.players.find(v=>v.userId===p.userId);p.gameId=participant.gameId;io.to(p.socketId).emit('runner:started',{id:race.id,game:crabs.info(room,participant)});}
+      if(race.rematch.accepted.includes(uid))fail(409,'이미 재대결에 동의했어요.');
+      race.rematch.accepted.push(uid);
+      if(race.rematch.accepted.length<race.players.length){broadcast('pending');ack({ok:true});return;}
+      startRace(race);
       ack({ok:true});
-    });
+    };
+    runnerRequest('crab:rematch',(data,ack)=>rematchRequest(data,ack,'crab'));
+    runnerRequest('game:rematch',(data,ack)=>rematchRequest(data,ack));
     runnerRequest('runner:ready',(data,ack)=>{
-      const race=races.get(data?.id),player=race?.players.find(p=>p.socketId===socket.id);
+      const race=races.get(data?.id),player=race?.players.find(p=>p.socketId===socket.id&&!p.left);
       if(!player)fail(404,'함께할 달리기를 찾을 수 없어요.');player.ready=true;
       if(!race.started&&race.players.every(p=>p.ready)){
-        for(const p of race.players){checkTarget({user:userById(p.userId)},race.villageId);if(io.sockets.sockets.get(p.socketId)?.data.village?.villageId!==race.villageId)fail(409,'같은 마을에서 준비해주세요.');}
-        if(isBlocked(store,race.players[0].userId,race.players[1].userId))fail(403,'함께 달릴 수 없는 이웃이에요.');
-        race.started=Date.now()+1000;
-        if(race.kind==='crab'){
-          const room=crabs.start(race.players,race.villageId,race.id,race.started);
-          for(const p of race.players){const participant=room.players.find(v=>v.userId===p.userId);p.gameId=participant.gameId;io.to(p.socketId).emit('runner:started',{id:race.id,game:crabs.info(room,participant)});}
-          ack({ok:true});return;
-        }
-        store.transaction(()=>{for(const p of race.players){p.gameId=id();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous,kind) VALUES(?,?,?,?,?,?,0,?,?)',p.gameId,p.userId,race.villageId,JSON.stringify(race.notes),JSON.stringify(newRun()),race.started,Number(p.anonymous),'runner');raceByGame.set(p.gameId,race.id);}});
-        for(const p of race.players)io.to(p.socketId).emit('runner:started',{id:race.id,game:{id:p.gameId,notes:race.notes,duration:RUN_DURATION,started:race.started,serverTime:Date.now()}});
+        checkParty(race.players,race.villageId);
+        startRace(race);
       }ack({ok:true});
     });
     socket.on('village:join',(data,ack)=>{
@@ -547,9 +604,9 @@ export function createApp(options = {}) {
       // Moving samples can be dropped; the final pose must be delivered reliably.
       if(moving)room.volatile.emit('village:move',update);else room.emit('village:move',update);
     });
-    socket.on('disconnect',()=>{if(![...io.sockets.sockets.values()].some(other=>other.data.userId===uid))crabs.leave(uid);leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
+    socket.on('disconnect',()=>{if(![...io.sockets.sockets.values()].some(other=>other.data.userId===uid)){crabs.leave(uid);volleys.leave(uid);}leaveVillage(socket);const count=(online.get(uid)||1)-1;if(count)online.set(uid,count);else online.delete(uid);io.emit('presence',Array.from(online.keys()));});
   });
-  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(r.rematch&&r.rematch.expires<Date.now()){raceEmit(r,'crab:rematch',{id:r.id,status:'expired'});r.rematch=null;}const settled=r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished);if(settled&&!r.settledAt)r.settledAt=Date.now();if(Date.now()-r.started>(r.kind==='crab'?3600000:RUN_EXPIRY)||(settled&&(r.kind!=='crab'||r.players.every(p=>p.left)||Date.now()-r.settledAt>300000))){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
+  const raceTimer=setInterval(()=>{for(const i of invites.values())if(i.expires<Date.now())cancelInvite(i,'초대 시간이 만료됐어요.');for(const r of races.values()){if(!r.started&&Date.now()-r.created>45000){raceEmit(r,'runner:cancelled',{id:r.id,reason:'게임 준비 시간이 만료됐어요.'});races.delete(r.id);emitVillage(r.villageId);}else if(r.started){publishRace(r);if(r.rematch&&r.rematch.expires<Date.now()){raceEmit(r,rematchEvent(r),{id:r.id,status:'expired'});r.rematch=null;}const settled=r.players.every(p=>p.left||store.one('SELECT finished FROM games WHERE id=?',p.gameId)?.finished);if(settled&&!r.settledAt)r.settledAt=Date.now();if(Date.now()-r.started>(r.kind==='crab'?3600000:RUN_EXPIRY+300000)||(settled&&(r.players.every(p=>p.left)||Date.now()-r.settledAt>300000))){for(const p of r.players)raceByGame.delete(p.gameId);races.delete(r.id);}}}},100);raceTimer.unref();
   const maintenance=setInterval(()=>{store.run('DELETE FROM sessions WHERE expires<?',Date.now());for(const socket of io.sockets.sockets.values())if(!sessionUser(socket.request.headers))socket.disconnect(true);},60000);maintenance.unref();
   app.use('/resource',express.static(resolve('resource'),{maxAge:'7d',immutable:true}));
   const dist=resolve('dist');if(existsSync(dist)){app.use(express.static(dist,{maxAge:'1h',setHeaders(res,path){if(path.endsWith('.html'))res.set('Cache-Control','no-store');}}));app.get('/{*splat}',(req,res,next)=>req.path.startsWith('/api/')?next():res.set('Cache-Control','no-store').sendFile(resolve(dist,'index.html')));}
@@ -561,5 +618,5 @@ export function createApp(options = {}) {
     if(status===500)console.error('[server]',error.name,error.message?.slice(0,160));
     res.status(status).json({error:error instanceof z.ZodError?'입력 형식 또는 길이를 확인해 주세요.':messages[error.message]||(status===500?'처리 중 오류가 발생했어요. 다시 시도해 주세요.':error.message)});
   });
-  return {app,server,io,store,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);crabs.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
+  return {app,server,io,store,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);crabs.close();volleys.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
 }

@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {newRun,runAction,jumpHeight,JUMP_MS,RUN_DURATION} from '../shared/runner.mjs';
-import {reconcileRun,runTime,predictRunInput,acknowledgeJump,visualJumpTime,runnerPose} from '../shared/runnerSync.mjs';
+import {reconcileRun,runTime,predictRunInput,acknowledgeJump,visualJumpTime,runnerPose,remoteRunnerVisible} from '../shared/runnerSync.mjs';
 
 test('one unacknowledged jump lands even through many delayed broadcasts',()=>{
   let authoritative={...newRun(),elapsed:4000};
@@ -45,6 +45,17 @@ test('remote running, lane changes and jump keep animating after local game over
   const moved=runAction(remote,[],5800,'left');
   assert.equal(runnerPose(moved,[],5900).state.lane,0);
   assert.equal(runnerPose(moved,[],RUN_DURATION+1000).moving,false);
+});
+
+test('remote runners disappear on elimination before settlement and reappear for a fresh round',()=>{
+  const runner={state:{...newRun(),elapsed:5500},finished:false,left:false};
+  assert.equal(remoteRunnerVisible(runner,5700),true);
+  assert.equal(remoteRunnerVisible({...runner,state:{...runner.state,lives:0}},5700),false);
+  assert.equal(remoteRunnerVisible({...runner,finished:true},5700),false);
+  assert.equal(remoteRunnerVisible({...runner,left:true},5700),false);
+  assert.equal(remoteRunnerVisible(runner,RUN_DURATION),false);
+  assert.equal(remoteRunnerVisible(undefined,0),false);
+  assert.equal(remoteRunnerVisible({...runner,state:newRun()},0),true);
 });
 
 test('delayed snapshots preserve unacknowledged lane and jump inputs',()=>{

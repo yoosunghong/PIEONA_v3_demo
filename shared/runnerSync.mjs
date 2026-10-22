@@ -40,6 +40,12 @@ export function runnerPose(state,notes,elapsed,{finished=false,jumpAt=state.jump
   return {state:predicted,jump:jumpHeight(elapsed,jumpAt),moving:!finished&&predicted.lives>0&&elapsed>3000&&elapsed<RUN_DURATION};
 }
 
+// Finished runners retain their records but leave the shared track, including
+// their name tag and contact shadow. Before the first snapshot, hide ghosts.
+export function remoteRunnerVisible(player,elapsed){
+  return !!player&&!player.left&&!player.finished&&player.state.lives>0&&elapsed<RUN_DURATION;
+}
+
 // A clock correction is eased and never makes the displayed track run backwards.
 export function runTime(clock, now, duration) {
   const target = now - clock.start;

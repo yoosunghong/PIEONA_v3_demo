@@ -25,10 +25,11 @@ function spawn(s,initial=false){
 }
 export function newCrabGame(players,seed=12345){
   const s={elapsed:0,seed:seed>>>0,nextId:0,nextSpawn:CRAB_COUNTDOWN+crabSpawnInterval(0),nextItem:CRAB_COUNTDOWN+7000,items:[],nextItemId:0,zigzagUntil:0,players:[],crabs:[],ended:false,winner:null};
-  s.players=players.map((id,i)=>({id,x:players.length===1?0:(i?4:-4),z:0,angle:0,alive:true,lives:CRAB_LIVES,invulnerableUntil:0,lastItem:null,survived:0,chainBonus:0,input:{x:0,z:0},inputAt:-1000,inputSeq:0,trail:[],chain:[]}));
+  const columns=Math.ceil(Math.sqrt(players.length)),rows=Math.ceil(players.length/columns);
+  s.players=players.map((id,i)=>({id,x:players.length<=2?(players.length===1?0:(i?4:-4)):(i%columns-(columns-1)/2)*8,z:players.length<=2?0:(Math.floor(i/columns)-(rows-1)/2)*8,angle:0,alive:true,lives:CRAB_LIVES,invulnerableUntil:0,lastItem:null,survived:0,chainBonus:0,input:{x:0,z:0},inputAt:-1000,inputSeq:0,trail:[],chain:[]}));
   for(const p of s.players){
     for(let i=0;i<640;i++)p.trail.push({x:p.x,z:clamp(p.z+i*PLAYER_SPEED*CRAB_STEP/1000)});
-    for(let i=0;i<2;i++){const id=s.nextId++;p.chain.push(id);s.crabs.push({id,x:p.x,z:4.5+i*1.4,angle:0,mode:'chain',owner:p.id});}
+    for(let i=0;i<2;i++){const id=s.nextId++;p.chain.push(id);s.crabs.push({id,x:p.x,z:p.z+4.5+i*1.4,angle:0,mode:'chain',owner:p.id});}
   }
   for(let i=0;i<12;i++)spawn(s,true);
   for(const [i,type] of CRAB_ITEM_TYPES.entries())s.items.push({id:s.nextItemId++,type,x:(i-1)*6,z:-5,expires:CRAB_COUNTDOWN+22000});
@@ -49,7 +50,8 @@ export function chainTarget(p,index){
   return p.trail[Math.min(p.trail.length-1,Math.round((650+index*240)/CRAB_STEP))]||p;
 }
 function useItem(s,p,item){
-  const opponent=s.players.find(v=>v.id!==p.id&&v.alive);
+  const opponents=s.players.filter(v=>v.id!==p.id&&v.alive).sort((a,b)=>distance(p,a)-distance(p,b));
+  const opponent=(item.type==='steal'?opponents.find(v=>v.chain.length):null)||opponents[0];
   let applied=false;
   if(item.type==='steal'&&p.chain.length<52){
     const crab=opponent?s.crabs.find(c=>c.id===opponent.chain.at(-1)):s.crabs.find(c=>c.mode==='patrol');

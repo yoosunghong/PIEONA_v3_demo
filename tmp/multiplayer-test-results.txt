@@ -1,0 +1,394 @@
+TAP version 13
+# Subtest: local movement responds on the first frame, stops immediately, and normalizes diagonals
+ok 1 - local movement responds on the first frame, stops immediately, and normalizes diagonals
+  ---
+  duration_ms: 1.6984
+  type: 'test'
+  ...
+# Subtest: periodic delayed snapshots preserve constant frame speed instead of resetting extrapolation
+ok 2 - periodic delayed snapshots preserve constant frame speed instead of resetting extrapolation
+  ---
+  duration_ms: 0.8334
+  type: 'test'
+  ...
+# Subtest: server acknowledgements replay pending turns and stops while stale packets cannot rewind movement
+ok 3 - server acknowledgements replay pending turns and stops while stale packets cannot rewind movement
+  ---
+  duration_ms: 0.2905
+  type: 'test'
+  ...
+# Subtest: reconciliation is visually continuous for small corrections, but terminal positions and bounds stay authoritative
+ok 4 - reconciliation is visually continuous for small corrections, but terminal positions and bounds stay authoritative
+  ---
+  duration_ms: 0.1972
+  type: 'test'
+  ...
+# Subtest: clock jitter never reverses local time and the closer camera preserves the viewport aspect
+ok 5 - clock jitter never reverses local time and the closer camera preserves the viewport aspect
+  ---
+  duration_ms: 0.3095
+  type: 'test'
+  ...
+# (node:36552) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: solo crab game validates ownership and input; the server owns movement and early settlement
+ok 6 - solo crab game validates ownership and input; the server owns movement and early settlement
+  ---
+  duration_ms: 471.2026
+  type: 'test'
+  ...
+# Subtest: fatal contact settles once, records survival seconds, preserves anonymity and counts game completion
+ok 7 - fatal contact settles once, records survival seconds, preserves anonymity and counts game completion
+  ---
+  duration_ms: 215.0974
+  type: 'test'
+  ...
+# Subtest: the generic abandon endpoint releases the crab session and prevents recording abandoned games
+ok 8 - the generic abandon endpoint releases the crab session and prevents recording abandoned games
+  ---
+  duration_ms: 16.3323
+  type: 'test'
+  ...
+# Subtest: crab invitations share one beach and clock, reject forged opponent inputs and award a forfeit win
+ok 9 - crab invitations share one beach and clock, reject forged opponent inputs and award a forfeit win
+  ---
+  duration_ms: 43.1123
+  type: 'test'
+  ...
+# Subtest: simultaneous contacts yield a draw on both clients and each result can be saved independently
+ok 10 - simultaneous contacts yield a draw on both clients and each result can be saved independently
+  ---
+  duration_ms: 134.6595
+  type: 'test'
+  ...
+# Subtest: rematches require opponent consent, support decline/cancel, and reject stale or forged requests
+ok 11 - rematches require opponent consent, support decline/cancel, and reject stale or forged requests
+  ---
+  duration_ms: 344.2763
+  type: 'test'
+  ...
+# Subtest: survival rewards use authoritative elapsed time, settle once, and share daily and village caps
+ok 12 - survival rewards use authoritative elapsed time, settle once, and share daily and village caps
+  ---
+  duration_ms: 6.6902
+  type: 'test'
+  ...
+# Subtest: countdown freezes players and crabs; each player starts with a two-crab procession
+ok 13 - countdown freezes players and crabs; each player starts with a two-crab procession
+  ---
+  duration_ms: 3.4381
+  type: 'test'
+  ...
+# Subtest: input is normalized, stale packets are ignored, input expires and beach bounds hold
+ok 14 - input is normalized, stale packets are ignored, input expires and beach bounds hold
+  ---
+  duration_ms: 2.0353
+  type: 'test'
+  ...
+# Subtest: nearby patrols acquire a player and merge at the tail exactly once
+ok 15 - nearby patrols acquire a player and merge at the tail exactly once
+  ---
+  duration_ms: 0.9646
+  type: 'test'
+  ...
+# Subtest: a stopped player is caught; terminal time and score cannot grow after death
+ok 16 - a stopped player is caught; terminal time and score cannot grow after death
+  ---
+  duration_ms: 3.5356
+  type: 'test'
+  ...
+# Subtest: the procession records turns and idle positions without exposing path history in snapshots
+ok 17 - the procession records turns and idle positions without exposing path history in snapshots
+  ---
+  duration_ms: 0.6595
+  type: 'test'
+  ...
+# Subtest: longer processions earn a time-integrated bonus, with no retroactive points or post-death growth
+ok 18 - longer processions earn a time-integrated bonus, with no retroactive points or post-death growth
+  ---
+  duration_ms: 1.2298
+  type: 'test'
+  ...
+# Subtest: countdown contributes no procession bonus and accrual is independent of simulation chunk size
+ok 19 - countdown contributes no procession bonus and accrual is independent of simulation chunk size
+  ---
+  duration_ms: 2.1988
+  type: 'test'
+  ...
+# Subtest: own, opponent and wild crabs each cost one life; the third hit ends the game
+ok 20 - own, opponent and wild crabs each cost one life; the third hit ends the game
+  ---
+  duration_ms: 2.1052
+  type: 'test'
+  ...
+# Subtest: last-life simultaneous contacts resolve to a draw in the same tick
+ok 21 - last-life simultaneous contacts resolve to a draw in the same tick
+  ---
+  duration_ms: 0.996
+  type: 'test'
+  ...
+# Subtest: difficulty adds more crabs and dynamic patrols over time with deterministic bounded ecology
+ok 22 - difficulty adds more crabs and dynamic patrols over time with deterministic bounded ecology
+  ---
+  duration_ms: 102.8415
+  type: 'test'
+  ...
+# Subtest: patrols first appear after 2.8 seconds, accelerate each wave, and stop at the ecology cap
+ok 23 - patrols first appear after 2.8 seconds, accelerate each wave, and stop at the ecology cap
+  ---
+  duration_ms: 228.5562
+  type: 'test'
+  ...
+# Subtest: steal activates on contact, transfers only the opponent tail and cannot duplicate it
+ok 24 - steal activates on contact, transfers only the opponent tail and cannot duplicate it
+  ---
+  duration_ms: 1.629
+  type: 'test'
+  ...
+# Subtest: an empty opponent procession or a full receiving chain consumes the bubble without stealing another crab
+ok 25 - an empty opponent procession or a full receiving chain consumes the bubble without stealing another crab
+  ---
+  duration_ms: 0.9637
+  type: 'test'
+  ...
+# Subtest: launch consumes one tail crab, aims at the opponent and swept collision costs exactly one life
+ok 26 - launch consumes one tail crab, aims at the opponent and swept collision costs exactly one life
+  ---
+  duration_ms: 0.7707
+  type: 'test'
+  ...
+# Subtest: a launched crab expires back into the ecology; empty launch is safe and reports no effect
+ok 27 - a launched crab expires back into the ecology; empty launch is safe and reports no effect
+  ---
+  duration_ms: 0.9453
+  type: 'test'
+  ...
+# Subtest: launch also hits an opponent at close range without hitting its shooter on the impact tick
+ok 28 - launch also hits an opponent at close range without hitting its shooter on the impact tick
+  ---
+  duration_ms: 0.7305
+  type: 'test'
+  ...
+# Subtest: zigzag changes both processions for seven seconds, then follows the ordinary targets again
+ok 29 - zigzag changes both processions for seven seconds, then follows the ordinary targets again
+  ---
+  duration_ms: 2.8886
+  type: 'test'
+  ...
+# Subtest: bubbles freeze during countdown, expire, respawn deterministically and stay within the population cap
+ok 30 - bubbles freeze during countdown, expire, respawn deterministically and stay within the population cap
+  ---
+  duration_ms: 219.4149
+  type: 'test'
+  ...
+# Subtest: solo bubbles work without an opponent and snapshots do not share mutable state
+ok 31 - solo bubbles work without an opponent and snapshots do not share mutable state
+  ---
+  duration_ms: 0.949
+  type: 'test'
+  ...
+# (node:14180) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: eight runners wait for every acceptance and readiness, share a track, and continue after one leaves
+ok 32 - eight runners wait for every acceptance and readiness, share a track, and continue after one leaves
+  ---
+  duration_ms: 941.0468
+  type: 'test'
+  ...
+# Subtest: eight crab players spawn apart, keep playing after departures, and settle the last survivor
+ok 33 - eight crab players spawn apart, keep playing after departures, and settle the last survivor
+  ---
+  duration_ms: 182.1884
+  type: 'test'
+  ...
+# Subtest: group crab rematches require every participant to consent
+ok 34 - group crab rematches require every participant to consent
+  ---
+  duration_ms: 154.3143
+  type: 'test'
+  ...
+# Subtest: invites reject duplicates, excess capacity, cross-guest blocks, busy and absent players
+ok 35 - invites reject duplicates, excess capacity, cross-guest blocks, busy and absent players
+  ---
+  duration_ms: 118.6304
+  type: 'test'
+  ...
+# Subtest: a decline or village departure cancels the whole invitation and releases reservations
+ok 36 - a decline or village departure cancels the whole invitation and releases reservations
+  ---
+  duration_ms: 64.1722
+  type: 'test'
+  ...
+# Subtest: one unacknowledged jump lands even through many delayed broadcasts
+ok 37 - one unacknowledged jump lands even through many delayed broadcasts
+  ---
+  duration_ms: 1.2178
+  type: 'test'
+  ...
+# Subtest: airborne jump presses are ignored without queuing another jump, while lanes remain usable
+ok 38 - airborne jump presses are ignored without queuing another jump, while lanes remain usable
+  ---
+  duration_ms: 0.1839
+  type: 'test'
+  ...
+# Subtest: late acknowledgement does not rewind or restart the visible jump
+ok 39 - late acknowledgement does not rewind or restart the visible jump
+  ---
+  duration_ms: 0.2138
+  type: 'test'
+  ...
+# Subtest: remote running, lane changes and jump keep animating after local game over
+ok 40 - remote running, lane changes and jump keep animating after local game over
+  ---
+  duration_ms: 0.209
+  type: 'test'
+  ...
+# Subtest: delayed snapshots preserve unacknowledged lane and jump inputs
+ok 41 - delayed snapshots preserve unacknowledged lane and jump inputs
+  ---
+  duration_ms: 0.7085
+  type: 'test'
+  ...
+# Subtest: out of order replies cannot overwrite newer server state
+ok 42 - out of order replies cannot overwrite newer server state
+  ---
+  duration_ms: 0.1503
+  type: 'test'
+  ...
+# Subtest: track time never reverses when clock corrections arrive
+ok 43 - track time never reverses when clock corrections arrive
+  ---
+  duration_ms: 0.3245
+  type: 'test'
+  ...
+# Subtest: a short jump clears fences, lands within half a second, and can jump again immediately
+ok 44 - a short jump clears fences, lands within half a second, and can jump again immediately
+  ---
+  duration_ms: 0.901
+  type: 'test'
+  ...
+# Subtest: speed increases every two seconds, caps at 50m/s, and covers exactly 5000m
+ok 45 - speed increases every two seconds, caps at 50m/s, and covers exactly 5000m
+  ---
+  duration_ms: 3.2967
+  type: 'test'
+  ...
+# Subtest: the longer course has increasingly frequent obstacles and collectible seeds between them
+ok 46 - the longer course has increasingly frequent obstacles and collectible seeds between them
+  ---
+  duration_ms: 1.3509
+  type: 'test'
+  ...
+# Subtest: seeds award points once, including while jumping, without counting as dodged obstacles
+ok 47 - seeds award points once, including while jumping, without counting as dodged obstacles
+  ---
+  duration_ms: 1.1396
+  type: 'test'
+  ...
+# Subtest: seeds beyond a fatal collision cannot be collected and retries cannot duplicate points
+ok 48 - seeds beyond a fatal collision cannot be collected and retries cannot duplicate points
+  ---
+  duration_ms: 0.2902
+  type: 'test'
+  ...
+# (node:20508) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: solo game validates ownership and inputs, saves authoritative anonymous records once
+ok 49 - solo game validates ownership and inputs, saves authoritative anonymous records once
+  ---
+  duration_ms: 268.1185
+  type: 'test'
+  ...
+# Subtest: generic abandon frees the volley room and cannot produce a completed record
+ok 50 - generic abandon frees the volley room and cannot produce a completed record
+  ---
+  duration_ms: 20.3697
+  type: 'test'
+  ...
+# Subtest: last socket disconnect abandons a solo match and permits a fresh match
+ok 51 - last socket disconnect abandons a solo match and permits a fresh match
+  ---
+  duration_ms: 107.2611
+  type: 'test'
+  ...
+# Subtest: friend invitation shares one match, authenticates inputs and resolves opponent departure
+ok 52 - friend invitation shares one match, authenticates inputs and resolves opponent departure
+  ---
+  duration_ms: 32.4009
+  type: 'test'
+  ...
+# Subtest: prediction retains a short movement tap and jump across delayed snapshots until acknowledged
+ok 53 - prediction retains a short movement tap and jump across delayed snapshots until acknowledged
+  ---
+  duration_ms: 1.646
+  type: 'test'
+  ...
+# Subtest: future scheduled matches stay frozen until their shared start
+ok 54 - future scheduled matches stay frozen until their shared start
+  ---
+  duration_ms: 0.3048
+  type: 'test'
+  ...
+# Subtest: continuous frame simulation matches fixed-step physics and does not mutate server snapshots
+ok 55 - continuous frame simulation matches fixed-step physics and does not mutate server snapshots
+  ---
+  duration_ms: 0.9585
+  type: 'test'
+  ...
+# Subtest: clock corrections never rewind and a network gap caps simulation work
+ok 56 - clock corrections never rewind and a network gap caps simulation work
+  ---
+  duration_ms: 0.9216
+  type: 'test'
+  ...
+# Subtest: score changes snap to the next serve and terminal snapshots clear pending inputs
+ok 57 - score changes snap to the next serve and terminal snapshots clear pending inputs
+  ---
+  duration_ms: 0.3844
+  type: 'test'
+  ...
+# Subtest: automatic serve clears the net and the solo AI tracks and returns the ball
+ok 58 - automatic serve clears the net and the solo AI tracks and returns the ball
+  ---
+  duration_ms: 3.9051
+  type: 'test'
+  ...
+# Subtest: player input stays in its court, jumps, rejects stale sequences and expires on lost connection
+ok 59 - player input stays in its court, jumps, rejects stale sequences and expires on lost connection
+  ---
+  duration_ms: 0.35
+  type: 'test'
+  ...
+# Subtest: ball collides with the side and the top of the net without crossing it
+ok 60 - ball collides with the side and the top of the net without crossing it
+  ---
+  duration_ms: 0.1708
+  type: 'test'
+  ...
+# Subtest: body returns automatically; aerial spike produces a fast attack
+ok 61 - body returns automatically; aerial spike produces a fast attack
+  ---
+  duration_ms: 0.2332
+  type: 'test'
+  ...
+# Subtest: floor awards opponent a point, loser serves next, seven points ends the match
+ok 62 - floor awards opponent a point, loser serves next, seven points ends the match
+  ---
+  duration_ms: 0.9249
+  type: 'test'
+  ...
+# Subtest: time limit finishes ties and bounded fixed steps produce deterministic results
+ok 63 - time limit finishes ties and bounded fixed steps produce deterministic results
+  ---
+  duration_ms: 2.4437
+  type: 'test'
+  ...
+1..63
+# tests 63
+# suites 0
+# pass 63
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6701.1792

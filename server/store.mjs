@@ -51,6 +51,9 @@ export function openStore(filename = './data/pieona.sqlite') {
     CREATE TABLE IF NOT EXISTS survey_responses (id TEXT PRIMARY KEY, version INTEGER NOT NULL, answers TEXT NOT NULL);
   `);
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='active_slot'))db.exec("ALTER TABLE users ADD COLUMN active_slot TEXT NOT NULL DEFAULT ''");
+  if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='survey_role'))db.exec("ALTER TABLE users ADD COLUMN survey_role TEXT NOT NULL DEFAULT 'user' CHECK(survey_role IN ('user','manager','admin'))");
+  // The requested existing account is pinned to its immutable ID, never a mutable nickname.
+  db.prepare("UPDATE users SET survey_role='admin' WHERE id=? AND username=? AND survey_role<>'admin'").run('a5a056ab-e1e6-42e6-833f-3a61f31fe05e','hys8623');
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='anonymous'))db.exec('ALTER TABLE games ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');
   for(const column of ['village','appearance','character_looks'])if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name===column))db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT '{}'`);
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='kind'))db.exec("ALTER TABLE games ADD COLUMN kind TEXT NOT NULL DEFAULT 'rhythm'");
@@ -60,6 +63,10 @@ export function openStore(filename = './data/pieona.sqlite') {
   if(!db.prepare('PRAGMA table_info(conversations)').all().some(c=>c.name==='avatar_slot')){
     db.exec("ALTER TABLE conversations ADD COLUMN avatar_slot TEXT NOT NULL DEFAULT ''; UPDATE conversations SET avatar_slot=COALESCE((SELECT active_slot FROM users WHERE users.id=conversations.target_id),'')");
   }
+  // Persist awards independently of deletable conversation history.
+  db.exec(`CREATE TABLE IF NOT EXISTS avatar_experience (message_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), avatar_slot TEXT NOT NULL, amount INTEGER NOT NULL);
+    CREATE INDEX IF NOT EXISTS avatar_experience_owner ON avatar_experience(owner_id,avatar_slot);
+    INSERT OR IGNORE INTO avatar_experience SELECT m.id,c.target_id,c.avatar_slot,10 FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE m.role='assistant';`);
   return {
     db,
     one: (sql, ...args) => db.prepare(sql).get(...args),
@@ -72,17 +79,11 @@ export function openStore(filename = './data/pieona.sqlite') {
 
 export const defaultSettings = { allowVisitors: true, receiveTranscripts: true, allowTopics: true, stageVisible: true, questionFrequency: 'daily', questionTopic: '일상', publicTags: [], speechStyle: '다정하고 편안하게', scene: 'garden' };
 export const settingsOf = user => ({ ...defaultSettings, ...JSON.parse(user.settings) });
-export function stageOf(store, user) {
-  const memories = store.all('SELECT category, confirmed, source FROM memories WHERE owner_id=?', user.id);
-  const verified = memories.filter(m => m.confirmed && m.source !== 'balance');
-  const diversity = new Set(verified.map(m => m.category)).size;
-  const balance = JSON.parse(user.balance).length;
-  if (!balance) return 0;
-  if (verified.length >= 16 && diversity >= 4) return 4;
-  if (verified.length >= 8 && diversity >= 3) return 3;
-  if (verified.length >= 3 && diversity >= 2) return 2;
-  return 1;
+export function experienceOf(store,user) {
+  const xp=store.one('SELECT COALESCE(SUM(amount),0) xp FROM avatar_experience WHERE owner_id=? AND avatar_slot=?',user.id,user.active_slot || '').xp;
+  return {xp,level:Math.floor(xp/100)+1,levelXp:xp%100,nextLevelXp:100};
 }
+export function stageOf(store,user) { return experienceOf(store,user).level-1; }
 export function isBlocked(store, a, b) {
   return !!store.one('SELECT 1 FROM blocks WHERE (owner_id=? AND blocked_id=?) OR (owner_id=? AND blocked_id=?)', a, b, b, a);
 }
@@ -101,12 +102,13 @@ export function publicUser(store, user, viewerId, online = new Set()) {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
     village: {items:[],theme:'default',...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
     stage: own || s.stageVisible ? stageOf(store, user) : null,
+    ...((own || s.stageVisible) ? experienceOf(store,user) : {level:null,xp:null,levelXp:null,nextLevelXp:null}),
     tags: s.publicTags, online: online.has(user.id), allowVisitors: s.allowVisitors,
     allowTopics: s.allowTopics, receiveTranscripts: s.receiveTranscripts,
     scene: s.scene, relation: relation?.status || null, close: !!relation?.close, incoming: !!incoming,
     createdAt: user.created_at
   };
-  if (own) Object.assign(result, { username: user.username, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot, characterLooks:JSON.parse(user.character_looks) });
+  if (own) Object.assign(result, { username: user.username, surveyRole: user.survey_role, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot, characterLooks:JSON.parse(user.character_looks) });
   return result;
 }
 // Small-corpus lexical RAG. Scope is applied BEFORE retrieval; no shared vector index or cache.

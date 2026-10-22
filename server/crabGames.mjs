@@ -20,8 +20,8 @@ export function installCrabGames({app,io,store,auth,sessionUser,checkTarget,busy
   function leave(userId,roomId){
     for(const room of rooms.values())if(!roomId||room.id===roomId){const p=room.players.find(p=>p.userId===userId&&!p.left);if(!p)continue;p.left=true;
       store.run('UPDATE games SET finished=2 WHERE id=? AND finished=0',p.gameId);
-      const player=room.state.players.find(p=>p.id===userId);player.alive=false;player.input={x:0,z:0};
-      if(!room.state.ended){room.state.ended=true;room.state.winner=room.players.find(p=>!p.left&&p.userId!==userId)?.userId||null;publish(room);}
+      const player=room.state.players.find(p=>p.id===userId);player.alive=false;player.lives=0;player.input={x:0,z:0};
+      if(!room.state.ended){const alive=room.state.players.filter(p=>p.alive);if(alive.length<=1){room.state.ended=true;room.state.winner=alive[0]?.id||null;}publish(room);}
       emitVillage(room.villageId);
     }
   }

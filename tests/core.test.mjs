@@ -2,7 +2,7 @@ import test,{before,after}from'node:test';
 import assert from'node:assert/strict';
 import{io as clientIO}from'socket.io-client';
 import{createApp,questions}from'../server/app.mjs';
-import{openStore,visibleMemories,retrieve}from'../server/store.mjs';
+import{openStore,experienceOf,visibleMemories,retrieve}from'../server/store.mjs';
 import{assembleContext,generateAnswer}from'../server/ai.mjs';
 import{mkdtempSync,rmSync}from'node:fs';
 import{tmpdir}from'node:os';
@@ -195,6 +195,8 @@ test('legacy conversation migration preserves messages and binds existing active
     INSERT INTO messages VALUES('legacy-message','legacy-chat','user','이전 버전의 이야기','calm','2026-10-15');`);
   legacy.close();let db=openStore(file);
   assert.equal(db.one('SELECT avatar_slot FROM conversations').avatar_slot,'original-slot');assert.equal(db.one('SELECT content FROM messages').content,'이전 버전의 이야기');
+  db.run("INSERT INTO messages VALUES('legacy-reply','legacy-chat','assistant','reply','calm','2026-10-15')");db.close();db=openStore(file);
+  assert.equal(experienceOf(db,db.one('SELECT * FROM users')).xp,10);db.close();db=openStore(file);assert.equal(experienceOf(db,db.one('SELECT * FROM users')).xp,10);
   db.run("UPDATE users SET active_slot='another-slot'");db.close();db=openStore(file);assert.equal(db.one('SELECT avatar_slot FROM conversations').avatar_slot,'original-slot');db.close();rmSync(dir,{recursive:true});
 });
 
@@ -235,3 +237,5 @@ test('world saves allow more than ten statues',async()=>{
   const result=await request('/me/world',{cookie:alice.cookie,method:'PATCH',body:{village:{items}}});
   assert.notEqual(result.status,400);
 });
+
+

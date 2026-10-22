@@ -1,0 +1,1301 @@
+
+> pieona-avatar-prototype@1.0.0 test
+> node --test --test-concurrency=1 tests/*.test.mjs
+
+TAP version 13
+# Subtest: missing survey API does not discard existing users or accepted friendships
+ok 1 - missing survey API does not discard existing users or accepted friendships
+  ---
+  duration_ms: 1.1842
+  type: 'test'
+  ...
+# Subtest: failed people request is distinguishable from a genuinely empty list and can be retried
+ok 2 - failed people request is distinguishable from a genuinely empty list and can be retried
+  ---
+  duration_ms: 1.1818
+  type: 'test'
+  ...
+# Subtest: authentication failures remain available for the caller to end the session
+ok 3 - authentication failures remain available for the caller to end the session
+  ---
+  duration_ms: 0.2974
+  type: 'test'
+  ...
+# Subtest: rapid selections serialize saves and preserve all character outfits in the final snapshot
+ok 4 - rapid selections serialize saves and preserve all character outfits in the final snapshot
+  ---
+  duration_ms: 1.2315
+  type: 'test'
+  ...
+# Subtest: failed final save can be retried with the same wardrobe
+ok 5 - failed final save can be retried with the same wardrobe
+  ---
+  duration_ms: 0.8324
+  type: 'test'
+  ...
+# Subtest: a failed superseded save does not prevent the newer choice from saving
+ok 6 - a failed superseded save does not prevent the newer choice from saving
+  ---
+  duration_ms: 0.215
+  type: 'test'
+  ...
+# Subtest: selections made during profile refresh are saved before the queue finishes
+ok 7 - selections made during profile refresh are saved before the queue finishes
+  ---
+  duration_ms: 0.281
+  type: 'test'
+  ...
+# (node:21732) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: conversation XP belongs to the target avatar, survives deletion and stays private when hidden
+ok 8 - conversation XP belongs to the target avatar, survives deletion and stays private when hidden
+  ---
+  duration_ms: 401.0809
+  type: 'test'
+  ...
+# Subtest: village jumps land after one arc and space never interrupts text input
+ok 9 - village jumps land after one arc and space never interrupts text input
+  ---
+  duration_ms: 0.9632
+  type: 'test'
+  ...
+# Subtest: the village stand-in disappears while the owner is present and returns on departure
+ok 10 - the village stand-in disappears while the owner is present and returns on departure
+  ---
+  duration_ms: 0.1961
+  type: 'test'
+  ...
+# Subtest: touch stick has a dead zone and bounded analog speed in camera space
+ok 11 - touch stick has a dead zone and bounded analog speed in camera space
+  ---
+  duration_ms: 2.8475
+  type: 'test'
+  ...
+# Subtest: walking ignores text editing, composition and browser shortcuts
+ok 12 - walking ignores text editing, composition and browser shortcuts
+  ---
+  duration_ms: 0.3067
+  type: 'test'
+  ...
+# Subtest: owner can walk before connecting and reconnection never duplicates the player
+ok 13 - owner can walk before connecting and reconnection never duplicates the player
+  ---
+  duration_ms: 0.3463
+  type: 'test'
+  ...
+# Subtest: single direction keys follow the screen axes at default and orbited camera angles
+ok 14 - single direction keys follow the screen axes at default and orbited camera angles
+  ---
+  duration_ms: 1.6088
+  type: 'test'
+  ...
+# Subtest: shared run cycle swings opposite limbs without accumulating rotation and restores idle
+ok 15 - shared run cycle swings opposite limbs without accumulating rotation and restores idle
+  ---
+  duration_ms: 1.8214
+  type: 'test'
+  ...
+# Subtest: idle mixer can stop for running and resume without overriding the run pose
+ok 16 - idle mixer can stop for running and resume without overriding the run pose
+  ---
+  duration_ms: 2.5138
+  type: 'test'
+  ...
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ShininessExponent map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: ReflectionFactor map is not supported in three.js, skipping texture.
+# THREE.FBXLoader: Vertex has more than 4 skinning weights assigned to vertex. Deleting additional weights.
+# Subtest: bench interactions follow saved positions, rotations and storage visibility
+ok 17 - bench interactions follow saved positions, rotations and storage visibility
+  ---
+  duration_ms: 1.3409
+  type: 'test'
+  ...
+# Subtest: C uses the physical Korean keyboard key and ignores text entry, key repeat and shortcuts
+ok 18 - C uses the physical Korean keyboard key and ignores text entry, key repeat and shortcuts
+  ---
+  duration_ms: 0.1947
+  type: 'test'
+  ...
+# Subtest: seated camera panning preserves elevated framing and remains movable after zooming
+ok 19 - seated camera panning preserves elevated framing and remains movable after zooming
+  ---
+  duration_ms: 0.8277
+  type: 'test'
+  ...
+# Subtest: all four actual character rigs bend thighs forward and knees down, align hips to the seat, and restore their pose
+ok 20 - all four actual character rigs bend thighs forward and knees down, align hips to the seat, and restore their pose
+  ---
+  duration_ms: 517.9614
+  type: 'test'
+  ...
+# Subtest: capture preserves the source, date, location and actual companion appearance
+ok 21 - capture preserves the source, date, location and actual companion appearance
+  ---
+  duration_ms: 1.3395
+  type: 'test'
+  ...
+# Subtest: album combines companion, favorite, text and date filters without mutating saved order
+ok 22 - album combines companion, favorite, text and date filters without mutating saved order
+  ---
+  duration_ms: 0.3853
+  type: 'test'
+  ...
+# Subtest: all village themes have an export palette and six distinct selectable frames
+ok 23 - all village themes have an export palette and six distinct selectable frames
+  ---
+  duration_ms: 0.1694
+  type: 'test'
+  ...
+# Subtest: PNG names sanitize filesystem characters and retain a meaningful Korean title
+ok 24 - PNG names sanitize filesystem characters and retain a meaningful Korean title
+  ---
+  duration_ms: 2.1212
+  type: 'test'
+  ...
+# Subtest: PNG story wrapping retains long Korean text, explicit blank lines and emoji without truncation
+ok 25 - PNG story wrapping retains long Korean text, explicit blank lines and emoji without truncation
+  ---
+  duration_ms: 1.3016
+  type: 'test'
+  ...
+# (node:51404) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: authentication, hashed sessions, CSRF origin and validation
+ok 26 - authentication, hashed sessions, CSRF origin and validation
+  ---
+  duration_ms: 301.1473
+  type: 'test'
+  ...
+# Subtest: memory scopes are enforced before RAG, pending public drafts stay private
+ok 27 - memory scopes are enforced before RAG, pending public drafts stay private
+  ---
+  duration_ms: 36.792
+  type: 'test'
+  ...
+# Subtest: 100 visitor turns cannot mutate the owner persona; unique visitor reward is paid once
+ok 28 - 100 visitor turns cannot mutate the owner persona; unique visitor reward is paid once
+  ---
+  duration_ms: 413.1431
+  type: 'test'
+  ...
+# Subtest: transcripts require both parties, consent can be revoked, anonymous visitor metadata stays anonymous
+ok 29 - transcripts require both parties, consent can be revoked, anonymous visitor metadata stays anonymous
+  ---
+  duration_ms: 26.6095
+  type: 'test'
+  ...
+# Subtest: revoked memories remove old history from the next model context
+ok 30 - revoked memories remove old history from the next model context
+  ---
+  duration_ms: 13.2687
+  type: 'test'
+  ...
+# Subtest: privacy edits while AI is in flight discard the stale response before storage
+ok 31 - privacy edits while AI is in flight discard the stale response before storage
+  ---
+  duration_ms: 9.3056
+  type: 'test'
+  ...
+# Subtest: five unique balance answers create private confirmed memories and stage progress
+ok 32 - five unique balance answers create private confirmed memories and stage progress
+  ---
+  duration_ms: 10.0294
+  type: 'test'
+  ...
+# Subtest: avatar topic uses only public snapshots for both speakers and never grows persona
+ok 33 - avatar topic uses only public snapshots for both speakers and never grows persona
+  ---
+  duration_ms: 8.7915
+  type: 'test'
+  ...
+# Subtest: rhythm timing and rewards are server-authoritative and idempotent
+ok 34 - rhythm timing and rewards are server-authoritative and idempotent
+  ---
+  duration_ms: 28.887
+  type: 'test'
+  ...
+# Subtest: blocking revokes profile, chat and topic access on the server
+ok 35 - blocking revokes profile, chat and topic access on the server
+  ---
+  duration_ms: 12.3383
+  type: 'test'
+  ...
+# Subtest: multi-tab presence stays online until the final authenticated socket closes
+ok 36 - multi-tab presence stays online until the final authenticated socket closes
+  ---
+  duration_ms: 77.1066
+  type: 'test'
+  ...
+# Subtest: Gemini adapter sends a scoped structured request and validates returned data
+ok 37 - Gemini adapter sends a scoped structured request and validates returned data
+  ---
+  duration_ms: 1.7711
+  type: 'test'
+  ...
+# Subtest: invalid placeholder Gemini key is explicitly reported as local mode
+ok 38 - invalid placeholder Gemini key is explicitly reported as local mode
+  ---
+  duration_ms: 0.6292
+  type: 'test'
+  ...
+# Subtest: free persona slots preserve independent memories and expose only the active public profile
+ok 39 - free persona slots preserve independent memories and expose only the active public profile
+  ---
+  duration_ms: 19.4386
+  type: 'test'
+  ...
+# Subtest: new chat sessions isolate turn history while keeping personality, titles and access private
+ok 40 - new chat sessions isolate turn history while keeping personality, titles and access private
+  ---
+  duration_ms: 33.0577
+  type: 'test'
+  ...
+# Subtest: identity remains in unrelated-topic context, respects scopes and drives local conversational tone
+ok 41 - identity remains in unrelated-topic context, respects scopes and drives local conversational tone
+  ---
+  duration_ms: 75.563
+  type: 'test'
+  ...
+# Subtest: SQLite persists accounts and memories across restarts
+ok 42 - SQLite persists accounts and memories across restarts
+  ---
+  duration_ms: 171.2934
+  type: 'test'
+  ...
+# Subtest: legacy conversation migration preserves messages and binds existing active persona once
+ok 43 - legacy conversation migration preserves messages and binds existing active persona once
+  ---
+  duration_ms: 258.2118
+  type: 'test'
+  ...
+# Subtest: notification reads persist and only the owner can mark activities read
+ok 44 - notification reads persist and only the owner can mark activities read
+  ---
+  duration_ms: 7.6138
+  type: 'test'
+  ...
+# Subtest: conversation portraits respect anonymous visitor identity
+ok 45 - conversation portraits respect anonymous visitor identity
+  ---
+  duration_ms: 7.3852
+  type: 'test'
+  ...
+# Subtest: world saves reject placing more than ten of the same decoration
+ok 46 - world saves reject placing more than ten of the same decoration
+  ---
+  duration_ms: 7.2264
+  type: 'test'
+  ...
+# Subtest: world saves allow more than ten statues
+not ok 47 - world saves allow more than ten statues
+  ---
+  duration_ms: 5.0848
+  type: 'test'
+  location: 'D:\\Github\\PIEONA_v3_prototype\\tests\\core.test.mjs:235:1'
+  failureType: 'testCodeFailure'
+  error: 'Expected "actual" to be strictly unequal to: 400'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 400
+  actual: 400
+  operator: 'notStrictEqual'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Github/PIEONA_v3_prototype/tests/core.test.mjs:238:10)
+    process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    async Test.run (node:internal/test_runner/test:1054:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:744:7)
+  ...
+# Subtest: local movement responds on the first frame, stops immediately, and normalizes diagonals
+ok 48 - local movement responds on the first frame, stops immediately, and normalizes diagonals
+  ---
+  duration_ms: 2.0075
+  type: 'test'
+  ...
+# Subtest: periodic delayed snapshots preserve constant frame speed instead of resetting extrapolation
+ok 49 - periodic delayed snapshots preserve constant frame speed instead of resetting extrapolation
+  ---
+  duration_ms: 0.5977
+  type: 'test'
+  ...
+# Subtest: server acknowledgements replay pending turns and stops while stale packets cannot rewind movement
+ok 50 - server acknowledgements replay pending turns and stops while stale packets cannot rewind movement
+  ---
+  duration_ms: 0.2121
+  type: 'test'
+  ...
+# Subtest: reconciliation is visually continuous for small corrections, but terminal positions and bounds stay authoritative
+ok 51 - reconciliation is visually continuous for small corrections, but terminal positions and bounds stay authoritative
+  ---
+  duration_ms: 0.1596
+  type: 'test'
+  ...
+# Subtest: clock jitter never reverses local time and the closer camera preserves the viewport aspect
+ok 52 - clock jitter never reverses local time and the closer camera preserves the viewport aspect
+  ---
+  duration_ms: 0.2391
+  type: 'test'
+  ...
+# (node:9728) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: solo crab game validates ownership and input; the server owns movement and early settlement
+ok 53 - solo crab game validates ownership and input; the server owns movement and early settlement
+  ---
+  duration_ms: 416.1357
+  type: 'test'
+  ...
+# Subtest: fatal contact settles once, records survival seconds, preserves anonymity and counts game completion
+ok 54 - fatal contact settles once, records survival seconds, preserves anonymity and counts game completion
+  ---
+  duration_ms: 216.3913
+  type: 'test'
+  ...
+# Subtest: the generic abandon endpoint releases the crab session and prevents recording abandoned games
+ok 55 - the generic abandon endpoint releases the crab session and prevents recording abandoned games
+  ---
+  duration_ms: 9.9844
+  type: 'test'
+  ...
+# Subtest: crab invitations share one beach and clock, reject forged opponent inputs and award a forfeit win
+ok 56 - crab invitations share one beach and clock, reject forged opponent inputs and award a forfeit win
+  ---
+  duration_ms: 27.5596
+  type: 'test'
+  ...
+# Subtest: simultaneous contacts yield a draw on both clients and each result can be saved independently
+ok 57 - simultaneous contacts yield a draw on both clients and each result can be saved independently
+  ---
+  duration_ms: 119.0594
+  type: 'test'
+  ...
+# Subtest: rematches require opponent consent, support decline/cancel, and reject stale or forged requests
+ok 58 - rematches require opponent consent, support decline/cancel, and reject stale or forged requests
+  ---
+  duration_ms: 299.0088
+  type: 'test'
+  ...
+# Subtest: survival rewards use authoritative elapsed time, settle once, and share daily and village caps
+ok 59 - survival rewards use authoritative elapsed time, settle once, and share daily and village caps
+  ---
+  duration_ms: 5.2093
+  type: 'test'
+  ...
+# Subtest: the beach keeps a bounded draw budget with a hundred crabs and no moving shadow casters
+ok 60 - the beach keeps a bounded draw budget with a hundred crabs and no moving shadow casters
+  ---
+  duration_ms: 19.8538
+  type: 'test'
+  ...
+# Subtest: countdown freezes players and crabs; each player starts with a two-crab procession
+ok 61 - countdown freezes players and crabs; each player starts with a two-crab procession
+  ---
+  duration_ms: 3.8269
+  type: 'test'
+  ...
+# Subtest: input is normalized, stale packets are ignored, input expires and beach bounds hold
+ok 62 - input is normalized, stale packets are ignored, input expires and beach bounds hold
+  ---
+  duration_ms: 1.391
+  type: 'test'
+  ...
+# Subtest: nearby patrols acquire a player and merge at the tail exactly once
+ok 63 - nearby patrols acquire a player and merge at the tail exactly once
+  ---
+  duration_ms: 0.5424
+  type: 'test'
+  ...
+# Subtest: a stopped player is caught; terminal time and score cannot grow after death
+ok 64 - a stopped player is caught; terminal time and score cannot grow after death
+  ---
+  duration_ms: 3.1952
+  type: 'test'
+  ...
+# Subtest: the procession records turns and idle positions without exposing path history in snapshots
+ok 65 - the procession records turns and idle positions without exposing path history in snapshots
+  ---
+  duration_ms: 0.8008
+  type: 'test'
+  ...
+# Subtest: longer processions earn a time-integrated bonus, with no retroactive points or post-death growth
+ok 66 - longer processions earn a time-integrated bonus, with no retroactive points or post-death growth
+  ---
+  duration_ms: 1.0971
+  type: 'test'
+  ...
+# Subtest: countdown contributes no procession bonus and accrual is independent of simulation chunk size
+ok 67 - countdown contributes no procession bonus and accrual is independent of simulation chunk size
+  ---
+  duration_ms: 1.7179
+  type: 'test'
+  ...
+# Subtest: own, opponent and wild crabs each cost one life; the third hit ends the game
+ok 68 - own, opponent and wild crabs each cost one life; the third hit ends the game
+  ---
+  duration_ms: 1.5655
+  type: 'test'
+  ...
+# Subtest: last-life simultaneous contacts resolve to a draw in the same tick
+ok 69 - last-life simultaneous contacts resolve to a draw in the same tick
+  ---
+  duration_ms: 0.5964
+  type: 'test'
+  ...
+# Subtest: difficulty adds more crabs and dynamic patrols over time with deterministic bounded ecology
+ok 70 - difficulty adds more crabs and dynamic patrols over time with deterministic bounded ecology
+  ---
+  duration_ms: 92.11
+  type: 'test'
+  ...
+# Subtest: patrols first appear after 2.8 seconds, accelerate each wave, and stop at the ecology cap
+ok 71 - patrols first appear after 2.8 seconds, accelerate each wave, and stop at the ecology cap
+  ---
+  duration_ms: 203.2684
+  type: 'test'
+  ...
+# Subtest: steal activates on contact, transfers only the opponent tail and cannot duplicate it
+ok 72 - steal activates on contact, transfers only the opponent tail and cannot duplicate it
+  ---
+  duration_ms: 0.9506
+  type: 'test'
+  ...
+# Subtest: an empty opponent procession or a full receiving chain consumes the bubble without stealing another crab
+ok 73 - an empty opponent procession or a full receiving chain consumes the bubble without stealing another crab
+  ---
+  duration_ms: 0.6732
+  type: 'test'
+  ...
+# Subtest: launch consumes one tail crab, aims at the opponent and swept collision costs exactly one life
+ok 74 - launch consumes one tail crab, aims at the opponent and swept collision costs exactly one life
+  ---
+  duration_ms: 0.4736
+  type: 'test'
+  ...
+# Subtest: a launched crab expires back into the ecology; empty launch is safe and reports no effect
+ok 75 - a launched crab expires back into the ecology; empty launch is safe and reports no effect
+  ---
+  duration_ms: 0.5062
+  type: 'test'
+  ...
+# Subtest: launch also hits an opponent at close range without hitting its shooter on the impact tick
+ok 76 - launch also hits an opponent at close range without hitting its shooter on the impact tick
+  ---
+  duration_ms: 0.4646
+  type: 'test'
+  ...
+# Subtest: zigzag changes both processions for seven seconds, then follows the ordinary targets again
+ok 77 - zigzag changes both processions for seven seconds, then follows the ordinary targets again
+  ---
+  duration_ms: 1.8761
+  type: 'test'
+  ...
+# Subtest: bubbles freeze during countdown, expire, respawn deterministically and stay within the population cap
+ok 78 - bubbles freeze during countdown, expire, respawn deterministically and stay within the population cap
+  ---
+  duration_ms: 196.8608
+  type: 'test'
+  ...
+# Subtest: solo bubbles work without an opponent and snapshots do not share mutable state
+ok 79 - solo bubbles work without an opponent and snapshots do not share mutable state
+  ---
+  duration_ms: 0.9162
+  type: 'test'
+  ...
+# (node:1808) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: legacy villages get exactly one book away from furniture and the sign
+ok 80 - legacy villages get exactly one book away from furniture and the sign
+  ---
+  duration_ms: 211.1351
+  type: 'test'
+  ...
+# Subtest: the book is a visible interactive 3D model and camera focus follows its placement and rotation
+ok 81 - the book is a visible interactive 3D model and camera focus follows its placement and rotation
+  ---
+  duration_ms: 9.4078
+  type: 'test'
+  ...
+# Subtest: foreground scenery can be suppressed for reading without hiding the book or changing village visibility
+ok 82 - foreground scenery can be suppressed for reading without hiding the book or changing village visibility
+  ---
+  duration_ms: 6.2664
+  type: 'test'
+  ...
+# Subtest: book placement is owner scoped, preserves other village fields and rejects collisions and duplicates
+ok 83 - book placement is owner scoped, preserves other village fields and rejects collisions and duplicates
+  ---
+  duration_ms: 55.1174
+  type: 'test'
+  ...
+# Subtest: authentication and a trimmed 200 Unicode character limit are enforced by the server
+ok 84 - authentication and a trimmed 200 Unicode character limit are enforced by the server
+  ---
+  duration_ms: 26.181
+  type: 'test'
+  ...
+# Subtest: public entries are shared, private entries are owner-only, anonymous names and IDs never leak
+ok 85 - public entries are shared, private entries are owner-only, anonymous names and IDs never leak
+  ---
+  duration_ms: 63.7607
+  type: 'test'
+  ...
+# Subtest: new guestbook entries notify only the owner, preserve anonymity and support read receipts
+ok 86 - new guestbook entries notify only the owner, preserve anonymity and support read receipts
+  ---
+  duration_ms: 79.7955
+  type: 'test'
+  ...
+# Subtest: pages count only visible entries, are newest first, and clamp after owner deletion
+ok 87 - pages count only visible entries, are newest first, and clamp after owner deletion
+  ---
+  duration_ms: 81.4917
+  type: 'test'
+  ...
+# Subtest: blocks and closed villages prevent reading and writing; blocked authors are filtered from visitor counts
+ok 88 - blocks and closed villages prevent reading and writing; blocked authors are filtered from visitor counts
+  ---
+  duration_ms: 116.4579
+  type: 'test'
+  ...
+# Subtest: live invalidation contains only the village ID and deletion also notifies viewers
+ok 89 - live invalidation contains only the village ID and deletion also notifies viewers
+  ---
+  duration_ms: 11.4545
+  type: 'test'
+  ...
+# Subtest: entries and placement survive a database restart and remain independent of avatar slots
+ok 90 - entries and placement survive a database restart and remain independent of avatar slots
+  ---
+  duration_ms: 271.1668
+  type: 'test'
+  ...
+# Subtest: stored and moved village models produce visible thumbnails without changing the village
+ok 91 - stored and moved village models produce visible thumbnails without changing the village
+  ---
+  duration_ms: 41.2354
+  type: 'test'
+  ...
+# (node:14736) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: eight runners wait for every acceptance and readiness, share a track, and continue after one leaves
+ok 92 - eight runners wait for every acceptance and readiness, share a track, and continue after one leaves
+  ---
+  duration_ms: 817.3104
+  type: 'test'
+  ...
+# Subtest: eight crab players spawn apart, keep playing after departures, and settle the last survivor
+ok 93 - eight crab players spawn apart, keep playing after departures, and settle the last survivor
+  ---
+  duration_ms: 172.2111
+  type: 'test'
+  ...
+# Subtest: group crab rematches require every participant to consent
+ok 94 - group crab rematches require every participant to consent
+  ---
+  duration_ms: 154.4665
+  type: 'test'
+  ...
+# Subtest: runner replay waits for all results and consent, keeps old records and resets the entire party
+ok 95 - runner replay waits for all results and consent, keeps old records and resets the entire party
+  ---
+  duration_ms: 312.6604
+  type: 'test'
+  ...
+# Subtest: invites reject duplicates, excess capacity, cross-guest blocks, busy and absent players
+ok 96 - invites reject duplicates, excess capacity, cross-guest blocks, busy and absent players
+  ---
+  duration_ms: 86.7635
+  type: 'test'
+  ...
+# Subtest: a decline or village departure cancels the whole invitation and releases reservations
+ok 97 - a decline or village departure cancels the whole invitation and releases reservations
+  ---
+  duration_ms: 37.7371
+  type: 'test'
+  ...
+# (node:51892) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: all balance questions expose a local example illustration and two speech scenarios
+ok 98 - all balance questions expose a local example illustration and two speech scenarios
+  ---
+  duration_ms: 187.1913
+  type: 'test'
+  ...
+# Subtest: five choices and two literal speech examples save atomically and enter the first owner context
+ok 99 - five choices and two literal speech examples save atomically and enter the first owner context
+  ---
+  duration_ms: 20.2117
+  type: 'test'
+  ...
+# Subtest: invalid or missing scenario answers cannot partially overwrite existing personality
+ok 100 - invalid or missing scenario answers cannot partially overwrite existing personality
+  ---
+  duration_ms: 31.7564
+  type: 'test'
+  ...
+# Subtest: seed chime respects mute, plays two short rising tones, and releases audio resources
+ok 101 - seed chime respects mute, plays two short rising tones, and releases audio resources
+  ---
+  duration_ms: 1.9986
+  type: 'test'
+  ...
+# Subtest: one unacknowledged jump lands even through many delayed broadcasts
+ok 102 - one unacknowledged jump lands even through many delayed broadcasts
+  ---
+  duration_ms: 1.2721
+  type: 'test'
+  ...
+# Subtest: airborne jump presses are ignored without queuing another jump, while lanes remain usable
+ok 103 - airborne jump presses are ignored without queuing another jump, while lanes remain usable
+  ---
+  duration_ms: 0.1578
+  type: 'test'
+  ...
+# Subtest: late acknowledgement does not rewind or restart the visible jump
+ok 104 - late acknowledgement does not rewind or restart the visible jump
+  ---
+  duration_ms: 0.1955
+  type: 'test'
+  ...
+# Subtest: remote running, lane changes and jump keep animating after local game over
+ok 105 - remote running, lane changes and jump keep animating after local game over
+  ---
+  duration_ms: 0.1834
+  type: 'test'
+  ...
+# Subtest: remote runners disappear on elimination before settlement and reappear for a fresh round
+ok 106 - remote runners disappear on elimination before settlement and reappear for a fresh round
+  ---
+  duration_ms: 0.1465
+  type: 'test'
+  ...
+# Subtest: delayed snapshots preserve unacknowledged lane and jump inputs
+ok 107 - delayed snapshots preserve unacknowledged lane and jump inputs
+  ---
+  duration_ms: 0.6332
+  type: 'test'
+  ...
+# Subtest: out of order replies cannot overwrite newer server state
+ok 108 - out of order replies cannot overwrite newer server state
+  ---
+  duration_ms: 0.188
+  type: 'test'
+  ...
+# Subtest: track time never reverses when clock corrections arrive
+ok 109 - track time never reverses when clock corrections arrive
+  ---
+  duration_ms: 0.1987
+  type: 'test'
+  ...
+# Subtest: a short jump clears fences, lands within half a second, and can jump again immediately
+ok 110 - a short jump clears fences, lands within half a second, and can jump again immediately
+  ---
+  duration_ms: 0.9029
+  type: 'test'
+  ...
+# Subtest: speed increases every two seconds, caps at 50m/s, and covers exactly 5000m
+ok 111 - speed increases every two seconds, caps at 50m/s, and covers exactly 5000m
+  ---
+  duration_ms: 2.8117
+  type: 'test'
+  ...
+# Subtest: the longer course has increasingly frequent obstacles and collectible seeds between them
+ok 112 - the longer course has increasingly frequent obstacles and collectible seeds between them
+  ---
+  duration_ms: 0.9389
+  type: 'test'
+  ...
+# Subtest: seeds award points once, including while jumping, without counting as dodged obstacles
+ok 113 - seeds award points once, including while jumping, without counting as dodged obstacles
+  ---
+  duration_ms: 0.8989
+  type: 'test'
+  ...
+# Subtest: seeds beyond a fatal collision cannot be collected and retries cannot duplicate points
+ok 114 - seeds beyond a fatal collision cannot be collected and retries cannot duplicate points
+  ---
+  duration_ms: 0.1903
+  type: 'test'
+  ...
+# Subtest: right drag moves horizontally and vertically in both own home and visited villages without changing angle or zoom
+ok 115 - right drag moves horizontally and vertically in both own home and visited villages without changing angle or zoom
+  ---
+  duration_ms: 10.2723
+  type: 'test'
+  ...
+# Subtest: large drags and remaining damping respect separate horizontal and vertical limits in both screens
+ok 116 - large drags and remaining damping respect separate horizontal and vertical limits in both screens
+  ---
+  duration_ms: 32.6446
+  type: 'test'
+  ...
+# Subtest: left drag still rotates and detail modes and editing retain their existing controls
+ok 117 - left drag still rotates and detail modes and editing retain their existing controls
+  ---
+  duration_ms: 0.8572
+  type: 'test'
+  ...
+# Subtest: portrait previews keep panning disabled and cafe framing uses its own height limit
+ok 118 - portrait previews keep panning disabled and cafe framing uses its own height limit
+  ---
+  duration_ms: 1.7744
+  type: 'test'
+  ...
+# Subtest: home to editing travels continuously from the actual orbited camera and returns exactly
+ok 119 - home to editing travels continuously from the actual orbited camera and returns exactly
+  ---
+  duration_ms: 0.8497
+  type: 'test'
+  ...
+# Subtest: interrupted and reversed camera travel starts at the current view without snapping
+ok 120 - interrupted and reversed camera travel starts at the current view without snapping
+  ---
+  duration_ms: 0.1841
+  type: 'test'
+  ...
+# Subtest: reduced motion applies the destination directly; every village theme retains its original lighting
+ok 121 - reduced motion applies the destination directly; every village theme retains its original lighting
+  ---
+  duration_ms: 0.3871
+  type: 'test'
+  ...
+# Subtest: animated viewport notifications never clear a presented frame and coalesce before drawing
+ok 122 - animated viewport notifications never clear a presented frame and coalesce before drawing
+  ---
+  duration_ms: 1.4426
+  type: 'test'
+  ...
+# Subtest: unchanged subpixel measurements and hidden zero-sized panels never clear the buffer
+ok 123 - unchanged subpixel measurements and hidden zero-sized panels never clear the buffer
+  ---
+  duration_ms: 0.7401
+  type: 'test'
+  ...
+# Subtest: a resize forces a complete draw even when the scene is paused or a transition reverses
+ok 124 - a resize forces a complete draw even when the scene is paused or a transition reverses
+  ---
+  duration_ms: 0.3279
+  type: 'test'
+  ...
+# Subtest: bright-theme grids retain contrast after alpha blending without modifying the village palette
+ok 125 - bright-theme grids retain contrast after alpha blending without modifying the village palette
+  ---
+  duration_ms: 0.3841
+  type: 'test'
+  ...
+# Subtest: night-theme grids use light lines with enough opacity to survive the darker scene
+ok 126 - night-theme grids use light lines with enough opacity to survive the darker scene
+  ---
+  duration_ms: 0.2442
+  type: 'test'
+  ...
+# Subtest: every perimeter rock, shrub and pink tree has a registered and persistent editable identity
+ok 127 - every perimeter rock, shrub and pink tree has a registered and persistent editable identity
+  ---
+  duration_ms: 28.5243
+  type: 'test'
+  ...
+# Subtest: pond water, stone border, waterfall and ripples move, rotate and hide as one object
+ok 128 - pond water, stone border, waterfall and ripples move, rotate and hide as one object
+  ---
+  duration_ms: 10.6866
+  type: 'test'
+  ...
+# (node:43516) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: every legacy village gets one stable sign in a free position without consuming a furniture slot
+ok 129 - every legacy village gets one stable sign in a free position without consuming a furniture slot
+  ---
+  duration_ms: 172.1987
+  type: 'test'
+  ...
+# Subtest: focus follows every sign rotation and interpolates back to the actual previous camera
+ok 130 - focus follows every sign rotation and interpolates back to the actual previous camera
+  ---
+  duration_ms: 1.7077
+  type: 'test'
+  ...
+# Subtest: only the authenticated village owner saves a single public sign
+ok 131 - only the authenticated village owner saves a single public sign
+  ---
+  duration_ms: 42.2598
+  type: 'test'
+  ...
+# Subtest: drawing, placement, theme and furniture updates merge without discarding each other
+ok 132 - drawing, placement, theme and furniture updates merge without discarding each other
+  ---
+  duration_ms: 39.2549
+  type: 'test'
+  ...
+# Subtest: malformed, excessive or executable drawing data is rejected
+ok 133 - malformed, excessive or executable drawing data is rejected
+  ---
+  duration_ms: 79.6567
+  type: 'test'
+  ...
+# Subtest: a bounded drawing larger than 20kb saves and notifies connected visitors
+ok 134 - a bounded drawing larger than 20kb saves and notifies connected visitors
+  ---
+  duration_ms: 73.9218
+  type: 'test'
+  ...
+# Subtest: the artwork and sign placement survive a SQLite server restart
+ok 135 - the artwork and sign placement survive a SQLite server restart
+  ---
+  duration_ms: 242.5818
+  type: 'test'
+  ...
+# Subtest: RGBA colors normalize to bounded canvas colors with alpha
+ok 136 - RGBA colors normalize to bounded canvas colors with alpha
+  ---
+  duration_ms: 0.4841
+  type: 'test'
+  ...
+# Subtest: custom RGBA palette and transparent strokes persist; deleting swatches preserves artwork
+ok 137 - custom RGBA palette and transparent strokes persist; deleting swatches preserves artwork
+  ---
+  duration_ms: 27.3794
+  type: 'test'
+  ...
+# (node:36240) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: statistics and manager APIs enforce current server roles, prevent self escalation and hide roles in public profiles
+ok 138 - statistics and manager APIs enforce current server roles, prevent self escalation and hide roles in public profiles
+  ---
+  duration_ms: 260.925
+  type: 'test'
+  ...
+# Subtest: empty statistics, rating averages, multiple selections, no-experience and anonymous paged comments
+ok 139 - empty statistics, rating averages, multiple selections, no-experience and anonymous paged comments
+  ---
+  duration_ms: 174.5068
+  type: 'test'
+  ...
+# Subtest: admin can search and page all accounts including accounts outside social visibility
+ok 140 - admin can search and page all accounts including accounts outside social visibility
+  ---
+  duration_ms: 114.4612
+  type: 'test'
+  ...
+# Subtest: new submissions notify readers only; grants and revocations update connected sessions immediately
+ok 141 - new submissions notify readers only; grants and revocations update connected sessions immediately
+  ---
+  duration_ms: 335.4566
+  type: 'test'
+  ...
+# Subtest: existing database gets designated admin by immutable ID, roles and answers survive reopening and nickname impersonation cannot grant admin
+ok 142 - existing database gets designated admin by immutable ID, roles and answers survive reopening and nickname impersonation cannot grant admin
+  ---
+  duration_ms: 208.0146
+  type: 'test'
+  ...
+# (node:35880) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: survey status requires auth, completed games count once and abandoned games do not count
+ok 143 - survey status requires auth, completed games count once and abandoned games do not count
+  ---
+  duration_ms: 159.1573
+  type: 'test'
+  ...
+# Subtest: ten successful own turns or five other-avatar turns trigger independently and survive transcript deletion
+ok 144 - ten successful own turns or five other-avatar turns trigger independently and survive transcript deletion
+  ---
+  duration_ms: 245.2407
+  type: 'test'
+  ...
+# Subtest: later defers the account across sessions for 24 hours without creating answers
+ok 145 - later defers the account across sessions for 24 hours without creating answers
+  ---
+  duration_ms: 103.8618
+  type: 'test'
+  ...
+# Subtest: survey validates all eleven questions, optional text, no-experience and selection limits on the server
+ok 146 - survey validates all eleven questions, optional text, no-experience and selection limits on the server
+  ---
+  duration_ms: 127.5827
+  type: 'test'
+  ...
+# Subtest: all stage modes save via partial updates, retain furniture and appear after login to visitors
+ok 147 - all stage modes save via partial updates, retain furniture and appear after login to visitors
+  ---
+  duration_ms: 172.0829
+  type: 'test'
+  ...
+# (node:41444) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: topic turns keep two sentences and cap oversized provider replies
+ok 148 - topic turns keep two sentences and cap oversized provider replies
+  ---
+  duration_ms: 0.8854
+  type: 'test'
+  ...
+# Subtest: each speaker receives the conversation from their own perspective
+ok 149 - each speaker receives the conversation from their own perspective
+  ---
+  duration_ms: 0.9689
+  type: 'test'
+  ...
+# Subtest: local topic fallback exchanges reactions instead of repeating introductions
+ok 150 - local topic fallback exchanges reactions instead of repeating introductions
+  ---
+  duration_ms: 0.5925
+  type: 'test'
+  ...
+# Subtest: all lists every type in stable order whether stored, placed or recently used
+ok 151 - all lists every type in stable order whether stored, placed or recently used
+  ---
+  duration_ms: 2.6644
+  type: 'test'
+  ...
+# Subtest: quantities and restore candidates follow placement, storage and undo snapshots
+ok 152 - quantities and restore candidates follow placement, storage and undo snapshots
+  ---
+  duration_ms: 1.1258
+  type: 'test'
+  ...
+# Subtest: recent is a separate deduplicated list in successful-use order with search support
+ok 153 - recent is a separate deduplicated list in successful-use order with search support
+  ---
+  duration_ms: 0.4878
+  type: 'test'
+  ...
+# Subtest: every catalog entry has a finite, visible 3D model and a category
+ok 154 - every catalog entry has a finite, visible 3D model and a category
+  ---
+  duration_ms: 38.1653
+  type: 'test'
+  ...
+# Subtest: placement protects the plaza, scenery, perimeter and other items while allowing moving itself
+ok 155 - placement protects the plaza, scenery, perimeter and other items while allowing moving itself
+  ---
+  duration_ms: 0.4187
+  type: 'test'
+  ...
+# Subtest: undo and redo preserve placement, movement, rotation, deletion, and branch history
+ok 156 - undo and redo preserve placement, movement, rotation, deletion, and branch history
+  ---
+  duration_ms: 0.9082
+  type: 'test'
+  ...
+# Subtest: existing scenery has stable IDs and saved placements survive without changing untouched scenery
+ok 157 - existing scenery has stable IDs and saved placements survive without changing untouched scenery
+  ---
+  duration_ms: 0.7679
+  type: 'test'
+  ...
+# Subtest: scenery movement protects stage, paths and neighbors and participates in undo/redo
+ok 158 - scenery movement protects stage, paths and neighbors and participates in undo/redo
+  ---
+  duration_ms: 0.397
+  type: 'test'
+  ...
+# Subtest: stored scenery and furniture free their positions and storage can be undone
+ok 159 - stored scenery and furniture free their positions and storage can be undone
+  ---
+  duration_ms: 0.3398
+  type: 'test'
+  ...
+# Subtest: statues have unlimited stock while other decorations follow placement, storage and undo
+ok 160 - statues have unlimited stock while other decorations follow placement, storage and undo
+  ---
+  duration_ms: 0.3516
+  type: 'test'
+  ...
+# (node:39776) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: solo game validates ownership and inputs, saves authoritative anonymous records once
+ok 161 - solo game validates ownership and inputs, saves authoritative anonymous records once
+  ---
+  duration_ms: 251.8652
+  type: 'test'
+  ...
+# Subtest: generic abandon frees the volley room and cannot produce a completed record
+ok 162 - generic abandon frees the volley room and cannot produce a completed record
+  ---
+  duration_ms: 16.2578
+  type: 'test'
+  ...
+# Subtest: last socket disconnect abandons a solo match and permits a fresh match
+ok 163 - last socket disconnect abandons a solo match and permits a fresh match
+  ---
+  duration_ms: 113.1108
+  type: 'test'
+  ...
+# Subtest: friend invitation shares one match, authenticates inputs and resolves opponent departure
+ok 164 - friend invitation shares one match, authenticates inputs and resolves opponent departure
+  ---
+  duration_ms: 28.5184
+  type: 'test'
+  ...
+# Subtest: volley replays support decline and cancel, reset the court and reject old game inputs
+ok 165 - volley replays support decline and cancel, reset the court and reject old game inputs
+  ---
+  duration_ms: 209.0458
+  type: 'test'
+  ...
+# Subtest: prediction retains a short movement tap and jump across delayed snapshots until acknowledged
+ok 166 - prediction retains a short movement tap and jump across delayed snapshots until acknowledged
+  ---
+  duration_ms: 1.9005
+  type: 'test'
+  ...
+# Subtest: future scheduled matches stay frozen until their shared start
+ok 167 - future scheduled matches stay frozen until their shared start
+  ---
+  duration_ms: 0.3763
+  type: 'test'
+  ...
+# Subtest: continuous frame simulation matches fixed-step physics and does not mutate server snapshots
+ok 168 - continuous frame simulation matches fixed-step physics and does not mutate server snapshots
+  ---
+  duration_ms: 1.1531
+  type: 'test'
+  ...
+# Subtest: clock corrections never rewind and a network gap caps simulation work
+ok 169 - clock corrections never rewind and a network gap caps simulation work
+  ---
+  duration_ms: 1.1589
+  type: 'test'
+  ...
+# Subtest: score changes snap to the next serve and terminal snapshots clear pending inputs
+ok 170 - score changes snap to the next serve and terminal snapshots clear pending inputs
+  ---
+  duration_ms: 0.3469
+  type: 'test'
+  ...
+# Subtest: automatic serve clears the net and the solo AI tracks and returns the ball
+ok 171 - automatic serve clears the net and the solo AI tracks and returns the ball
+  ---
+  duration_ms: 3.6011
+  type: 'test'
+  ...
+# Subtest: player input stays in its court, jumps, rejects stale sequences and expires on lost connection
+ok 172 - player input stays in its court, jumps, rejects stale sequences and expires on lost connection
+  ---
+  duration_ms: 0.3167
+  type: 'test'
+  ...
+# Subtest: ball collides with the side and the top of the net without crossing it
+ok 173 - ball collides with the side and the top of the net without crossing it
+  ---
+  duration_ms: 0.1581
+  type: 'test'
+  ...
+# Subtest: body returns automatically; aerial spike produces a fast attack
+ok 174 - body returns automatically; aerial spike produces a fast attack
+  ---
+  duration_ms: 0.3412
+  type: 'test'
+  ...
+# Subtest: floor awards opponent a point, loser serves next, seven points ends the match
+ok 175 - floor awards opponent a point, loser serves next, seven points ends the match
+  ---
+  duration_ms: 0.8055
+  type: 'test'
+  ...
+# Subtest: time limit finishes ties and bounded fixed steps produce deterministic results
+ok 176 - time limit finishes ties and bounded fixed steps produce deterministic results
+  ---
+  duration_ms: 2.7701
+  type: 'test'
+  ...
+# (node:27396) ExperimentalWarning: SQLite is an experimental feature and might change at any time
+# (Use `node --trace-warnings ...` to show where the warning was created)
+# Subtest: game entry HTML is reloaded instead of keeping an old runner bundle in browser cache
+ok 177 - game entry HTML is reloaded instead of keeping an old runner bundle in browser cache
+  ---
+  duration_ms: 237.2031
+  type: 'test'
+  ...
+# Subtest: world saves are owner scoped, validated and public to visitors
+ok 178 - world saves are owner scoped, validated and public to visitors
+  ---
+  duration_ms: 52.2356
+  type: 'test'
+  ...
+# Subtest: village themes persist independently of avatar slots, preserve furniture and reach visitors
+ok 179 - village themes persist independently of avatar slots, preserve furniture and reach visitors
+  ---
+  duration_ms: 33.407
+  type: 'test'
+  ...
+# Subtest: all editor props are accepted by world API and survive reload and visitor reads
+ok 180 - all editor props are accepted by world API and survive reload and visitor reads
+  ---
+  duration_ms: 196.0351
+  type: 'test'
+  ...
+# Subtest: live visitors receive clothing updates; the host is separate from player positions
+ok 181 - live visitors receive clothing updates; the host is separate from player positions
+  ---
+  duration_ms: 25.68
+  type: 'test'
+  ...
+# Subtest: bench sitting and standing reach neighbours and snapshots; invalid and distant seats are rejected
+ok 182 - bench sitting and standing reach neighbours and snapshots; invalid and distant seats are rejected
+  ---
+  duration_ms: 22.3902
+  type: 'test'
+  ...
+# Subtest: a standing jump reaches neighbours and survives room snapshots without moving horizontally
+ok 183 - a standing jump reaches neighbours and survives room snapshots without moving horizontally
+  ---
+  duration_ms: 14.0039
+  type: 'test'
+  ...
+# Subtest: owner and visitor share poses, stop reliably, restore snapshots and leave without leaking to another village
+ok 184 - owner and visitor share poses, stop reliably, restore snapshots and leave without leaking to another village
+  ---
+  duration_ms: 24.9892
+  type: 'test'
+  ...
+# Subtest: one avatar survives another tab leaving or switching villages and disappears on final disconnect
+ok 185 - one avatar survives another tab leaving or switching villages and disappears on final disconnect
+  ---
+  duration_ms: 20.6302
+  type: 'test'
+  ...
+# Subtest: a new socket can rejoin after connection loss and receives the remaining player pose
+ok 186 - a new socket can rejoin after connection loss and receives the remaining player pose
+  ---
+  duration_ms: 20.7171
+  type: 'test'
+  ...
+# Subtest: room scoping, pose validation, boundary clamping and movement throttling preserve the final stop
+ok 187 - room scoping, pose validation, boundary clamping and movement throttling preserve the final stop
+  ---
+  duration_ms: 28.8951
+  type: 'test'
+  ...
+# Subtest: closed villages and blocks reject live entry while the owner can still enter
+ok 188 - closed villages and blocks reject live entry while the owner can still enter
+  ---
+  duration_ms: 22.6278
+  type: 'test'
+  ...
+# Subtest: runner jump, lane, collision, cooldown and terminal state are deterministic
+ok 189 - runner jump, lane, collision, cooldown and terminal state are deterministic
+  ---
+  duration_ms: 0.3618
+  type: 'test'
+  ...
+# Subtest: runner API rejects forged score, cross-user actions and rhythm hits; persists zero-reward records once
+ok 190 - runner API rejects forged score, cross-user actions and rhythm hits; persists zero-reward records once
+  ---
+  duration_ms: 42.0968
+  type: 'test'
+  ...
+# Subtest: runner can settle after two minutes and stays busy until its longer expiry
+ok 191 - runner can settle after two minutes and stays busy until its longer expiry
+  ---
+  duration_ms: 74.6983
+  type: 'test'
+  ...
+# Subtest: runner completion rewards derive from server progress and obey shared caps; abandon permits replay
+ok 192 - runner completion rewards derive from server progress and obey shared caps; abandon permits replay
+  ---
+  duration_ms: 45.6236
+  type: 'test'
+  ...
+# Subtest: world and completed game records survive SQLite reopen with additive schema migrations
+ok 193 - world and completed game records survive SQLite reopen with additive schema migrations
+  ---
+  duration_ms: 170.2857
+  type: 'test'
+  ...
+# Subtest: village records enforce blocking and closed village settings
+ok 194 - village records enforce blocking and closed village settings
+  ---
+  duration_ms: 13.0417
+  type: 'test'
+  ...
+# Subtest: runner invitations require same village, support reject/cancel, and exclude busy players
+ok 195 - runner invitations require same village, support reject/cancel, and exclude busy players
+  ---
+  duration_ms: 42.467
+  type: 'test'
+  ...
+# Subtest: accepted runner uses identical map and clock, waits for both ready, syncs movement and saves each result
+ok 196 - accepted runner uses identical map and clock, waits for both ready, syncs movement and saves each result
+  ---
+  duration_ms: 55.9855
+  type: 'test'
+  ...
+# Subtest: leaving cancels pending invitations and readiness before a match can start
+ok 197 - leaving cancels pending invitations and readiness before a match can start
+  ---
+  duration_ms: 28.4818
+  type: 'test'
+  ...
+# Subtest: disconnect during a race abandons only that player and leaves the other runner playable
+ok 198 - disconnect during a race abandons only that player and leaves the other runner playable
+  ---
+  duration_ms: 25.555
+  type: 'test'
+  ...
+# Subtest: character wardrobes preserve legacy looks and independently persist every character
+ok 199 - character wardrobes preserve legacy looks and independently persist every character
+  ---
+  duration_ms: 84.8903
+  type: 'test'
+  ...
+# Subtest: scenery placement saves, reaches visitors and rejects invalid IDs, positions and duplicates
+ok 200 - scenery placement saves, reaches visitors and rejects invalid IDs, positions and duplicates
+  ---
+  duration_ms: 84.8904
+  type: 'test'
+  ...
+# Subtest: storing and restoring objects preserves their identity, placement and sign artwork
+ok 201 - storing and restoring objects preserves their identity, placement and sign artwork
+  ---
+  duration_ms: 63.2075
+  type: 'test'
+  ...
+# Subtest: stored furniture does not collide with placed items or consume the 24 placement slots
+ok 202 - stored furniture does not collide with placed items or consume the 24 placement slots
+  ---
+  duration_ms: 55.5513
+  type: 'test'
+  ...
+# Subtest: bulk storage persists every scenery group including perimeter rocks, small trees and the pond
+ok 203 - bulk storage persists every scenery group including perimeter rocks, small trees and the pond
+  ---
+  duration_ms: 63.1622
+  type: 'test'
+  ...
+# Subtest: editor saves preserve legacy overlaps while validating new, moved and restored objects
+ok 204 - editor saves preserve legacy overlaps while validating new, moved and restored objects
+  ---
+  duration_ms: 110.1992
+  type: 'test'
+  ...
+# Subtest: editor complete snapshots save for every theme and accepted object moves
+ok 205 - editor complete snapshots save for every theme and accepted object moves
+  ---
+  duration_ms: 314.1098
+  type: 'test'
+  ...
+1..205
+# tests 205
+# suites 0
+# pass 204
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 21360.7263
