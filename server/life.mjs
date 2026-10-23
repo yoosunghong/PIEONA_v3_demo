@@ -166,7 +166,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       const member=kind==='COMPANION'?ensureCompanion(uid):player;
       const start={x:member.x,z:member.z},distance=Math.hypot(plan.target.x-start.x,plan.target.z-start.z),arrived=clock()+Math.ceil(distance/2.4*1000);
       const label=action.intent==='COOK_FOOD'?'요리':action.intent==='PLANT_SEED'?'씨앗 심기':'작물 수확';
-      jobs.set(jobKey(uid,kind),{op,plan,start,started:clock(),arrived,ends:arrived+2000,label});
+      jobs.set(jobKey(uid,kind),{op,plan,start,started:clock(),arrived,ends:arrived+(plan.durationMs||2000),label});
       logAction(uid,'life_work_start',{actor:kind,intent:action.intent,operationId:op.id});
       Object.assign(member,{moving:true,seatId:null,jumpStarted:0,activityState:'Moving'});
       publish(uid);emitVillage(uid);return {ok:true,intent:action.intent,operationId:op.id,reply:`${action.intent==='COOK_FOOD'?'조리대':'텃밭'}로 가서 ${label} 작업을 할게. 끝나면 실제 결과를 알려줄게.`,...snapshot(uid)};

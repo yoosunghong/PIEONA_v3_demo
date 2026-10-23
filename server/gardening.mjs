@@ -1,3 +1,4 @@
+import {cookingInputs,COOK_TIME_MS} from '../shared/cooking.mjs';
 import {villageLife} from '../shared/lifeLayout.mjs';
 import {id} from './store.mjs';
 import {CROPS,RECIPES,GARDEN_BEDS,cropState} from '../shared/garden.mjs';
@@ -25,9 +26,9 @@ export function createGardening(store,clock,{recover=true,onComplete=()=>{}}={})
       }
       if(selected.length!==recipe.fishCount||recipe.distinctFish&&new Set(selected).size!==recipe.fishCount)fail(recipe.distinctFish?'서로 다른 물고기 3종이 필요해. 희귀·특별 물고기는 요리 화면에서 직접 골라 줘.':'사용할 물고기 1마리가 필요해. 희귀·특별 물고기는 요리 화면에서 직접 골라 줘.');
     }else if(selected.length)fail('이 요리에는 물고기를 사용하지 않아.');
-    const inputs=[...selected.map(itemId=>({itemId,quantity:1})),...recipe.ingredients];
+    const quantity=action.quantity||1,inputs=cookingInputs(recipe,selected,quantity);
     for(const input of inputs)if((bag.get(input.itemId)||0)<input.quantity)fail(`${ALL_ITEMS.find(i=>i.itemId===input.itemId).name} 재료가 부족해.`);
-    return {recipeId:recipe.id,inputs,outputs:[{itemId:recipe.id,quantity:1}],target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).kitchen.approach};
+    return {recipeId:recipe.id,inputs,outputs:[{itemId:recipe.id,quantity}],durationMs:COOK_TIME_MS*quantity,target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).kitchen.approach};
   }
   function plan(uid,action){
     if(action.intent==='COOK_FOOD')return recipePlan(uid,action);

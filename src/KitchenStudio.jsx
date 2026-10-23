@@ -1,0 +1,40 @@
+import React,{useState} from 'react';
+import {ChefHat,X,Search,LayoutGrid,LockKeyhole,Star,Clock3,Utensils,Check,Minus,Plus} from 'lucide-react';
+import {RECIPES} from '../shared/garden.mjs';
+import {ALL_ITEMS,RARITIES} from '../shared/life.mjs';
+import {COOK_TIME_MS} from '../shared/cooking.mjs';
+import {InventoryIcon} from './InventoryStudio';
+import {kitchenCategories,kitchenRecipes,kitchenPlan,recipeDetails} from './kitchenRecipes.mjs';
+import './kitchen-studio.css';
+
+const dishCells={GRILLED_FISH:0,HERB_GRILLED_FISH:1,SEAFOOD_PLATTER:2,TOMATO_SALAD:3};
+function KitchenDish({id}){const cell=dishCells[id]??0;return <span aria-hidden="true" className="kitchen-dish-sprite" style={{backgroundPosition:`${cell%2*100}% ${Math.floor(cell/2)*100}%`}}/>;}
+
+export default function KitchenStudio({dialog,back,leaving,onClose,data,onRetry,onAction,pending,connected}){
+  const [category,setCategory]=useState('all'),[query,setQuery]=useState(''),[selected,setSelected]=useState(RECIPES[0].id),[choices,setChoices]=useState({}),[quantity,setQuantity]=useState(1),[message,setMessage]=useState(''),[cookingSince,setCookingSince]=useState(0);
+  const recipes=kitchenRecipes(category,query),recipe=recipes.find(item=>item.id===selected)||recipes[0];
+  const plan=recipe?kitchenPlan(recipe,data?.inventory,choices[recipe.id]||[],quantity):null;
+  const bag=new Map((data?.inventory||[]).map(item=>[item.itemId,item.quantity]));
+  const busy=pending||!connected||!!data?.task;
+  function choose(id){setSelected(id);setQuantity(1);setMessage('');}
+  function changeCategory(id){setCategory(id);setQuantity(1);setMessage('');}
+  async function cook(){
+    if(!recipe||!plan.enough||busy)return;
+    const response=await onAction({intent:'COOK_FOOD',recipe:recipe.id,quantity,...(recipe.fishCount?{fish:plan.fish}:{})});
+    if(response?.ok){setMessage(response.reply);setCookingSince(response.serverTime||Date.now());}
+  }
+  return <section ref={dialog} className={'life-studio kitchen-studio'+(leaving?' is-leaving':'')} role="dialog" aria-modal="true" aria-labelledby="life-studio-title" inert={leaving}>
+    <header className="kitchen-banner"><div className="kitchen-hat" aria-hidden="true"><ChefHat strokeWidth={1.1}/></div><div className="kitchen-title"><h1 id="life-studio-title">마을 요리대</h1><p>우리 마을의 재료로 맛있는 요리를 만들어 보세요!</p></div><img className="kitchen-banner-art" src="/images/kitchen-header.png" alt=""/><button ref={back} type="button" className="kitchen-close" onClick={onClose} aria-label="마을로 돌아가기"><X size={32}/></button></header>
+    <div className="kitchen-layout">
+      <nav className="kitchen-categories" aria-label="요리 카테고리">{kitchenCategories.map(([id,name,icon])=><button key={id} type="button" onClick={()=>changeCategory(id)} aria-pressed={category===id}>{icon==='grid'?<LayoutGrid className="kitchen-category-symbol" size={28}/>:icon.length>3?<InventoryIcon id={icon}/>:<span className="kitchen-category-emoji" aria-hidden="true">{icon}</span>}<span>{name}</span><small>{kitchenRecipes(id).length}</small></button>)}</nav>
+      <div className="kitchen-recipe-area"><div className="kitchen-recipe-toolbar"><h2>요리 레시피 <span>{recipes.length}<small> / {RECIPES.length}</small></span></h2><label><Search size={18}/><input aria-label="레시피 검색" placeholder="레시피 검색..." value={query} onChange={event=>{setQuery(event.target.value);setQuantity(1);}}/></label></div>
+        {!data?.catalog?<div className="kitchen-empty" role="status"><span className="spinner"/><p>요리 재료를 불러오고 있어요.</p><button onClick={onRetry}>다시 불러오기</button></div>:<div className="kitchen-recipe-scroll"><div className="kitchen-recipe-grid" role="group" aria-label="요리 레시피 목록">{recipes.map(item=>{const ready=kitchenPlan(item,data.inventory,choices[item.id]||[]).enough;return <button key={item.id} className={'kitchen-recipe-card'+(recipe?.id===item.id?' selected':'')} aria-pressed={recipe?.id===item.id} onClick={()=>choose(item.id)}><div className="kitchen-card-dish"><KitchenDish id={item.id}/></div><strong>{item.name}</strong><span className={'kitchen-recipe-availability'+(ready?' ready':'')}>{ready?'만들 수 있어요':'재료를 모아 보세요'}</span>{recipe?.id===item.id&&<span className="kitchen-recipe-ribbon">선택</span>}</button>;})}{Array.from({length:Math.max(0,12-recipes.length)},(_,index)=><div key={'locked-'+index} className="kitchen-locked-recipe" aria-label="준비 중인 레시피"><span>{index===0?'?':<LockKeyhole size={22}/>}</span><strong>???</strong><small>준비 중</small></div>)}</div>{!recipes.length&&<p className="kitchen-no-results">{query?'찾는 레시피가 없어요.':'새로운 요리를 준비하고 있어요.'}</p>}</div>}
+        {(data?.task||message)&&<p className="kitchen-work-status" role="status">{data?.task?<><span className="spinner"/>{data.task.label} 작업을 진행 중이에요.</>:(data?.garden?.lastResult?.intent==='COOK_FOOD'&&data.garden.lastResult.completedAt>=cookingSince?data.garden.lastResult.result.reply:message)}</p>}
+      </div>
+      <aside className="kitchen-detail" aria-label="요리 상세">{recipe&&plan?<><div className="kitchen-detail-scroll"><h2><Star size={22} fill="#ffe491" stroke="#eab861"/>{recipe.name}</h2><span className="kitchen-recipe-type">{recipeDetails[recipe.id].type} · 기본 레시피</span><p className="kitchen-description">{recipeDetails[recipe.id].description}</p><div className="kitchen-dish-art"><KitchenDish id={recipe.id}/></div><div className="kitchen-recipe-stats"><div><Utensils size={24}/><span>소지 수량<strong>{bag.get(recipe.id)||0}<small>개</small></strong></span></div><div><Clock3 size={25}/><span>제작 시간<strong>{COOK_TIME_MS*quantity/1000}<small>초</small></strong></span></div></div>
+        <h3 className="kitchen-ingredients-heading">필요 재료</h3><div className="kitchen-ingredients">{plan.fish.map((fishId,index)=>{const owned=bag.get(fishId)||0;return <div key={'fish-'+index} className={'kitchen-ingredient'+(owned>=quantity?' enough':'')}><InventoryIcon id={fishId} icon="🐟"/><select aria-label={`요리 물고기 ${index+1}`} value={fishId} disabled={busy} onChange={event=>{const next=[...plan.fish];next[index]=event.target.value;setChoices(value=>({...value,[recipe.id]:next}));setQuantity(1);}}><option value="">물고기 선택</option>{plan.availableFish.map(item=><option key={item.itemId} value={item.itemId}>{item.name} · {RARITIES[item.rarity]}</option>)}</select><span className="kitchen-ingredient-count">{owned}<small> / {quantity}</small></span>{owned>=quantity?<Check className="kitchen-ingredient-check" size={17}/>:<span className="kitchen-ingredient-missing">!</span>}</div>;})}{recipe.ingredients.map(input=>{const item=ALL_ITEMS.find(item=>item.itemId===input.itemId),owned=bag.get(input.itemId)||0,needed=input.quantity*quantity;return <div key={input.itemId} className={'kitchen-ingredient'+(owned>=needed?' enough':'')}><InventoryIcon id={item.itemId} icon={item.icon}/><span className="kitchen-ingredient-name">{item.name}</span><span className="kitchen-ingredient-count">{owned}<small> / {needed}</small></span>{owned>=needed?<Check className="kitchen-ingredient-check" size={17}/>:<span className="kitchen-ingredient-missing">!</span>}</div>;})}</div>
+        {recipe.distinctFish&&!plan.enough&&<p className="kitchen-ingredient-note">서로 다른 물고기 3종을 골라 주세요.</p>}{plan.usesRare&&<p className="kitchen-rare-note">선택한 희귀·특별 물고기를 재료로 사용해요.</p>}</div>
+        <footer className="kitchen-cook-footer"><div className="kitchen-quantity" aria-label="제작 수량"><button type="button" aria-label="제작 수량 줄이기" disabled={quantity<=1||busy} onClick={()=>setQuantity(value=>Math.max(1,value-1))}><Minus size={17}/></button><output aria-label="제작 수량" aria-live="polite">{quantity}</output><button type="button" aria-label="제작 수량 늘리기" disabled={quantity>=plan.maxQuantity||busy} onClick={()=>setQuantity(value=>Math.min(plan.maxQuantity,value+1))}><Plus size={17}/></button></div><button type="button" className="kitchen-cook-button" disabled={busy||!plan.enough} onClick={cook}><ChefHat size={29}/>{pending?'준비하는 중…':data?.task?'작업 진행 중':!connected?'연결 대기 중':plan.enough?'요리하기':'재료가 부족해요'}</button></footer></>:<div className="kitchen-empty"><ChefHat size={48}/><h2>어떤 요리를 만들까요?</h2><p>레시피를 선택하면<br/>필요한 재료를 확인할 수 있어요.</p></div>}</aside>
+    </div>
+  </section>;
+}
