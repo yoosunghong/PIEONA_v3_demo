@@ -49,7 +49,7 @@ function portraitFor(appearance){
 }
 
 export default function AvatarPortrait({user}){
-  const [src,setSrc]=useState(null),look=JSON.stringify(user.appearance||{});
-  useEffect(()=>{let active=true;setSrc(null);portraitFor(user.appearance).then(value=>{if(active)setSrc(value);}).catch(()=>{});return()=>{active=false;};},[look]);
+  const [src,setSrc]=useState(null),look=JSON.stringify(user.avatarAppearance||user.appearance||{});
+  useEffect(()=>{let active=true;setSrc(null);portraitFor(user.avatarAppearance||user.appearance).then(value=>{if(active)setSrc(value);}).catch(()=>{});return()=>{active=false;};},[look]);
   return src?<span className="avatar-badge avatar-portrait"><img src={src} alt=""/></span>:<AvatarBadge user={user}/>;
 }

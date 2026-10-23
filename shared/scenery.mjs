@@ -1,3 +1,5 @@
+import {SCENERY_RADIUS} from './villageSize.mjs';
+import {lifeDefinitions,isLifeScenery} from './lifeLayout.mjs';
 import {inLifeArea} from './life.mjs';
 // Stable IDs preserve the original scenery in villages without saved placements.
 export const perimeterRocks=Array.from({length:42},(_,i)=>{
@@ -16,9 +18,11 @@ export const sceneryDefinitions = [
   ...[[-1.4,3.4],[1.4,3.4],[-5,-2],[4,-1.3]].map(([x,z],i)=>({id:`lamp-${i}`,name:'정원 가로등',x,z})),
   ...perimeterRocks,
   ...perimeterRocks.filter((_,i)=>i%3===0).map((item,i)=>({id:`edge-bush-${i*3}`,name:'작은 초록나무',x:item.x*.93,z:item.z*.93})),
+  ...lifeDefinitions,
   ...perimeterTrees.map(([x,z],i)=>({id:`edge-tree-${i}`,name:'가장자리 벚꽃나무',x,z})),
 ];
 export const isScenery=id=>typeof id==='string'&&id.startsWith('scenery:');
+export const suppressedScenery=(item,village={})=>isScenery(item.id)&&!isLifeScenery(item.id)&&inLifeArea(item.x,item.z,village);
 export function villageScenery(village={}){
   return sceneryDefinitions.map(def=>{
     const saved=village.scenery?.find(item=>item.id===def.id);
@@ -26,7 +30,7 @@ export function villageScenery(village={}){
     return {type:'scenery',name:def.name,x:point.x,z:point.z,rotation:0,...saved,id:'scenery:'+def.id};
   });
 }
-export function validSceneryPlacement(x,z){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z)&&Math.hypot(x,z)<=6.7&&Math.hypot(x,z)>=2.85&&!(Math.abs(x)<.85&&z>0&&z<5.8);}
+export function validSceneryPlacement(x,z,village={},selected=null){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,village,selected)&&Math.hypot(x,z)<=(selected==='scenery:life-fishing'?6.5:SCENERY_RADIUS)&&Math.hypot(x,z)>=2.85&&!(Math.abs(x)<.85&&z>0&&z<5.8);}
 
 export function sceneryClearance(id,otherId){
   if(isScenery(otherId))return .8;

@@ -2,7 +2,7 @@ import React,{useLayoutEffect,useRef,useState} from 'react';
 import Scene from './Scene';
 
 // The same canvas stays mounted while its viewport expands from the home panel.
-export default function WorldStage({editing,guestbookFocused=false,...sceneProps}){
+export default function WorldStage({editing,lifeFocused=false,guestbookFocused=false,...sceneProps}){
   const stage=useRef(),[frame,setFrame]=useState(null);
   useLayoutEffect(()=>{
     const anchor=stage.current?.parentElement;if(!anchor)return;
@@ -10,6 +10,9 @@ export default function WorldStage({editing,guestbookFocused=false,...sceneProps
       if(editing){
         const mobile=innerWidth<=700,left=mobile?0:Math.min(490,Math.max(350,innerWidth*.2925))-100;
         setFrame({left,top:0,width:innerWidth-left,height:innerHeight-(mobile?(innerHeight<=650?185:220):0)});
+      }else if(lifeFocused){
+        const mobile=innerWidth<=700,panelWidth=mobile?0:Math.min(490,Math.max(350,innerWidth*.2925));
+        setFrame({left:0,top:0,width:innerWidth-panelWidth,height:innerHeight*(mobile?.42:1)});
       }else if(guestbookFocused){
         const rect=anchor.getBoundingClientRect();
         // Keep the zoomed book visible beside the desktop panel or above the mobile sheet.
@@ -20,6 +23,6 @@ export default function WorldStage({editing,guestbookFocused=false,...sceneProps
     };
     measure();const observer=new ResizeObserver(measure);observer.observe(anchor);window.addEventListener('resize',measure);
     return()=>{observer.disconnect();window.removeEventListener('resize',measure);};
-  },[editing,guestbookFocused]);
+  },[editing,lifeFocused,guestbookFocused]);
   return <div ref={stage} className={'persistent-world-stage'+(frame?' is-positioned':'')+(editing?' is-editing':'')} style={frame||{visibility:'hidden'}}><Scene {...sceneProps}/></div>;
 }

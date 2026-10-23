@@ -1,4 +1,6 @@
-import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance} from '../shared/scenery.mjs';
+import {isLifeScenery,validLifePlacement} from '../shared/lifeLayout.mjs';
+import {WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
+import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance,suppressedScenery} from '../shared/scenery.mjs';
 import {villageBenches,BENCH_REACH} from '../shared/benches.mjs';
 import {installLife} from './life.mjs';
 import {createActionLogger} from './actionLog.mjs';
@@ -16,7 +18,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, experienceOf, defaultSettings } from './store.mjs';
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
-import { decorations, hats, accessories, colors, validPlacement, villageThemes, characters, characterLooks } from '../shared/world.mjs';
+import { decorations, hats, accessories, rides, colors, validPlacement, villageThemes, characters, characterLooks } from '../shared/world.mjs';
 import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
 import {installCrabGames} from './crabGames.mjs';
 import {crabSeconds} from '../shared/crab.mjs';
@@ -69,7 +71,7 @@ export function createApp(options = {}) {
     return Array.from(villageVisitors.get(villageId)?.values() || []).map(({sockets,lastMove,...member})=>{
       const user=userById(member.userId);
       return {...member,runnerBusy:!!busy(member.userId),nickname:user.nickname,appearance:profile(user,user.id).appearance};
-    }).concat(life.companionMembers(villageId).map(member=>({...member,appearance:profile(userById(villageId),villageId).appearance})));
+    }).concat(life.companionMembers(villageId).map(member=>({...member,appearance:profile(userById(villageId),villageId).avatarAppearance})));
   }
   function emitVillage(villageId) {
     io.to(`village:${villageId}`).emit('village:members',{villageId,members:villageMembers(villageId),garden:life.gardenSnapshot(villageId)});
@@ -136,17 +138,18 @@ export function createApp(options = {}) {
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({hidden:z.boolean().optional(),id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
-    const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=6.7,'마을 안에 놓아주세요.');
-    const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
+    const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=SCENERY_RADIUS,'마을 안에 놓아주세요.').refine(item=>!isLifeScenery(item.id)||!item.hidden,'생활 시설은 이동과 회전만 할 수 있어요.');
+    const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),ride:z.enum(rides.map(r=>r.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.string().max(9).refine(isSignColor),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
     const signSchema=z.object({customColors:z.array(z.string().max(9).refine(isSignColor)).max(MAX_CUSTOM_SIGN_COLORS).optional(),hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
     const guestbookSchema=z.object({hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional()}).strict();
-    const data=z.object({characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
+    const data=z.object({avatarAppearance:lookSchema.optional(),avatarCharacterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
     const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
     // Keep legacy/default placements, including overlaps, until an object is moved or restored.
     const placementChanged=(before,after)=>!before||before.hidden||before.x!==after.x||before.z!==after.z;
+    const sceneryMoved=(before,after)=>placementChanged(before,after)||isLifeScenery(after.id)&&after.id!=='scenery:life-storage'&&before.rotation!==after.rotation;
     const itemMoved=item=>placementChanged(oldVillage.items?.find(old=>old.id===item.id),item);
     if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>Number.isFinite(entry.quantity)&&items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>itemMoved(i)&&!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&(itemMoved(a)||itemMoved(b))&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
@@ -161,17 +164,27 @@ export function createApp(options = {}) {
     }
     if(data.village?.scenery){
       const before=villageScenery(oldVillage),after=villageScenery(nextVillage);
+      const movedFacilities=after.filter(object=>isLifeScenery(object.id)&&sceneryMoved(before.find(item=>item.id===object.id),object));
+      if(movedFacilities.length){
+        if(store.one("SELECT 1 FROM life_sessions WHERE owner_id=? AND status IN ('moving','active')",user.id)||store.one("SELECT 1 FROM life_operations WHERE owner_id=? AND status='pending'",user.id))fail(409,'진행 중인 낚시·텃밭·요리 활동을 마친 뒤 시설을 옮겨주세요.');
+
+      }
       const objects=[...after,...(nextVillage.items||[]),villageSign(nextVillage),villageGuestbook(nextVillage)].filter(item=>!item.hidden);
       for(const object of after){
         const old=before.find(item=>item.id===object.id);
-        if(object.hidden||!placementChanged(old,object))continue;
-        if(!validSceneryPlacement(object.x,object.z)||objects.some(other=>other!==object&&Math.hypot(other.x-object.x,other.z-object.z)<sceneryClearance(object.id,other.id)))fail(400,'광장·산책로·다른 오브젝트를 피해 배치해주세요.');
+        if(object.hidden||!sceneryMoved(old,object))continue;
+        if(isLifeScenery(object.id)&&!validLifePlacement(nextVillage,object.id,objects.filter(item=>!suppressedScenery(item,oldVillage))))fail(400,'시설과 작업 자리는 광장·다른 소품을 피해 걸어갈 수 있는 마을 안에 배치해주세요.');
+        if(!validSceneryPlacement(object.x,object.z,nextVillage,object.id)||objects.some(other=>other!==object&&!(isLifeScenery(object.id)&&suppressedScenery(other,oldVillage))&&Math.hypot(other.x-object.x,other.z-object.z)<sceneryClearance(object.id,other.id)))fail(400,'광장·산책로·다른 오브젝트를 피해 배치해주세요.');
       }
     }
     const saved=characterLooks(JSON.parse(user.appearance),JSON.parse(user.character_looks));
     for(const [character,look] of Object.entries(data.characterLooks||{}))if(look)saved[character]={...look,character};
     if(data.appearance)saved[data.appearance.character||'pio']={...data.appearance};
     store.run('UPDATE users SET village=?,appearance=?,character_looks=? WHERE id=?',data.village?JSON.stringify(nextVillage):user.village,data.appearance?JSON.stringify(data.appearance):user.appearance,JSON.stringify(saved),user.id);
+    const avatarSaved=characterLooks(profile(user,user.id).avatarAppearance,JSON.parse(user.avatar_character_looks));
+    for(const [character,look] of Object.entries(data.avatarCharacterLooks||{}))if(look)avatarSaved[character]={...look,character};
+    if(data.avatarAppearance)avatarSaved[data.avatarAppearance.character||'pio']={...data.avatarAppearance};
+    store.run('UPDATE users SET avatar_appearance=?,avatar_character_looks=? WHERE id=?',JSON.stringify(data.avatarAppearance||profile(user,user.id).avatarAppearance),JSON.stringify(avatarSaved),user.id);
     emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
     res.json({user:profile(userById(user.id),user.id)});
   });
@@ -292,8 +305,10 @@ export function createApp(options = {}) {
       const context=assembleContext(store,target,req.user.id,text,scene);
       const history=c.context_key===context.contextKey?store.all('SELECT role,content FROM messages WHERE conversation_id=? ORDER BY rowid DESC LIMIT 12',c.id).reverse():[];
       context.lifeActions=true;
+      context.avatarTools=context.own;
       context.system+='\n생활 행동은 아직 실행되지 않았다. 보상 수량과 활동 성공 여부를 추측하지 마라.';
-      const result=immediateAction?{reply:'',emotion:'calm',memories:[],provider:'local',action:immediateAction}:await (options.generateAnswer||generateAnswer)(context,text,history);
+      const useImmediate=immediateAction&&(immediateAction.intent==='STOP_ACTIVITY'||aiMode()==='local'||options.testing);
+      const result=useImmediate?{reply:'',emotion:'calm',memories:[],provider:'local',action:immediateAction}:await (options.generateAnswer||generateAnswer)(context,text,history);
       // Recheck after the network wait: privacy edits, friendship changes, logout and deletion revoke in-flight work.
       c=conversationFor(req,c.id,true);target=checkTarget(req,c.target_id);
       if(c.avatar_slot!==target.active_slot)fail(409,'아바타가 변경됐어요. 새 대화를 시작해주세요.');
@@ -615,13 +630,14 @@ export function createApp(options = {}) {
         if(data.seatId!==null&&typeof data.seatId!=='string')return;
         if(data.seatId){
           const bench=villageBenches(JSON.parse(target.village)).find(bench=>bench.id===data.seatId);
+          if(life.seatOccupied(current.villageId,data.seatId,uid))return;
           if(!bench||moving||data.jumpStarted||Math.hypot(x-bench.x,z-bench.z)>.15||Math.hypot(member.x-bench.x,member.z-bench.z)>BENCH_REACH+.2)return;
           member.seatId=bench.id;
         }else member.seatId=null;
       }else if(member.seatId!==undefined)member.seatId=null;
       const time=Date.now();if(moving&&time-member.lastMove<60&&data.jumpStarted===member.jumpStarted)return;
       member.lastMove=time;
-      const radius=Math.hypot(x,z),factor=!member.seatId&&radius>5.8?5.8/radius:1;
+      const radius=Math.hypot(x,z),factor=!member.seatId&&radius>WALK_RADIUS?WALK_RADIUS/radius:1;
       member.x=x*factor;member.z=z*factor;member.rotation=Math.atan2(Math.sin(rotation),Math.cos(rotation));member.moving=moving;
       if(data.jumpStarted!==undefined)member.jumpStarted=data.jumpStarted;
       const update={villageId:current.villageId,userId:uid,x:member.x,z:member.z,rotation:member.rotation,moving,...(member.jumpStarted!==undefined?{jumpStarted:member.jumpStarted}:{}),...(member.seatId!==undefined?{seatId:member.seatId}:{})};

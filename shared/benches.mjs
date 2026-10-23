@@ -1,3 +1,4 @@
+import {WALK_RADIUS} from './villageSize.mjs';
 import {villageScenery} from './scenery.mjs';
 
 export const BENCH_REACH=1.45;
@@ -20,7 +21,7 @@ export function nearestBench(benches,position,members=[],viewerId){
 }
 export function benchExit(bench){
   const x=bench.x+Math.sin(bench.rotation)*.95,z=bench.z+Math.cos(bench.rotation)*.95;
-  const factor=Math.min(1,5.8/Math.hypot(x,z));
+  const factor=Math.min(1,WALK_RADIUS/Math.hypot(x,z));
   return {x:x*factor,z:z*factor};
 }
 export function benchCameraView(bench){

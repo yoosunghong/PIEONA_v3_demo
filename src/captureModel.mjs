@@ -26,7 +26,7 @@ export function filterCaptures(photos,{character='all',favorites=false,query='',
 
 export function captureFilename(photo){
   const title=photo.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g,'').trim().slice(0,60)||'마을의 순간';
-  return `PIEONA-${photoDate(photo.at,'-')}-${title}.png`;
+  return `ILLOVA-${photoDate(photo.at,'-')}-${title}.png`;
 }
 
 export function photoDate(at,separator='. '){

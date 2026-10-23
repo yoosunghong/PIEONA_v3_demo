@@ -4,10 +4,13 @@ import {createLifeMemories} from './lifeMemories.mjs';
 import {awardLifeFish} from './lifeRewards.mjs';
 import {randomInt} from 'node:crypto';
 import {id} from './store.mjs';
-import {FISHING_ANCHORS,FISHING_PERIOD,INTERACTION_REACH,ALL_ITEMS} from '../shared/life.mjs';
+import {villageLife} from '../shared/lifeLayout.mjs';
+import {FISHING_PERIOD,INTERACTION_REACH,ALL_ITEMS} from '../shared/life.mjs';
 import {createGardening} from './gardening.mjs';
 import {z} from 'zod';
 import {lifeActionSchema,catchText,koreanDayStart} from './lifeActions.mjs';
+import {AVATAR_INTENTS} from './lifeActions.mjs';
+import {createAvatarRuntime} from './avatarRuntime.mjs';
 
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction=()=>{},clock=Date.now,random=()=>randomInt(0,0x100000000)/0x100000000}){
@@ -39,10 +42,12 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   const itemsFor=sid=>store.all('SELECT item_id AS itemId,SUM(quantity) AS quantity FROM acquisition_events WHERE session_id=? GROUP BY item_id ORDER BY item_id',sid);
   const memberFor=(uid,kind)=>kind==='COMPANION'?companions.get(uid):villageVisitors.get(uid)?.get(uid);
   const owner=uid=>store.one('SELECT * FROM users WHERE id=?',uid);
+  const anchors=uid=>villageLife(JSON.parse(owner(uid).village)).anchors;
+  const avatar=createAvatarRuntime({store,clock,player:uid=>memberFor(uid,'PLAYER'),companion:(uid,create)=>create?ensureCompanion(uid):companions.get(uid),village:uid=>JSON.parse(owner(uid).village),members:uid=>[...(villageVisitors.get(uid)?.values()||[]),...(companions.has(uid)?[companions.get(uid)]:[])],interrupt:uid=>stop(uid,'COMPANION',false),publish,emitVillage,emitMove:(uid,member)=>io.to(`village:${uid}`).emit('village:move',{villageId:uid,...member}),logAction,busy:uid=>!active(uid)&&!jobs.has(jobKey(uid,'PLAYER'))&&busy(uid)});
   function viewSession(s){return s?{id:s.id,state:s.status==='moving'?'Moving':'Fishing',actor:s.actor_kind,anchorId:s.anchor_id,startedAt:s.started_at,nextAt:s.status==='active'?s.settled_at+FISHING_PERIOD:null,attempts:s.attempts,caught:s.caught,taskLimit:s.task_limit,items:itemsFor(s.id)}:null;}
   function snapshot(uid){
     const last=store.one("SELECT * FROM life_sessions WHERE owner_id=? AND actor_kind='COMPANION' AND status='stopped' ORDER BY rowid DESC LIMIT 1",uid);
-    return {serverTime:clock(),autonomy:autonomy.snapshot(uid),relationshipMemories:memories.list(uid,owner(uid).active_slot),session:viewSession(active(uid)),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid),companion:{state:companions.get(uid)?.activityState||'Idle',task:task(uid,'COMPANION'),session:viewSession(active(uid,'COMPANION')),lastReport:last?{endedAt:last.stopped_at,attempts:last.attempts,caught:last.caught,items:itemsFor(last.id)}:null}};
+    return {serverTime:clock(),autonomy:autonomy.snapshot(uid),relationshipMemories:memories.list(uid,owner(uid).active_slot),session:viewSession(active(uid)),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid),companion:{state:companions.get(uid)?.activityState||'Idle',carriedItem:companions.get(uid)?.carriedItem||null,task:avatar.task(uid)||task(uid,'COMPANION'),session:viewSession(active(uid,'COMPANION')),lastReport:last?{endedAt:last.stopped_at,attempts:last.attempts,caught:last.caught,items:itemsFor(last.id)}:null}};
   }
   function publish(uid,results=[],notice){io.to(`user:${uid}`).emit('life:state',{...snapshot(uid),results,...(notice?{notice}:{})});}
   function companionMembers(uid){const member=companions.get(uid);return member?[{...member,nickname:`${owner(uid).nickname} · AI`,runnerBusy:true}]:[];}
@@ -75,6 +80,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     epochs.set(uid,epoch(uid)+1);const kinds=kind==='BOTH'?['PLAYER','COMPANION']:[kind],results=[],items=[];
     for(const actor of kinds){const s=active(uid,actor);if(!s)continue;results.push(...settle(uid,actor));items.push(...itemsFor(s.id));finish(uid,actor,s);}
     for(const actor of kinds){const key=jobKey(uid,actor),job=jobs.get(key);if(job){gardening.cancel(job.op);jobs.delete(key);const member=memberFor(uid,actor);if(member)Object.assign(member,{moving:false,activityState:'Idle'});}}
+    if(kind!=='PLAYER')avatar.stop(uid);
     publish(uid,results);emitVillage(uid);return items;
   }
   function leave(uid){const state=companions.get(uid)?.activityState||'Idle';stop(uid,'BOTH',false);autonomy.depart(uid,state);companions.delete(uid);emitVillage(uid);}
@@ -90,7 +96,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function start(uid,anchorId,villageId){
     if(villageId!==uid)fail(403,'지금은 내 마을에서만 낚시할 수 있어요.');
     if(active(uid))return snapshot(uid);
-    const member=memberFor(uid,'PLAYER'),anchor=FISHING_ANCHORS.find(a=>a.id===anchorId);
+    const member=memberFor(uid,'PLAYER'),anchor=anchors(uid).find(a=>a.id===anchorId);
     if(!member||!anchor)fail(400,'낚시 자리 가까이에서 다시 시도해 주세요.');
     if(busy(uid)||member.seatId||member.jumpStarted&&clock()-member.jumpStarted<720)fail(409,'진행 중인 활동을 마친 뒤 낚시해 주세요.');
     if(Math.hypot(member.x-anchor.x,member.z-anchor.z)>INTERACTION_REACH)fail(409,'낚시 자리 가까이로 이동해 주세요.');
@@ -100,8 +106,8 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     publish(uid);emitVillage(uid);return snapshot(uid);
   }
   function walk(uid,kind,s){
-    const member=kind==='COMPANION'?ensureCompanion(uid):memberFor(uid,kind),anchor=FISHING_ANCHORS.find(a=>a.id===s.anchor_id);
-    const points=[{x:member.x,z:member.z},{x:anchor.x,z:5.1},{x:anchor.x,z:anchor.z}];
+    const member=kind==='COMPANION'?ensureCompanion(uid):memberFor(uid,kind),anchor=anchors(uid).find(a=>a.id===s.anchor_id);
+    const points=[{x:member.x,z:member.z},anchor.approach,{x:anchor.x,z:anchor.z}];
     const lengths=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.z-points[i].z));
     routes.set(s.id,{uid,kind,points,lengths,started:clock()});
     Object.assign(member,{seatId:null,jumpStarted:0,moving:true,activityState:'Moving'});
@@ -111,15 +117,15 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     if(jobs.has(jobKey(uid,'COMPANION'))||join&&jobs.has(jobKey(uid,'PLAYER')))fail(409,'진행 중인 텃밭·요리 작업을 마치거나 중단해 줘.');
     const ps=active(uid);let cs=active(uid,'COMPANION');
     if(!ps&&(busy(uid)||player.seatId||player.jumpStarted&&clock()-player.jumpStarted<720))fail(409,'진행 중인 활동을 마친 뒤 부탁해 주세요.');
-    const adjacent=ps&&cs&&Math.abs(FISHING_ANCHORS.findIndex(a=>a.id===ps.anchor_id)-FISHING_ANCHORS.findIndex(a=>a.id===cs.anchor_id))===1;
+    const adjacent=ps&&cs&&Math.abs(anchors(uid).findIndex(a=>a.id===ps.anchor_id)-anchors(uid).findIndex(a=>a.id===cs.anchor_id))===1;
     if(cs&&(!join||adjacent))return '이미 낚시를 준비하거나 진행 중이야. 기존 낚시를 계속할게.';
-    const used=occupied(uid);let pa=ps&&FISHING_ANCHORS.find(a=>a.id===ps.anchor_id),ca=cs&&FISHING_ANCHORS.find(a=>a.id===cs.anchor_id);
+    const used=occupied(uid);let pa=ps&&anchors(uid).find(a=>a.id===ps.anchor_id),ca=cs&&anchors(uid).find(a=>a.id===cs.anchor_id);
     const relocating=join&&ps&&cs&&!adjacent;
     if(relocating){used.delete(ca.id);ca=null;}
     if(join){
-      const pair=FISHING_ANCHORS.slice(0,-1).map((a,i)=>[a,FISHING_ANCHORS[i+1]]).flatMap(pair=>[pair,[...pair].reverse()]).find(([p,c])=>(pa?p.id===pa.id:!used.has(p.id))&&(ca?c.id===ca.id:!used.has(c.id)));
+      const pair=anchors(uid).slice(0,-1).map((a,i)=>[a,anchors(uid)[i+1]]).flatMap(pair=>[pair,[...pair].reverse()]).find(([p,c])=>(pa?p.id===pa.id:!used.has(p.id))&&(ca?c.id===ca.id:!used.has(c.id)));
       if(!pair)fail(409,'나란히 앉을 빈 낚시 자리가 없어요.');[pa,ca]=pair;
-    }else ca=FISHING_ANCHORS.filter(a=>!used.has(a.id)).sort((a,b)=>Math.hypot(a.x-1.1,a.z)-Math.hypot(b.x-1.1,b.z))[0];
+    }else ca=anchors(uid).filter(a=>!used.has(a.id)).sort((a,b)=>Math.hypot(a.x-1.1,a.z)-Math.hypot(b.x-1.1,b.z))[0];
     if(!ca)fail(409,'빈 낚시 자리가 없어요.');
     if(relocating){stop(uid,'COMPANION',false);cs=null;}
     const created=[];
@@ -184,6 +190,8 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       if(expectedEpoch!==epoch(uid))fail(409,'중단 또는 마을 이동 이후 도착한 요청이라 실행하지 않았어. 다시 부탁해 줘.');
       if(action.intent==='SET_AUTONOMY'){preempt(uid);const settings=autonomy.configure(uid,action.autonomy||{});if(!settings.enabled)stop(uid,'COMPANION');publish(uid);return {ok:true,intent:action.intent,reply:settings.enabled?`자율 활동을 켰어. ${settings.offline?'접속 종료 후 최대 2시간 동안 허용한 활동을 정산할게.':'접속 중에만 활동할게.'} ${settings.replant?'빈 밭에는 '+ALL_ITEMS.find(i=>i.itemId===settings.crop).name+'를 심을게.':''} ${settings.recipe?'허용한 요리만 재료를 사용해 만들게.':'요리 재료는 자동으로 사용하지 않아.'}`:'자율 활동과 오프라인 작업을 껐어.',...snapshot(uid)};}
       if(!forcedActor)preempt(uid);
+      if(AVATAR_INTENTS.includes(action.intent))return {...avatar.execute(uid,action,requestId),...snapshot(uid)};
+      if(!forcedActor&&avatar.engaged(uid))stop(uid,'COMPANION',false);
       if(['PLANT_SEED','HARVEST_CROP','COOK_FOOD'].includes(action.intent))return startGardenJob(uid,action,forcedActor||'COMPANION',requestId);
       if(action.intent==='START_FISHING'&&action.actor==='PLAYER')fail(400,'혼자 낚시하려면 바닷가 자리에서 E 키를 눌러 줘. 함께 가려면 같이 낚시하자고 말해 줘.');
       const reply=startCompanion(uid,action.intent==='JOIN_FISHING',action.report);
@@ -191,6 +199,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     }catch(e){if(!e.status)throw e;return {ok:false,intent:action.intent,reply:e.message};}
   }
   function tick(){
+    avatar.tick();
     const changed=new Set();
     for(const [key,job] of jobs){
       const uid=job.op.owner_id,kind=job.op.actor,member=memberFor(uid,kind);if(!member){stop(uid,kind);continue;}
@@ -212,7 +221,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       let distance=Math.max(0,(clock()-route.started)/1000)*2.4,index=0;
       while(index<route.lengths.length&&distance>=route.lengths[index])distance-=route.lengths[index++];
       if(index===route.lengths.length){
-        const s=active(route.uid,route.kind),anchor=FISHING_ANCHORS.find(a=>a.id===s.anchor_id),arrived=route.started+Math.ceil(route.lengths.reduce((a,b)=>a+b,0)/2.4*1000);
+        const s=active(route.uid,route.kind),anchor=anchors(route.uid).find(a=>a.id===s.anchor_id),arrived=route.started+Math.ceil(route.lengths.reduce((a,b)=>a+b,0)/2.4*1000);
         store.run("UPDATE life_sessions SET status='active',started_at=?,settled_at=? WHERE id=?",arrived,arrived,sid);
         Object.assign(member,{x:anchor.x,z:anchor.z,rotation:anchor.rotation,moving:false,seatId:anchor.id,activityState:'Fishing'});routes.delete(sid);publish(route.uid);changed.add(route.uid);
       }else{
@@ -233,7 +242,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       const nearby=companions.get(uid);if(nearby&&autonomy.settings(uid).enabled&&Math.hypot(player.x-nearby.x,player.z-nearby.z)<2&&clock()-(greetings.get(uid)||0)>300000){greetings.set(uid,clock());publish(uid,[],'옆에 왔네! 오늘도 우리 마을에서 같이 지내자.');}
       const rest=rests.get(uid);
       if(rest){const member=ensureCompanion(uid),fraction=Math.min(1,Math.max(0,(clock()-rest.start)/2000)),justRested=fraction===1&&member.activityState!=='Resting';Object.assign(member,{x:rest.x+(rest.target.x-rest.x)*fraction,z:rest.z+(rest.target.z-rest.z)*fraction,moving:fraction<1,activityState:fraction<1?'Moving':'Resting',rotation:Math.atan2(rest.target.x-rest.x,rest.target.z-rest.z)});if(justRested)publish(uid);io.to(`village:${uid}`).emit('village:move',{villageId:uid,...member});if(clock()>=rest.end){rests.delete(uid);automatic.delete(uid);member.activityState='Idle';autonomy.completed(uid,'REST');publish(uid);changed.add(uid);}continue;}
-      if(active(uid,'COMPANION')||jobs.has(jobKey(uid,'COMPANION')))continue;
+      if(active(uid,'COMPANION')||jobs.has(jobKey(uid,'COMPANION'))||avatar.engaged(uid))continue;
       let action=autonomy.plan(uid,gardening);if(!action)continue;if(action.intent==='START_FISHING'&&wanderNext.has(uid)){action={intent:'REST'};wanderNext.delete(uid);}
       try{
         if(action.intent==='REST'){const member=ensureCompanion(uid);rests.set(uid,{start:clock(),end:clock()+22000,x:member.x,z:member.z,target:{x:member.x>=0?-1.8:1.8,z:1}});member.activityState='Moving';member.moving=true;}
@@ -262,5 +271,5 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     socket.on('life:stop',(data,ack)=>{try{const user=sessionUser(socket.request.headers);if(!user)fail(401,'로그인이 필요해요.');const kind=data?.actor||'PLAYER';if(!['PLAYER','COMPANION','BOTH'].includes(kind))fail(400,'잘못된 중단 요청이에요.');stop(user.id,kind);if(typeof ack==='function')ack({ok:true,...snapshot(user.id)});}catch(e){if(typeof ack==='function')ack({ok:false,error:e.status?e.message:'낚시를 종료하지 못했어요.'});}});
   });
   const timer=setInterval(()=>{try{tick();}catch(e){console.error('[life] tick failed',e.message);}},100);timer.unref();
-  return {arrive,switchAvatar,autonomy,memories,active,busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,companionMembers,execute,epoch,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);}};
+  return {arrive,switchAvatar,autonomy,memories,active,seatOccupied:avatar.seatOccupied,busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,companionMembers,execute,epoch,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);avatar.close();}};
 }

@@ -1,3 +1,4 @@
+import {isLifeScenery} from '../shared/lifeLayout.mjs';
 import {decorations,remainingDecoration} from '../shared/world.mjs';
 import {isScenery} from '../shared/scenery.mjs';
 import {SIGN_ID} from '../shared/sign.mjs';
@@ -8,6 +9,7 @@ export function fixedCatalogKey(item){
 }
 
 function sceneryCategory(item){
+  if(isLifeScenery(item.id))return 'furniture';
   if(/tree|bush/.test(item.id))return 'plants';
   if(item.id==='scenery:cafe')return 'buildings';
   if(item.id.startsWith('scenery:lamp-'))return 'lighting';

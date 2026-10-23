@@ -57,7 +57,7 @@ test('scenery movement protects stage, paths and neighbors and participates in u
   const items=villageScenery({}),id='scenery:tree-0';
   assert.equal(canPlaceDecoration(items,0,0,id),false);
   assert.equal(canPlaceDecoration(items,0,4,id),false);
-  assert.equal(canPlaceDecoration(items,8,0,id),false);
+  assert.equal(canPlaceDecoration(items,9,0,id),false);
   assert.equal(canPlaceDecoration(items,3.8,-2.7,id),false);
   assert.equal(canPlaceDecoration(items,-5,0,id),true);
   const next=items.map(item=>item.id===id?{...item,x:-5,z:0,rotation:1}:item);

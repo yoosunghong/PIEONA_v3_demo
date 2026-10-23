@@ -1,5 +1,6 @@
+import {villageLife} from '../shared/lifeLayout.mjs';
 import {id} from './store.mjs';
-import {CROPS,RECIPES,GARDEN_BEDS,KITCHEN,cropState} from '../shared/garden.mjs';
+import {CROPS,RECIPES,GARDEN_BEDS,cropState} from '../shared/garden.mjs';
 import {ALL_ITEMS,ITEM_DEFINITIONS} from '../shared/life.mjs';
 
 const fail=message=>{throw Object.assign(new Error(message),{status:409});};
@@ -26,7 +27,7 @@ export function createGardening(store,clock,{recover=true,onComplete=()=>{}}={})
     }else if(selected.length)fail('이 요리에는 물고기를 사용하지 않아.');
     const inputs=[...selected.map(itemId=>({itemId,quantity:1})),...recipe.ingredients];
     for(const input of inputs)if((bag.get(input.itemId)||0)<input.quantity)fail(`${ALL_ITEMS.find(i=>i.itemId===input.itemId).name} 재료가 부족해.`);
-    return {recipeId:recipe.id,inputs,outputs:[{itemId:recipe.id,quantity:1}],target:KITCHEN.approach};
+    return {recipeId:recipe.id,inputs,outputs:[{itemId:recipe.id,quantity:1}],target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).kitchen.approach};
   }
   function plan(uid,action){
     if(action.intent==='COOK_FOOD')return recipePlan(uid,action);
@@ -35,14 +36,14 @@ export function createGardening(store,clock,{recover=true,onComplete=()=>{}}={})
       const crop=CROPS.find(c=>c.id===action.crop);if(!crop)fail('허브, 토마토, 꽃 중 심을 씨앗을 알려 줘. 씨앗은 무료야.');
       const plot=action.plot?all.find(p=>p.id===action.plot):all.find(p=>p.state==='Empty'&&!p.reserved);
       if(!plot||plot.state!=='Empty'||plot.reserved)fail('비어 있는 텃밭이 없어. 수확하거나 진행 중인 작업을 마친 뒤 심어 줘.');
-      return {cropId:crop.id,plots:[{id:plot.id,plantingId:null}],inputs:[],outputs:[],target:GARDEN_BEDS.find(b=>b.id===plot.id).approach};
+      return {cropId:crop.id,plots:[{id:plot.id,plantingId:null}],inputs:[],outputs:[],target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).beds.find(b=>b.id===plot.id).approach};
     }
     if(action.intent!=='HARVEST_CROP')fail('지원하지 않는 텃밭 작업이야.');
     const selected=all.filter(p=>(!action.plot||p.id===action.plot)&&(!action.crop||p.cropId===action.crop)&&p.state==='Ready'&&!p.reserved);
     if(!selected.length)fail('지금 수확할 수 있는 작물이 없어. 아직 자라는 중이거나 다른 작업이 진행 중이야.');
     if(action.plantingId&&selected[0].plantingId!==action.plantingId)fail('작물이 바뀌었어. 텃밭을 새로 확인해 줘.');
     const sums=new Map();for(const p of selected)sums.set(p.cropId,(sums.get(p.cropId)||0)+1);
-    return {plots:selected.map(p=>({id:p.id,plantingId:p.plantingId})),inputs:[],outputs:[...sums].map(([itemId,quantity])=>({itemId,quantity})),target:GARDEN_BEDS.find(b=>b.id===selected[0].id).approach};
+    return {plots:selected.map(p=>({id:p.id,plantingId:p.plantingId})),inputs:[],outputs:[...sums].map(([itemId,quantity])=>({itemId,quantity})),target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).beds.find(b=>b.id===selected[0].id).approach};
   }
   function find(uid,key){return store.one('SELECT * FROM life_operations WHERE owner_id=? AND request_id=?',uid,key);}
   function existing(uid,key,action,actor){const op=find(uid,key);if(op&&(op.input!==JSON.stringify(action)||op.actor!==actor))fail('같은 요청 번호로 다른 작업을 실행할 수 없어.');return op;}

@@ -1,3 +1,4 @@
+import {WALK_RADIUS} from '../shared/villageSize.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -16,7 +17,7 @@ test('bench interactions follow saved positions, rotations and storage visibilit
   assert.equal(nearestBench(benches,{x:0,z:0}),null);
   assert.equal(nearestBench(benches,{x:3,z:3},[{userId:'other',seatId:'placed'}],'me'),null);
   assert.equal(nearestBench(benches,{x:3,z:3},[{userId:'me',seatId:'placed'}],'me').id,'placed');
-  const edge=benchExit({x:6.5,z:0,rotation:Math.PI/2});assert.ok(Math.hypot(edge.x,edge.z)<=5.8);
+  const edge=benchExit({x:6.5,z:0,rotation:Math.PI/2});assert.ok(Math.hypot(edge.x,edge.z)<=WALK_RADIUS);
   const bench=benches[1],view=benchCameraView(bench);
   assert.equal(view.target[0],3);assert.ok(Math.abs(view.target[1]-1.58)<1e-6);assert.equal(view.target[2],3);assert.ok(Math.hypot(...view.position.map((v,i)=>v-view.target[i]))<7);
 });

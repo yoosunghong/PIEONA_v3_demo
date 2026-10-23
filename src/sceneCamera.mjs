@@ -1,9 +1,10 @@
+import {WALK_RADIUS} from '../shared/villageSize.mjs';
 import * as THREE from 'three';
 import {villageThemes} from '../shared/world.mjs';
 
 export const CAMERA_TRANSITION_SECONDS=1.1;
 // Bound horizontal travel to the island and allow a little vertical framing.
-export const VILLAGE_CAMERA_PAN_RADIUS=5.8;
+export const VILLAGE_CAMERA_PAN_RADIUS=WALK_RADIUS;
 export const VILLAGE_CAMERA_PAN_HEIGHT=.8;
 const canPanScene=(mode,portrait)=>!portrait&&(mode==='home'||mode==='village');
 export function configureScenePanning(controls,mode,{portrait=false}={}){

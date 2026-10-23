@@ -1,3 +1,5 @@
+import {isLifeScenery} from '../shared/lifeLayout.mjs';
+import {WALK_RADIUS} from '../shared/villageSize.mjs';
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -197,7 +199,7 @@ test('room scoping, pose validation, boundary clamping and movement throttling p
     let snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).x,1);
     const clamp=villageEvent(host,'village:move',m=>m.userId===visitor.id);
     guest.emit('village:move',{villageId:owner.id,x:100,z:100,rotation:20,moving:false});
-    const bounded=await clamp;assert.ok(Math.abs(Math.hypot(bounded.x,bounded.z)-5.8)<1e-8);assert.ok(Math.abs(bounded.rotation)<=Math.PI);
+    const bounded=await clamp;assert.ok(Math.abs(Math.hypot(bounded.x,bounded.z)-WALK_RADIUS)<1e-8);assert.ok(Math.abs(bounded.rotation)<=Math.PI);
     let received=0;host.on('village:move',()=>received++);
     for(let i=0;i<100;i++)guest.emit('village:move',{villageId:owner.id,x:i/100,z:0,rotation:0,moving:true});
     const stop=villageEvent(host,'village:move',m=>!m.moving);
@@ -450,13 +452,13 @@ test('stored furniture does not collide with placed items or consume the 24 plac
   assert.equal((await request('/me/world',user,{village:{items:[...stored.map(item=>({...item,hidden:false}))]}},'PATCH')).status,400);
 });
 
-test('bulk storage persists every scenery group including perimeter rocks, small trees and the pond',async()=>{
+test('bulk storage persists decorative scenery and keeps movable life facilities available',async()=>{
   const user=await register('all_scenery_storage');
-  const scenery=villageScenery({}).map(({id,x,z,rotation})=>({id:id.slice(8),x,z,rotation,hidden:true}));
+  const scenery=villageScenery({}).map(({id,x,z,rotation})=>({id:id.slice(8),x,z,rotation,hidden:!isLifeScenery(id)}));
   const saved=await request('/me/world',user,{village:{scenery,sign:{hidden:true},guestbook:{hidden:true}}},'PATCH');
   assert.equal(saved.status,200,JSON.stringify(saved.body));
   assert.equal(saved.body.user.village.scenery.length,sceneryDefinitions.length);
-  assert.ok(saved.body.user.village.scenery.every(item=>item.hidden));
+  assert.ok(saved.body.user.village.scenery.every(item=>item.hidden===!isLifeScenery(item.id)));
   const restored=scenery.map(item=>item.id==='edge-tree-0'?{...item,x:-5,z:0,rotation:1,hidden:false}:item);
   const response=await request('/me/world',user,{village:{scenery:restored}},'PATCH');
   assert.equal(response.status,200,JSON.stringify(response.body));

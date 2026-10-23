@@ -1,5 +1,8 @@
 import {Vector3} from 'three';
 
+export const WALK_SPEED=3.2;
+export const MOTORCYCLE_SPEED=WALK_SPEED*2;
+
 const forward=new Vector3(),right=new Vector3();
 
 const movementKeys=new Set(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ']);
@@ -23,9 +26,9 @@ export function villagePlayers(members,ownerId,viewerId,nickname,appearance){
   return [...members,{userId:viewerId,nickname,appearance,x:0,z:3}];
 }
 
-// Map input onto the ground relative to the current camera, including after orbiting.
+// A logged-in player never replaces the AI; an active AI actor replaces its idle model.
 export function showVillageStandIn(mode,ownerId,members,viewerId){
-  return (mode!=='village'&&ownerId!==viewerId)||!members.some(member=>member.userId===ownerId);
+  return mode==='topic'||(mode!=='village'&&ownerId!==viewerId)||!members.some(member=>member.actorKind==='COMPANION');
 }
 
 export function joystickAxis(x,y,radius=44){

@@ -63,13 +63,17 @@ test('empty statistics, rating averages, multiple selections, no-experience and 
   assert.equal((await request('/feedback',first,{answers:a})).status,201);
   assert.equal((await request('/feedback',second,{answers:b})).status,201);
   assert.equal((await request('/feedback',second,{answers:b})).status,409);
-  runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',randomUUID(),surveyVersion-1,'{}');
+  // Version 2 measured resemblance at q2; its ratings and comments must not
+  // become activity-enjoyment results just because question IDs are reused.
+  runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',randomUUID(),2,JSON.stringify({...answer(),q2:1,q10:'이전 설문 의견'}));
   const stats=(await request('/survey/statistics',manager)).body;
   assert.equal(stats.total,2);assert.equal(stats.legacyTotal,1);
+  assert.equal(stats.version,3);
   assert.deepEqual(stats.questions.find(q=>q.id==='q1').counts,[2,1,0,0,0,0,1]);
   assert.deepEqual(stats.questions.find(q=>q.id==='q2'),{id:'q2',answered:2,rated:1,unexperienced:1,average:5,counts:[0,0,0,0,1]});
   assert.equal(stats.questions.find(q=>q.id==='q3').average,2);
   assert.equal(stats.questions.find(q=>q.id==='q10').answered,1);
+  assert.deepEqual((await request('/survey/statistics/comments?question=q10',manager)).body.comments,['새 기능을 원해요']);
   assert.deepEqual((await request('/survey/statistics/comments?question=q1',manager)).body.comments,['기타 의견']);
   assert.deepEqual((await request('/survey/statistics/comments?question=q11',manager)).body.comments,['<script>text only</script>']);
   for(let i=0;i<12;i++)runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',randomUUID(),surveyVersion,JSON.stringify({...answer(),q10:'의견 '+i}));

@@ -1,0 +1,24 @@
+/* Compact chat drawer anchored to the left edge of the playable viewport. */
+.app-shell .world-panel .chat-dock.chat-side{left:16px;right:auto;bottom:100px;transform:none;width:min(340px,calc(100% - 32px));max-width:340px;max-height:55%;padding:16px;border:1px solid #fff;border-radius:22px;background:linear-gradient(145deg,#fffffff5,#eaf4fff2);box-shadow:0 12px 36px #24477626}
+.app-shell .chat-dock.chat-side>header{flex-wrap:wrap;gap:10px}
+.app-shell .chat-dock.chat-side>header>div:first-child{visibility:visible;display:flex;flex:1 1 100%;min-width:0}
+.app-shell .chat-dock.chat-side .chat-actions{width:100%;justify-content:flex-end;flex-wrap:wrap}
+.app-shell .chat-dock.chat-side .chat-messages{max-height:230px}
+.app-shell .chat-dock.chat-side .starter-row{flex-wrap:wrap;gap:5px;margin-bottom:10px}
+.app-shell .chat-dock.chat-side .starter-row button{flex:1 1 auto;min-height:30px;padding:6px 8px;font-size:11px}
+.app-shell .chat-dock.chat-side .starter-row button:first-child:before{display:none}
+.app-shell .chat-dock.chat-side .chat-input-wrap{height:50px;min-height:50px;gap:6px;padding-left:10px}
+.app-shell .chat-dock.chat-side .chat-input-wrap input{font-size:12px}
+.app-shell .chat-dock.chat-side .input-flower{display:none}
+.app-shell .chat-dock.chat-side .send-button{width:36px;height:36px;flex-shrink:0}
+.app-shell .chat-dock.chat-side footer{flex-wrap:wrap;gap:4px;font-size:9px}
+.app-shell .world-panel .chat-dock.chat-side.is-collapsed{left:0;bottom:45%;width:48px;max-height:none;padding:14px 6px;border-radius:0 17px 17px 0}
+.app-shell .chat-dock.chat-side.is-collapsed>header{margin:0;min-height:0}
+.app-shell .chat-dock.chat-side.is-collapsed>header>div:first-child,.app-shell .chat-dock.chat-side.is-collapsed .new-chat-button,.app-shell .chat-dock.chat-side.is-collapsed .sessions-button,.app-shell .chat-dock.chat-side.is-collapsed .chat-fold-status{display:none}
+.app-shell .chat-dock.chat-side.is-collapsed .chat-toggle{display:flex;flex-direction:column;gap:6px;padding:0;width:100%}
+.app-shell .chat-dock.chat-side.is-collapsed .chat-toggle svg{width:20px;height:20px}
+.boot{gap:18px;background:radial-gradient(ellipse at 50% 40%,#fff 0%,#e6f7ff 55%,#d9e9fc 100%)}
+.boot .boot-logo{width:min(640px,80vw);height:auto;object-fit:contain;filter:drop-shadow(0 15px 24px #2e96db26)}
+.boot .spinner{width:24px;height:24px}
+@media(max-width:700px){.app-shell .world-panel .chat-dock.chat-side{left:10px;bottom:94px;width:min(310px,calc(100% - 20px));max-height:48%;padding:12px}.app-shell .chat-dock.chat-side .chat-messages{max-height:150px}}
+.app-shell .chat-dock.chat-side.is-empty:not(.is-collapsed)>header>div:first-child{visibility:visible;display:flex}

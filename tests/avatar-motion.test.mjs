@@ -18,15 +18,17 @@ test('village jumps land after one arc and space never interrupts text input',()
   assert.equal(villageMovementKey({key:' ',target:{closest:selector=>selector.includes('button')?{}:null}}),null);
 });
 
-test('the village stand-in disappears while the owner is present and returns on departure',()=>{
+test('AI avatar stays beside the owner and yields only to its active companion actor',()=>{
   const visitor={userId:'guest'},owner={userId:'owner'};
   assert.equal(showVillageStandIn('village','owner',[visitor]),true);
-  assert.equal(showVillageStandIn('village','owner',[visitor,owner]),false);
+  assert.equal(showVillageStandIn('village','owner',[visitor,owner]),true);
   assert.equal(showVillageStandIn('village','owner',[]),true);
-  assert.equal(showVillageStandIn('village','owner',villagePlayers([],'owner','owner','나',{})),false);
-  // A visitor's conversation keeps the AI; the owner's home uses the walking player.
+  assert.equal(showVillageStandIn('village','owner',villagePlayers([],'owner','owner','나',{})),true);
+  assert.equal(showVillageStandIn('village','owner',[owner,{userId:'companion',actorKind:'COMPANION'}]),false);
+  assert.equal(showVillageStandIn('topic','owner',[{actorKind:'COMPANION'}]),true);
+  assert.equal(showVillageStandIn('home','owner',[{actorKind:'COMPANION'}],'visitor'),true);
   assert.equal(showVillageStandIn('home','owner',[owner,visitor]),true);
-  assert.equal(showVillageStandIn('home','owner',[owner,visitor],'owner'),false);
+  assert.equal(showVillageStandIn('home','owner',[owner,visitor],'owner'),true);
   assert.equal(showVillageStandIn('home','owner',[owner,visitor],'guest'),true);
   assert.equal(showVillageStandIn('home','owner',[],'guest'),true);
 });

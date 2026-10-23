@@ -71,7 +71,7 @@ export async function renderCapture(photo){
   if(memoLines.length){y+=14;ctx.font='24px sans-serif';for(const line of memoLines){ctx.fillText(line,storyMargin,y);y+=38;}}
   if(tagLines.length){y+=14;ctx.fillStyle=palette.accent;ctx.font='20px sans-serif';for(const line of tagLines){ctx.fillText(line,storyMargin,y);y+=30;}}
   ctx.fillStyle=palette.muted;ctx.font='20px sans-serif';ctx.fillText(photo.location||photo.theme,storyMargin,canvas.height-63);
-  ctx.textAlign='right';ctx.font='18px sans-serif';ctx.fillText('PIEONA  /  '+photo.theme,width-margin,canvas.height-27);ctx.textAlign='left';
+  ctx.textAlign='right';ctx.font='18px sans-serif';ctx.fillText('ILLOVA  /  '+photo.theme,width-margin,canvas.height-27);ctx.textAlign='left';
   const h=canvas.height;
   if(photo.frame==='botanical'){sprig(ctx,width-49,111,-.35);sprig(ctx,50,h-83,-.8);tape(ctx,width*.7,28,-.12);}
   if(photo.frame==='blossom'){
@@ -89,7 +89,7 @@ export async function renderCapture(photo){
   }
   if(photo.frame==='scrapbook'){
     tape(ctx,74,37,-.65);tape(ctx,width-75,h-40,-.65);
-    ctx.save();ctx.translate(width-80,45);ctx.rotate(.15);ctx.strokeStyle=palette.accent;ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.strokeRect(-36,-25,72,50);ctx.setLineDash([]);ctx.font='bold 15px sans-serif';ctx.fillStyle=palette.accent;ctx.textAlign='center';ctx.fillText('PIEONA',0,5);ctx.restore();
+    ctx.save();ctx.translate(width-80,45);ctx.rotate(.15);ctx.strokeStyle=palette.accent;ctx.lineWidth=2;ctx.setLineDash([4,3]);ctx.strokeRect(-36,-25,72,50);ctx.setLineDash([]);ctx.font='bold 15px sans-serif';ctx.fillStyle=palette.accent;ctx.textAlign='center';ctx.fillText('ILLOVA',0,5);ctx.restore();
   }
   return canvas.toDataURL('image/png');
 }

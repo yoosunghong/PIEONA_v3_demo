@@ -55,7 +55,8 @@ export function openStore(filename = './data/pieona.sqlite') {
   // The requested existing account is pinned to its immutable ID, never a mutable nickname.
   db.prepare("UPDATE users SET survey_role='admin' WHERE id=? AND username=? AND survey_role<>'admin'").run('a5a056ab-e1e6-42e6-833f-3a61f31fe05e','hys8623');
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='anonymous'))db.exec('ALTER TABLE games ADD COLUMN anonymous INTEGER NOT NULL DEFAULT 0');
-  for(const column of ['village','appearance','character_looks'])if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name===column))db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT '{}'`);
+  for(const column of ['village','appearance','character_looks','avatar_appearance','avatar_character_looks'])if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name===column))db.exec(`ALTER TABLE users ADD COLUMN ${column} TEXT NOT NULL DEFAULT '{}'`);
+  db.exec("UPDATE users SET avatar_appearance=appearance WHERE avatar_appearance='{}'; UPDATE users SET avatar_character_looks=character_looks WHERE avatar_character_looks='{}'");
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='kind'))db.exec("ALTER TABLE games ADD COLUMN kind TEXT NOT NULL DEFAULT 'rhythm'");
   if(!db.prepare('PRAGMA table_info(games)').all().some(c=>c.name==='score'))db.exec('ALTER TABLE games ADD COLUMN score INTEGER');
   // Backfill completed rhythm rounds, including rounds without a gold reward.
@@ -107,6 +108,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
   const incoming = store.one("SELECT status FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'", user.id, viewerId);
   const result = {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
+    avatarAppearance: {hat:'none',accessory:'none',color:'#88b5d7',...(user.avatar_appearance==='{}'?JSON.parse(user.appearance):JSON.parse(user.avatar_appearance))},
     village: {items:[],theme:'default',...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
     stage: own || s.stageVisible ? stageOf(store, user) : null,
     ...((own || s.stageVisible) ? experienceOf(store,user) : {level:null,xp:null,levelXp:null,nextLevelXp:null}),
@@ -115,7 +117,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
     scene: s.scene, relation: relation?.status || null, close: !!relation?.close, incoming: !!incoming,
     createdAt: user.created_at
   };
-  if (own) Object.assign(result, { username: user.username, surveyRole: user.survey_role, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot, characterLooks:JSON.parse(user.character_looks) });
+  if (own) Object.assign(result, { username: user.username, surveyRole: user.survey_role, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot, characterLooks:JSON.parse(user.character_looks), avatarCharacterLooks:JSON.parse(user.avatar_character_looks) });
   return result;
 }
 // Small-corpus lexical RAG. Scope is applied BEFORE retrieval; no shared vector index or cache.

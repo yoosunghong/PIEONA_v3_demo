@@ -48,7 +48,7 @@ export function createRunnerWorld(scene) {
   }
   mesh(rounded,stone,0,5,0,8.6,.7,.7,arch);
   const bannerCanvas=document.createElement('canvas');bannerCanvas.width=512;bannerCanvas.height=128;
-  const ctx=bannerCanvas.getContext('2d');ctx.fillStyle='#819ecb';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#f9db9f';ctx.lineWidth=12;ctx.strokeRect(5,5,502,118);ctx.fillStyle='#fff9e9';ctx.font='bold 68px sans-serif';ctx.textAlign='center';ctx.fillText('PIEONA',256,88);
+  const ctx=bannerCanvas.getContext('2d');ctx.fillStyle='#819ecb';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#f9db9f';ctx.lineWidth=12;ctx.strokeRect(5,5,502,118);ctx.fillStyle='#fff9e9';ctx.font='bold 68px sans-serif';ctx.textAlign='center';ctx.fillText('ILLOVA',256,88);
   const banner=new THREE.CanvasTexture(bannerCanvas);banner.colorSpace=THREE.SRGBColorSpace;
   mesh(geo(new THREE.PlaneGeometry(4.7,1.2)),mat('#ffffff',{map:banner}),0,4.7,.46,1,1,1,arch);
   const noteRoot=new THREE.Group();root.add(noteRoot);let notes=[];

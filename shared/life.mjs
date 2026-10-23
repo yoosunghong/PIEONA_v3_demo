@@ -1,14 +1,17 @@
-import {GARDEN_BEDS,KITCHEN,GARDEN_ITEMS,FOOD_ITEMS} from './garden.mjs';
+import {GARDEN_ITEMS,FOOD_ITEMS} from './garden.mjs';
 export const FISHING_PERIOD = 45_000;
 export const INTERACTION_REACH = 1.6;
-export const STORAGE = {id:'storage',x:-1.75,z:4.65};
-export const FISHING_ANCHORS = [-1.8,-.6,.6,1.8].map((x,i)=>({id:`fishing:${i}`,x,z:6.3,height:.58,rotation:0}));
+import {villageLife,lifeFootprint} from './lifeLayout.mjs';
+export {STORAGE,FISHING_ANCHORS} from './lifeLayout.mjs';
 export function fishingCameraView(anchor,aspect=1){
   const distance=Math.max(1,Math.min(2,.95/aspect));
-  return {position:[anchor.x+4.8*distance,1.1+2.4*distance,anchor.z+.75+4.95*distance],target:[anchor.x,1.1,anchor.z+.75]};
+  const s=Math.sin(anchor.rotation||0),c=Math.cos(anchor.rotation||0),x=anchor.x+s*.75,z=anchor.z+c*.75;
+  return {position:[x+(4.8*c+4.95*s)*distance,1.1+2.4*distance,z+(-4.8*s+4.95*c)*distance],target:[x,1.1,z]};
 }
 // Keep the access lane and dock clear without rewriting existing saved layouts.
-export const inLifeArea=(x,z)=>Math.abs(x)<2.55&&z>5.7||Math.hypot(x-STORAGE.x,z-STORAGE.z)<.75||GARDEN_BEDS.some(b=>Math.hypot(x-b.x,z-b.z)<.8)||Math.hypot(x-KITCHEN.x,z-KITCHEN.z)<.9||[...GARDEN_BEDS,KITCHEN].some(b=>Math.hypot(x-b.approach.x,z-b.approach.z)<.6);
+export function inLifeArea(x,z,village={},exclude=null){
+  return lifeFootprint(village).some(point=>point.id!==exclude&&Math.hypot(x-point.x,z-point.z)<point.radius);
+}
 export const RARITIES = {common:'일반',uncommon:'고급',rare:'희귀',special:'특별'};
 export const ITEM_DEFINITIONS = [
   ['SARDINE','정어리','common','🐟','작지만 반짝이는 바다의 은빛 친구.'],
@@ -26,9 +29,10 @@ export function rollFish(random=Math.random){
   const pool=ITEM_DEFINITIONS.filter(item=>item.rarity===rarity);
   return pool[Math.min(pool.length-1,Math.floor(random()*pool.length))];
 }
-export function nearestLifeInteraction(position,members=[],viewerId){
+export function nearestLifeInteraction(position,members=[],viewerId,village={}){
   if(!position)return null;
-  const candidates=[STORAGE,...GARDEN_BEDS,KITCHEN,...FISHING_ANCHORS.filter(anchor=>!members.some(m=>m.userId!==viewerId&&m.seatId===anchor.id))];
+  const {storage,beds,kitchen,anchors}=villageLife(village);
+  const candidates=[storage,...beds,kitchen,...anchors.filter(anchor=>!members.some(m=>m.userId!==viewerId&&m.seatId===anchor.id))];
   return candidates.map(item=>({...item,distance:Math.hypot(item.x-position.x,item.z-position.z)})).filter(item=>item.distance<=INTERACTION_REACH).sort((a,b)=>a.distance-b.distance)[0]||null;
 }
 export function lifeInteractionKey(event){

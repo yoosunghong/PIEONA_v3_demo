@@ -1,13 +1,17 @@
 import React,{useEffect,useRef,useState} from 'react';
 import {Check,RotateCw,Trash2} from 'lucide-react';
 import Scene from './Scene';
+import './avatar-studio.css';
 import {api} from './api';
 import {createAppearanceAutosave} from './appearanceAutosave.mjs';
-import {decorations,hats,accessories,colors,validPlacement,characters,characterLooks} from '../shared/world.mjs';
+import {decorations,hats,accessories,rides,colors,validPlacement,characters,characterLooks} from '../shared/world.mjs';
 
 export default function Customization({me,kind,notify,onRefresh,onClose}){
   const [items,setItems]=useState(()=>me.village.items.map(i=>({...i}))),[look,setLook]=useState({...me.appearance}),[tool,setTool]=useState('planter'),[selected,setSelected]=useState(null),[busy,setBusy]=useState(false);
-  const looks=useRef(characterLooks(me.appearance,me.characterLooks));
+  const [subject,setSubject]=useState('player');
+  const wardrobes=useRef({player:{appearance:{...me.appearance},looks:characterLooks(me.appearance,me.characterLooks)},avatar:{appearance:{...(me.avatarAppearance||me.appearance)},looks:characterLooks(me.avatarAppearance||me.appearance,me.avatarCharacterLooks)}});
+  const looks=useRef(wardrobes.current.player.looks);
+  function selectSubject(next){setSubject(next);setLook(wardrobes.current[next].appearance);looks.current=wardrobes.current[next].looks;}
   const mounted=useRef(true),callbacks=useRef();callbacks.current={onRefresh,notify};
   const [saveStatus,setSaveStatus]=useState('saved'),[saveError,setSaveError]=useState('');
   useEffect(()=>{mounted.current=true;return()=>{mounted.current=false;};},[]);
@@ -19,7 +23,9 @@ export default function Customization({me,kind,notify,onRefresh,onClose}){
   }));
   function updateLook(next){
     setLook(next);looks.current={...looks.current,[next.character||'pio']:next};
-    autosave.enqueue({appearance:next,characterLooks:looks.current});
+    wardrobes.current[subject]={appearance:next,looks:looks.current};
+    const {player,avatar}=wardrobes.current;
+    autosave.enqueue({appearance:player.appearance,characterLooks:player.looks,avatarAppearance:avatar.appearance,avatarCharacterLooks:avatar.looks});
   }
   function selectCharacter(character){if(character===(look.character||'pio'))return;updateLook({...looks.current[character],character});}
   const avatar=kind==='avatar';const chosen=items.find(i=>i.id===selected);
@@ -30,10 +36,11 @@ export default function Customization({me,kind,notify,onRefresh,onClose}){
     else notify('최대 24개까지 배치할 수 있어요.');
   }
   async function save(){setBusy(true);try{await api('/me/world',{method:'PATCH',body:{village:{items}}});await onRefresh();notify('마을 꾸미기를 저장했어요. 방문자에게도 바로 반영돼요.');onClose();}catch(e){notify(e.message);}finally{setBusy(false);}}
-  return <div className="panel-body customize"><p className="muted">{avatar?'캐릭터를 고르고 모자와 액세서리로 나를 표현해요. 마을과 달리기에서도 이 모습으로 만나요.':'소품을 고르고 지도에 놓아 나만의 마을을 만들어요. 모든 소품은 무료예요.'}</p>
-    <div className="custom-preview"><Scene portrait={avatar} theme={me.theme} ownerNickname={me.nickname} ownerAppearance={look} village={{...me.village,items}} mode={avatar?'home':'village'} inputEnabled={false}/><span className="preview-caption">3D 미리보기 · 드래그로 둘러보기</span></div>
+  return <div className={"panel-body customize"+(avatar?" avatar-studio":"")}><p className="muted">{avatar?'플레이어와 AI 아바타를 각각 꾸며요. 마음에 드는 모습을 고르면 자동으로 저장돼요.':'소품을 고르고 지도에 놓아 나만의 마을을 만들어요. 모든 소품은 무료예요.'}</p>
+    {avatar&&<div className="studio-subjects" role="group" aria-label="꾸밀 대상">{[['player','내 플레이어'],['avatar','AI 아바타']].map(([id,label])=><button key={id} className={subject===id?'selected':''} aria-pressed={subject===id} onClick={()=>selectSubject(id)}>{label}</button>)}</div>}
+    <div className="custom-preview"><Scene portrait={avatar} theme={me.theme} ownerNickname={me.nickname} ownerAppearance={look} village={{...me.village,items,...(avatar?{theme:'default'}:{})}} mode={avatar?'home':'village'} inputEnabled={false}/><span className="preview-caption">{avatar?(subject==='avatar'?'AI 아바타':'내 플레이어')+' · 드래그로 회전 · 휠로 확대':'3D 미리보기 · 드래그로 둘러보기'}</span></div>
     {!avatar&&<h3>마을 소품</h3>}
-    {avatar?<><h3>캐릭터 변경</h3><div className="choice-grid character-options">{characters.map(c=><button key={c.id} className={'secondary '+((look.character||'pio')===c.id?'selected':'')} aria-pressed={(look.character||'pio')===c.id} onClick={()=>selectCharacter(c.id)}>{c.name}{(look.character||'pio')===c.id&&<Check size={14}/>}</button>)}</div><p className="tiny">캐릭터마다 모자 · 액세서리 · 소품 색상이 따로 유지돼요.</p><h3>모자</h3><div className="choice-grid">{hats.map(h=><button className={'secondary '+(look.hat===h.id?'selected':'')} key={h.id} aria-pressed={look.hat===h.id} onClick={()=>updateLook({...look,hat:h.id})}>{h.name}{look.hat===h.id&&<Check size={14}/>}</button>)}</div><h3>액세서리</h3><div className="choice-grid">{accessories.map(a=><button className={'secondary '+(look.accessory===a.id?'selected':'')} key={a.id} aria-pressed={look.accessory===a.id} onClick={()=>updateLook({...look,accessory:a.id})}>{a.name}{look.accessory===a.id&&<Check size={14}/>}</button>)}</div><h3>소품 색상</h3><div className="color-options">{colors.map((color,i)=><button key={color} aria-label={['하늘','장미','새싹','라일락','꿀빛','크림'][i]} aria-pressed={look.color===color} className={look.color===color?'selected':''} style={{background:color}} onClick={()=>updateLook({...look,color})}>{look.color===color&&<Check size={18}/>}</button>)}</div></>:<>
+    {avatar?<><section className="studio-characters"><span className="eyebrow">CHOOSE YOUR FRIEND</span><h3>캐릭터 선택</h3><div className="choice-grid character-options">{characters.map(c=><button key={c.id} className={'secondary '+((look.character||'pio')===c.id?'selected':'')} aria-pressed={(look.character||'pio')===c.id} onClick={()=>selectCharacter(c.id)}>{c.name}{(look.character||'pio')===c.id&&<Check size={14}/>}</button>)}</div><p className="tiny">캐릭터마다 모자 · 액세서리 · 소품 색상이 따로 유지돼요.</p></section><section className="studio-accessories"><span className="eyebrow">A LITTLE MORE YOU</span><h3>모자</h3><div className="choice-grid">{hats.map(h=><button className={'secondary '+(look.hat===h.id?'selected':'')} key={h.id} aria-pressed={look.hat===h.id} onClick={()=>updateLook({...look,hat:h.id})}>{h.name}{look.hat===h.id&&<Check size={14}/>}</button>)}</div><h3>액세서리</h3><div className="choice-grid">{accessories.map(a=><button className={'secondary '+(look.accessory===a.id?'selected':'')} key={a.id} aria-pressed={look.accessory===a.id} onClick={()=>updateLook({...look,accessory:a.id})}>{a.name}{look.accessory===a.id&&<Check size={14}/>}</button>)}</div><h3>탈것</h3><div className="choice-grid">{rides.map(r=><button className={'secondary '+((look.ride||'none')===r.id?'selected':'')} key={r.id} aria-pressed={(look.ride||'none')===r.id} onClick={()=>updateLook({...look,ride:r.id})}>{r.name}{(look.ride||'none')===r.id&&<Check size={14}/>}</button>)}</div><p className="tiny">오토바이를 선택하면 탑승 자세가 적용돼요. 이동할 때 배기구에서 연기가 나와요.</p><h3>소품 · 오토바이 색상</h3><div className="color-options">{colors.map((color,i)=><button key={color} aria-label={['하늘','장미','새싹','라일락','꿀빛','크림'][i]} aria-pressed={look.color===color} className={look.color===color?'selected':''} style={{background:color}} onClick={()=>updateLook({...look,color})}>{look.color===color&&<Check size={18}/>}</button>)}</div></section></>:<>
       <div className="decor-catalog">{decorations.map(d=><button key={d.id} aria-pressed={!selected&&tool===d.id} className={'decor-option '+(!selected&&tool===d.id?'selected':'')} onClick={()=>{setTool(d.id);setSelected(null);}}><span>{d.icon}</span>{d.name}</button>)}</div>
       <div className="map-heading"><strong>{chosen?`${decorations.find(d=>d.id===chosen.type).name} 이동 중`:'놓을 위치를 선택하세요'}</strong><span>{items.length} / 24</span></div>
       <svg className="village-editor" viewBox="0 0 560 560" role="img" aria-label="마을 배치 지도. 아래 위치 입력으로도 소품을 배치할 수 있어요." onClick={place}>

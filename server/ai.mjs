@@ -1,3 +1,4 @@
+import {avatarTools,actionFromTool,avatarToolInstructions} from './avatarTools.mjs';
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { retrieve, settingsOf, visibleMemories } from './store.mjs';
@@ -40,9 +41,10 @@ export async function generateAnswer(context, text, history = [], options = {}) 
   const response = await (options.fetch || fetch)(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, signal: AbortSignal.timeout(45000),
     body: JSON.stringify({
-      systemInstruction: { parts: [{ text: context.system+(context.lifeActions?'\n'+lifeActionInstructions:'') }] },
+      systemInstruction: { parts: [{ text: context.system+(context.lifeActions?'\n'+lifeActionInstructions:'')+(context.avatarTools?'\n'+avatarToolInstructions:'') }] },
       contents: [...history.slice(-12).map(m => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: m.content }] })), { role: 'user', parts: [{ text }] }],
-      generationConfig: { temperature: 0.8, maxOutputTokens: 1800, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', properties: { reply: { type: 'STRING' }, emotion: { type: 'STRING', enum: ['happy','curious','calm','thinking','excited'] }, memories: { type: 'ARRAY', items: { type: 'OBJECT', properties: { content: { type: 'STRING' }, category: { type: 'STRING', enum: ['취향','가치관','경험','말투','일상'] } }, required: ['content','category'] } },...(context.lifeActions?{action:lifeActionResponseSchema}:{}) }, required: ['reply','emotion','memories',...(context.lifeActions?['action']:[])] } }
+      ...(context.avatarTools?{tools:[{functionDeclarations:avatarTools}],toolConfig:{functionCallingConfig:{mode:'AUTO'}}}:{}),
+      generationConfig: context.avatarTools?{temperature:0.3,maxOutputTokens:1800}:{ temperature: 0.8, maxOutputTokens: 1800, responseMimeType: 'application/json', responseSchema: { type: 'OBJECT', properties: { reply: { type: 'STRING' }, emotion: { type: 'STRING', enum: ['happy','curious','calm','thinking','excited'] }, memories: { type: 'ARRAY', items: { type: 'OBJECT', properties: { content: { type: 'STRING' }, category: { type: 'STRING', enum: ['취향','가치관','경험','말투','일상'] } }, required: ['content','category'] } },...(context.lifeActions?{action:lifeActionResponseSchema}:{}) }, required: ['reply','emotion','memories',...(context.lifeActions?['action']:[])] } }
     })
   });
   if (!response.ok) {
@@ -53,10 +55,15 @@ export async function generateAnswer(context, text, history = [], options = {}) 
     const error = new Error(response.status === 429 ? 'AI_RATE_LIMIT' : 'AI_UNAVAILABLE'); error.status = response.status; throw error;
   }
   const body = await response.json();
+  const calls=body.candidates?.[0]?.content?.parts?.filter(p=>!p.thought&&p.functionCall).map(p=>p.functionCall)||[];
+  if(context.avatarTools&&calls.length){
+    const action=calls.length===1?actionFromTool(calls[0]):{intent:'UNSUPPORTED'};
+    return {reply:'요청을 확인할게.',emotion:'calm',memories:[],provider:'gemini',action};
+  }
   const raw = body.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('');
   if (!raw) throw new Error('AI_EMPTY');
-  const parsed=JSON.parse(raw),result = answerSchema.parse(parsed);
-  const action=context.lifeActions&&parsed.action?(lifeActionSchema.safeParse(parsed.action).success?parsed.action:{intent:'UNSUPPORTED'}):null;
+  const parsed=JSON.parse(raw.replace(/^```(?:json)?\s*|\s*```$/g,'')),result = answerSchema.parse(parsed);
+  const action=!context.avatarTools&&context.lifeActions&&parsed.action?(lifeActionSchema.safeParse(parsed.action).success?parsed.action:{intent:'UNSUPPORTED'}):null;
   return { ...result, ...(action?{action}:{}), memories: context.own ? result.memories : [], provider: 'gemini' };
 }
 

@@ -2,9 +2,13 @@ import {z} from 'zod';
 import {ITEM_DEFINITIONS,ALL_ITEMS} from '../shared/life.mjs';
 import {CROPS,RECIPES,GARDEN_BEDS} from '../shared/garden.mjs';
 
-export const LIFE_INTENTS=['START_FISHING','JOIN_FISHING','STOP_ACTIVITY','QUERY_INVENTORY','OPEN_STORAGE','PLANT_SEED','HARVEST_CROP','COOK_FOOD','QUERY_GARDEN','OPEN_GARDEN','SET_AUTONOMY','QUERY_AUTONOMY','QUERY_RELATIONSHIP','UNSUPPORTED'];
+export const AVATAR_INTENTS=['MOVE_TO','SIT_DOWN','STAND_UP','TAKE_FROM_STORAGE'];
+export const LIFE_INTENTS=[...AVATAR_INTENTS,'START_FISHING','JOIN_FISHING','STOP_ACTIVITY','QUERY_INVENTORY','OPEN_STORAGE','PLANT_SEED','HARVEST_CROP','COOK_FOOD','QUERY_GARDEN','OPEN_GARDEN','SET_AUTONOMY','QUERY_AUTONOMY','QUERY_RELATIONSHIP','UNSUPPORTED'];
 export const lifeActionSchema=z.object({
   intent:z.enum(LIFE_INTENTS),
+  target:z.enum(['PLAYER','STORAGE','GARDEN','KITCHEN','POSITION']).optional(),
+  x:z.number().finite().optional(),z:z.number().finite().optional(),
+  seatId:z.string().min(1).max(100).optional(),quantity:z.number().int().min(1).max(99).optional(),
   actor:z.enum(['COMPANION','PLAYER','BOTH']).default('COMPANION'),
   scope:z.enum(['TODAY','ALL','SESSION','STORAGE']).default('ALL'),
   item:z.enum(ALL_ITEMS.map(i=>i.itemId)).optional(),
@@ -17,6 +21,7 @@ export const lifeActionSchema=z.object({
 }).strict();
 export const lifeActionResponseSchema={type:'OBJECT',nullable:true,properties:{
   intent:{type:'STRING',enum:LIFE_INTENTS},actor:{type:'STRING',enum:['COMPANION','PLAYER','BOTH']},
+  target:{type:'STRING',enum:['PLAYER','STORAGE','GARDEN','KITCHEN','POSITION']},x:{type:'NUMBER'},z:{type:'NUMBER'},seatId:{type:'STRING'},quantity:{type:'INTEGER'},
   scope:{type:'STRING',enum:['TODAY','ALL','SESSION','STORAGE']},item:{type:'STRING',enum:ALL_ITEMS.map(i=>i.itemId)},report:{type:'BOOLEAN'},
   source:{type:'STRING',enum:['FISHING','HARVEST','COOKING']},crop:{type:'STRING',enum:CROPS.map(c=>c.id)},plot:{type:'STRING',enum:GARDEN_BEDS.map(p=>p.id)},recipe:{type:'STRING',enum:RECIPES.map(r=>r.id)},fish:{type:'ARRAY',items:{type:'STRING',enum:ITEM_DEFINITIONS.map(i=>i.itemId)}},
   autonomy:{type:'OBJECT',properties:{enabled:{type:'BOOLEAN'},offline:{type:'BOOLEAN'},fishing:{type:'BOOLEAN'},gardening:{type:'BOOLEAN'},replant:{type:'BOOLEAN'},crop:{type:'STRING',enum:CROPS.map(c=>c.id)},recipe:{type:'STRING',nullable:true,enum:RECIPES.map(r=>r.id)}}},
@@ -34,6 +39,12 @@ export function localLifeAction(text){
   if(/^(?:이제\s*)?자동\s*요리(?:는|를)?\s*(?:하지\s*마|꺼\s*줘|중단해\s*줘)[.!?]*$/.test(t))return {intent:'SET_AUTONOMY',autonomy:{recipe:null}};
   if(/^(?:이제\s*)?오프라인\s*활동(?:은|을)?\s*(?:꺼\s*줘|중단해\s*줘)[.!?]*$/.test(t))return {intent:'SET_AUTONOMY',autonomy:{offline:false}};
   if(/["“”「」『』]|(?:라고|라는|예를|만약|가정|명령어|번역|뜻이|심어도|만들어도|하지\s*마|하지\s*않|안\s*할|말자|싫어|좋아해|좋아하)/.test(t))return null;
+  // Deliberately anchored: conversation, quotes, negation and compound requests go to the model.
+  if(/^(?:너(?:는)?\s*)?(?:나한테|내게|내\s*(?:옆|근처|쪽)(?:으로|에)?|여기(?:로)?)\s*(?:좀\s*)?(?:와|와줘|와\s*줘|와줄래|와봐)[.!?~]*$/.test(t))return {intent:'MOVE_TO',target:'PLAYER'};
+  if(/^(?:벤치에?\s*|의자에?\s*)?(?:좀\s*)?(?:앉아|앉아줘|앉아\s*줘|앉자)[.!?~]*$/.test(t))return {intent:'SIT_DOWN'};
+  if(/^(?:이제\s*)?(?:일어나|일어나줘|일어나\s*줘)[.!?~]*$/.test(t))return {intent:'STAND_UP'};
+  const retrieve=t.match(/^(?:보관함|창고)(?:에서|에\s*있는)\s*(.+?)\s*(?:(\d+)\s*(?:개|마리)\s*)?(?:좀\s*)?(?:꺼내\s*(?:와|줘)|가져\s*(?:와|줘))[.!?~]*$/);
+  if(retrieve){const item=ALL_ITEMS.find(i=>i.name===retrieve[1].trim());return item?{intent:'TAKE_FROM_STORAGE',item:item.itemId,quantity:retrieve[2]?Number(retrieve[2]):1}:{intent:'UNSUPPORTED'};}
   const actor=/나만|내가|플레이어/.test(t)?'PLAYER':/같이|함께|우리|둘\s*다|전체/.test(t)?'BOTH':'COMPANION';
   if(/그만|중단|멈춰|취소|낚시.*종료/.test(t))return {intent:'STOP_ACTIVITY',actor:/너만|아바타만/.test(t)?'COMPANION':/나만|플레이어만/.test(t)?'PLAYER':'BOTH'};
   if(/없는\s*동안|오프라인/.test(t)&&/뭐|무엇|결과|보고|조회/.test(t))return {intent:'QUERY_AUTONOMY'};
