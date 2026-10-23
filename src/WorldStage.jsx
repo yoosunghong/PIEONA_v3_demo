@@ -11,8 +11,8 @@ export default function WorldStage({editing,lifeFocused=false,guestbookFocused=f
         const mobile=innerWidth<=700,left=mobile?0:Math.min(490,Math.max(350,innerWidth*.2925))-100;
         setFrame({left,top:0,width:innerWidth-left,height:innerHeight-(mobile?(innerHeight<=650?185:220):0)});
       }else if(lifeFocused){
-        const mobile=innerWidth<=700,storage=sceneProps.mode==='storage',kitchen=sceneProps.mode==='kitchen',panelWidth=mobile?0:storage?(innerWidth<=1100?Math.max(590,innerWidth*.65):Math.min(1120,Math.max(690,innerWidth*.545))):kitchen?(innerWidth<=1100?Math.max(590,innerWidth*.65)+10:Math.min(1120,Math.max(700,innerWidth*.55))+16):Math.min(490,Math.max(350,innerWidth*.2925));
-        setFrame({left:0,top:0,width:Math.max(160,innerWidth-panelWidth),height:innerHeight*(mobile?((storage||kitchen)?0.34:0.42):1)});
+        const mobile=innerWidth<=700,storage=sceneProps.mode==='storage',kitchen=sceneProps.mode==='kitchen',panelWidth=mobile?0:storage?(innerWidth<=1100?Math.max(590,innerWidth*.65):Math.min(1120,Math.max(690,innerWidth*.545))):kitchen?(innerWidth<=1100?Math.max(590,innerWidth*.65)+10:Math.min(1120,Math.max(700,innerWidth*.55))+16):(innerWidth<=1100?Math.max(600,innerWidth*.68)+10:Math.min(1140,Math.max(710,innerWidth*.56))+12);
+        setFrame({left:0,top:0,width:Math.max(160,innerWidth-panelWidth),height:innerHeight*(mobile?0.34:1)});
       }else if(guestbookFocused){
         const rect=anchor.getBoundingClientRect();
         // Keep the zoomed book visible beside the desktop panel or above the mobile sheet.
