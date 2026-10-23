@@ -1,3 +1,4 @@
+import {createFacilityOutline,selectedFacility} from './facilityOutline.mjs';
 import {facilityStep,isClickFacility} from './lifeNavigation.mjs';
 import {VILLAGE_SCALE,VILLAGE_RADIUS,WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
 import {villageScenery,isScenery} from '../shared/scenery.mjs';
@@ -78,7 +79,8 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     for(let i=0;i<12;i++){const a=i*Math.PI/6;const tile=box(.55,.08,.48,stone,Math.sin(a)*2.5,.18,Math.cos(a)*2.5);tile.rotation.y=a;}
     for(let i=0;i<6;i++){const x=-.25+Math.sin(i)*.13;box(.88,.08,.48,stone,x,.17,2.9+i*.5);}
     const sceneryRoots=new Map();
-    const lifeWorld=createLifeWorld();world.add(lifeWorld.root);for(const [id,root] of lifeWorld.facilities)sceneryRoots.set(id,root);
+    const lifeWorld=createLifeWorld();world.add(lifeWorld.root);
+    const facilityOutline=createFacilityOutline(renderer,world,camera);for(const [id,root] of lifeWorld.facilities)sceneryRoots.set(id,root);
     const registerScenery=(id,objects,x,z)=>registerSceneryObject(world,sceneryRoots,id,objects,x,z);
     function tree(x,z,size=1,blossom=false){
       const g=new THREE.Group();g.position.set(x,.12,z);world.add(g);
@@ -281,6 +283,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const resize=()=>{const {width,height}=el.getBoundingClientRect();viewport.resize(width,height);};
     const observer=new ResizeObserver(resize);observer.observe(el);resize();
     let bookOccluders=[],nextOcclusionCheck=0;
+    function renderWorld(){const selected=isLifeFocus(state.current?.mode)?callbacks.current.lifeObjectId:facilityDestination;facilityOutline.render(selectedFacility(lifeWorld.facilities,selected));}
     function drawFrame(){viewport.draw(()=>{
       if(portrait)for(const child of world.children)child.visible=child===avatarRoot||child.isLight||!!child.userData.previewStage;
       // Home already identifies the avatar in its heading/card. A world-space
@@ -302,9 +305,9 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         if(performance.now()>=nextOcclusionCheck){bookOccluders=isLifeFocus(state.current.mode)?lifeFocusOccluders(world,camera,lifeFocusView(state.current.mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village).target,lifeWorld.root,callbacks.current.lifeObjectId):guestbookOccluders(world,camera,callbacks.current.guestbook);nextOcclusionCheck=performance.now()+150;}
         const visibility=bookOccluders.map(object=>object.visible);
         bookOccluders.forEach(object=>{object.visible=false;});
-        renderer.render(world,camera);
+        renderWorld();
         bookOccluders.forEach((object,index)=>{object.visible=visibility[index];});
-      }else{nextOcclusionCheck=0;renderer.render(world,camera);}
+      }else{nextOcclusionCheck=0;renderWorld();}
     });}
     const clock=new THREE.Clock();let lastPausedRender=-1;
     function updateBenchPrompt(value){if(benchPromptRef.current!==value){benchPromptRef.current=value;setBenchPrompt(value);}}
@@ -455,7 +458,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       fireCore.scale.y=1+Math.sin(time*13)*.17;embers.forEach((ember,i)=>{ember.position.y=.55+((time*.6+i/14)%1)*1.4;ember.position.x=Math.sin(time*2+i*2.4)*.23;ember.scale.setScalar(1-(ember.position.y-.55)/1.7);});
       drawFrame();
     }render();
-    return()=>{const local=remoteCharacters.get(state.current?.viewerId);if(local?.seatId&&!local.seatId.startsWith('fishing:'))stand(local,false);disposeObject(lifeWorld.root);lifeToggle.current=null;lifePromptRef.current='';setLifePrompt('');benchToggle.current=null;benchPromptRef.current='';setBenchPrompt('');if(captureRef)captureRef.current=null;disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',visibilityChanged);disposeObject(decorationRoot);disposeObject(signRoot);disposeObject(previewRoot);gardenDetailParts.forEach(disposeObject);disposeObject(gardenDetails);disposeObject(cafeTables);for(const [id,root] of sceneryRoots){if(id.includes('table-'))disposeObject(root);}grid.geometry.dispose();grid.material.dispose();disposeCharacter(avatarRoot);remoteCharacters.forEach(({root,mixer:remoteMixer})=>{world.remove(root);disposeCharacter(root);remoteMixer?.stopAllAction();remoteMixer?.uncacheRoot(remoteMixer.getRoot());});for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.removeEventListener(name,handler);mixer?.stopAllAction();mixer?.uncacheRoot(mixer.getRoot());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.dispose();renderer.renderLists.dispose();renderer.domElement.remove();state.current=null;worldRef.current=null;};
+    return()=>{const local=remoteCharacters.get(state.current?.viewerId);if(local?.seatId&&!local.seatId.startsWith('fishing:'))stand(local,false);facilityOutline.dispose();disposeObject(lifeWorld.root);lifeToggle.current=null;lifePromptRef.current='';setLifePrompt('');benchToggle.current=null;benchPromptRef.current='';setBenchPrompt('');if(captureRef)captureRef.current=null;disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',visibilityChanged);disposeObject(decorationRoot);disposeObject(signRoot);disposeObject(previewRoot);gardenDetailParts.forEach(disposeObject);disposeObject(gardenDetails);disposeObject(cafeTables);for(const [id,root] of sceneryRoots){if(id.includes('table-'))disposeObject(root);}grid.geometry.dispose();grid.material.dispose();disposeCharacter(avatarRoot);remoteCharacters.forEach(({root,mixer:remoteMixer})=>{world.remove(root);disposeCharacter(root);remoteMixer?.stopAllAction();remoteMixer?.uncacheRoot(remoteMixer.getRoot());});for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.removeEventListener(name,handler);mixer?.stopAllAction();mixer?.uncacheRoot(mixer.getRoot());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.dispose();renderer.renderLists.dispose();renderer.domElement.remove();state.current=null;worldRef.current=null;};
   },[theme,sceneType,portrait,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),village.theme]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene||!editor?.onThumbnails)return;

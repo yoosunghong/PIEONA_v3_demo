@@ -106,7 +106,7 @@ function App(){
   const notify=useCallback(message=>{setToast(message);clearTimeout(toastTimer.current);toastTimer.current=setTimeout(()=>setToast(''),4500);},[]);
   const life=useLife(me?.id,socketRef.current,connected,notify);
   const messageRequest=useRef(null);
-  async function performLife(action){const result=await life.perform(action);if(result?.ok){if(!lifeFocused)setPanel(null);setMode('village');}}
+  async function performLife(action){const result=await life.perform(action);if(result?.ok){if(!lifeFocused)setPanel(null);setMode('village');}return result;}
   const refresh=useCallback(async()=>{
     setPeopleLoading(true);
     try{
@@ -254,7 +254,7 @@ function App(){
       <button autoFocus onClick={endTopic}>대화 나가기</button>
     </div></footer>
   </section>}
-  <LifeStudio key={'life:'+target.id} context={lifeFocused?panel:null} data={life.data} onRetry={life.load} pending={life.pending} connected={connected} onAction={performLife} onConfigure={life.configure} onAcknowledge={life.acknowledge} onForget={life.forget} onClose={closePanel}/>
+  <LifeStudio viewer={me} village={target.village} position={localPose.current} key={'life:'+target.id} context={lifeFocused?panel:null} data={life.data} onRetry={life.load} pending={life.pending} connected={connected} onAction={performLife} onConfigure={life.configure} onAcknowledge={life.acknowledge} onForget={life.forget} onClose={closePanel}/>
   {guestbookFocused&&<Guestbook key={target.id} target={target} me={me} socket={socketRef.current} notify={notify} onClose={closePanel}/>}
   {panel==='signView'&&<div className="sign-view-actions" role="region" aria-label="팻말 확대 보기"><strong>{own?'우리 마을 팻말':target.nickname+'의 팻말'}</strong>{own&&<button onClick={()=>setPanel('signEdit')}><Paintbrush size={18}/>팻말 편집하기</button>}<button autoFocus onClick={closePanel}><X size={17}/>돌아가기</button></div>}
   {panel==='signEdit'&&own&&<SignEditor key={target.id} sign={villageSign(target.village)} onClose={()=>setPanel('signView')} onSaved={user=>{setMe(user);setPanel('signView');notify('팻말을 저장했어요. 마을에 온 이웃에게도 보여요.');}}/>}

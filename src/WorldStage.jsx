@@ -11,8 +11,8 @@ export default function WorldStage({editing,lifeFocused=false,guestbookFocused=f
         const mobile=innerWidth<=700,left=mobile?0:Math.min(490,Math.max(350,innerWidth*.2925))-100;
         setFrame({left,top:0,width:innerWidth-left,height:innerHeight-(mobile?(innerHeight<=650?185:220):0)});
       }else if(lifeFocused){
-        const mobile=innerWidth<=700,panelWidth=mobile?0:Math.min(490,Math.max(350,innerWidth*.2925));
-        setFrame({left:0,top:0,width:innerWidth-panelWidth,height:innerHeight*(mobile?.42:1)});
+        const mobile=innerWidth<=700,storage=sceneProps.mode==='storage',panelWidth=mobile?0:storage?(innerWidth<=1100?Math.max(590,innerWidth*.65):Math.min(1120,Math.max(690,innerWidth*.545))):Math.min(490,Math.max(350,innerWidth*.2925));
+        setFrame({left:0,top:0,width:Math.max(160,innerWidth-panelWidth),height:innerHeight*(mobile?(storage?.34:.42):1)});
       }else if(guestbookFocused){
         const rect=anchor.getBoundingClientRect();
         // Keep the zoomed book visible beside the desktop panel or above the mobile sheet.
@@ -23,6 +23,6 @@ export default function WorldStage({editing,lifeFocused=false,guestbookFocused=f
     };
     measure();const observer=new ResizeObserver(measure);observer.observe(anchor);window.addEventListener('resize',measure);
     return()=>{observer.disconnect();window.removeEventListener('resize',measure);};
-  },[editing,lifeFocused,guestbookFocused]);
+  },[editing,lifeFocused,guestbookFocused,sceneProps.mode]);
   return <div ref={stage} className={'persistent-world-stage'+(frame?' is-positioned':'')+(editing?' is-editing':'')} style={frame||{visibility:'hidden'}}><Scene {...sceneProps}/></div>;
 }

@@ -1,0 +1,36 @@
+import React,{useState} from 'react';
+import {Search,ArrowDownUp,List,LayoutGrid,Star,MapPin,CalendarDays,Utensils,Backpack,Package,BookOpen} from 'lucide-react';
+import {RARITIES} from '../shared/life.mjs';
+import {inventoryItems,spritePosition} from './inventoryView.mjs';
+import './inventory-studio.css';
+
+export function InventoryIcon({id,icon='',className=''}){
+  const sprite=spritePosition(id);
+  return <span aria-hidden="true" className={'inventory-art '+className+(sprite?'':' is-fallback')} style={sprite||undefined}>{sprite?'':icon}</span>;
+}
+const categories=[['all','전체','▦'],['fish','낚시수확','🐟'],['ingredient','식재료','🌱'],['food','음식','🍴'],['decoration','가구·장식','🪑'],['other','기타','⭐']];
+
+export default function InventoryStudio({data,onRetry,pending,connected,onAction}){
+  const [category,setCategory]=useState('all'),[query,setQuery]=useState(''),[sort,setSort]=useState('recent'),[selected,setSelected]=useState(null),[list,setList]=useState(false),[collection,setCollection]=useState(false),[favorites,setFavorites]=useState([]),[result,setResult]=useState('');
+  const items=inventoryItems(data,{category,query,sort,collection});
+  const item=items.find(item=>item.itemId===selected)||items[0],known=item&&(!collection||!!item.discovery),carried=data?.companion?.carriedItem;
+  const total=(data?.inventory||[]).filter(item=>item.quantity>0).length;
+  async function take(){
+    if(!item)return;
+    const response=await onAction({intent:'TAKE_FROM_STORAGE',item:item.itemId,quantity:1});
+    setResult(response?.reply||'');
+  }
+  async function put(){const response=await onAction({intent:'STOP_ACTIVITY',actor:'COMPANION'});setResult(response?.reply||'');}
+  return <div className="inventory-studio-body" aria-busy={pending}>
+    <div className="inventory-toolbar"><button className={'inventory-collection '+(collection?'selected':'')} aria-pressed={collection} onClick={()=>{setCollection(value=>!value);setCategory('all');setSelected(null);}}><BookOpen size={18}/>{collection?'보관함 보기':'물고기 도감'}</button><label className="inventory-search"><Search size={20}/><input aria-label="보관함 아이템 검색" placeholder="아이템 검색..." value={query} onChange={event=>setQuery(event.target.value)}/></label><label className="inventory-sort"><ArrowDownUp size={17}/><select aria-label="아이템 정렬" value={sort} onChange={event=>setSort(event.target.value)}><option value="recent">획득 최신순</option><option value="quantity">보유 수량순</option><option value="name">이름순</option><option value="rarity">희귀도순</option></select></label><button className="inventory-view-toggle" aria-label={list?'격자로 보기':'목록으로 보기'} aria-pressed={list} onClick={()=>setList(value=>!value)}>{list?<LayoutGrid size={20}/>:<List size={20}/>}</button></div>
+    <div className="inventory-category-row"><nav aria-label="보관함 카테고리">{categories.map(([id,name,icon])=><button key={id} aria-pressed={category===id} onClick={()=>{setCategory(id);setSelected(null);}}><span aria-hidden="true">{icon}</span>{name}</button>)}</nav><span className="inventory-count">{collection?'발견한 물고기':'보유 아이템'} <strong>{collection?(data?.discoveries?.length||0):total}</strong><small>{collection?` / ${data?.catalog?.filter(item=>item.category==='fish').length||0}`:'종'}</small></span></div>
+    {!data?.catalog?<div className="inventory-loading" role="status"><span className="spinner"/>보관함을 불러오고 있어요.<button onClick={onRetry}>다시 불러오기</button></div>:<div className="inventory-workspace">
+      <div className="inventory-grid-scroll"><div className={'inventory-slots'+(list?' is-list':'')} role="group" aria-label={collection?'물고기 도감':'보관 중인 아이템'}>{items.map(entry=>{
+        const revealed=!collection||!!entry.discovery;
+        return <button key={entry.itemId} className={'inventory-slot rarity-'+entry.rarity+(item?.itemId===entry.itemId?' selected':'')+(!revealed?' undiscovered-slot':'')} aria-label={revealed?`${entry.name} · ${entry.quantity}${entry.unit}`:'미발견 물고기'} aria-pressed={item?.itemId===entry.itemId} onClick={()=>setSelected(entry.itemId)} title={revealed?entry.name:'미발견 물고기'}><InventoryIcon id={entry.itemId} icon={entry.icon}/>{list&&<span className="inventory-slot-name">{revealed?entry.name:'???'}<small>{RARITIES[entry.rarity]}</small></span>}<span className="inventory-quantity">{revealed?entry.quantity:'?'}</span></button>;
+      })}{!list&&Array.from({length:Math.max(0,24-items.length)},(_,index)=><div key={'empty-'+index} className="inventory-slot empty-slot" aria-hidden="true"/>)}</div>{!items.length&&<div className="inventory-empty"><InventoryIcon id="chest"/><h3>{query?'찾는 아이템이 없어요':'아직 보관한 아이템이 없어요'}</h3><p>{query?'다른 이름이나 카테고리를 선택해 보세요.':'낚시와 수확으로 작은 보물을 모아 보세요.'}</p></div>}</div>
+      <aside className={'inventory-inspector'+(!item?' is-empty':'')} aria-label="아이템 상세">{item?<><button className={'inventory-favorite '+(favorites.includes(item.itemId)?'selected':'')} aria-label={favorites.includes(item.itemId)?'즐겨찾기 해제':'아이템 즐겨찾기'} aria-pressed={favorites.includes(item.itemId)} onClick={()=>setFavorites(items=>items.includes(item.itemId)?items.filter(id=>id!==item.itemId):[...items,item.itemId])}><Star size={25} fill={favorites.includes(item.itemId)?'currentColor':'none'}/></button><InventoryIcon id={item.itemId} icon={item.icon} className={'inspector-art'+(!known?' unknown-art':'')}/><div className="inventory-item-heading"><div><span className="inventory-item-type">{categories.find(([id])=>id===item.category)?.[1]} · {RARITIES[item.rarity]}</span><h2>{known?item.name:'아직 만나지 못한 친구'}</h2></div><div className="inventory-held"><small>보유 수량</small><strong>{item.quantity}<small>{item.unit}</small></strong></div></div><p className="inventory-description">{known?item.description:'처음 낚으면 발견 기록이 열려요.'}</p><dl className="inventory-facts"><div><dt><MapPin size={17}/>획득 위치</dt><dd>{known?(item.category==='fish'?'마을 해안가':item.category==='food'?'마을 요리대':'마을 텃밭'):'미발견'}</dd></div><div><dt><CalendarDays size={17}/>획득 일시</dt><dd>{item.acquiredAt?new Date(item.acquiredAt).toLocaleString('ko-KR',{year:'numeric',month:'2-digit',day:'2-digit',hour:'numeric',minute:'2-digit'}):'기록 없음'}</dd></div><div><dt><Utensils size={17}/>용도</dt><dd>{known?item.usage:'발견 후 확인'}</dd></div><div><dt><Star size={17}/>희귀도</dt><dd className={'inventory-rarity rarity-'+item.rarity}>{RARITIES[item.rarity]}</dd></div></dl></>:<><InventoryIcon id="chest" className="inspector-art"/><h2>작은 발견을 기다려요</h2><p>아이템을 선택하면<br/>자세한 정보를 볼 수 있어요.</p></>}</aside>
+    </div>}
+    <footer className="inventory-footer"><p role="status">{result|| (carried?'아바타가 꺼낸 물건을 가져오는 중이에요.':'모은 아이템은 모든 자아가 함께 사용해요.')}</p><div><button className="inventory-take" disabled={!item||!known||item.quantity<1||pending||!connected||!!data?.companion?.task||!!data?.task} title="아바타가 선택한 아이템 1개를 가져와요" onClick={take}><Backpack size={25}/>꺼내기</button><button className="inventory-put" disabled={!carried||pending||!connected} title="아바타가 운반 중인 물건을 보관함에 돌려놓아요" onClick={put}><Package size={25}/>넣기</button></div></footer>
+  </div>;
+}

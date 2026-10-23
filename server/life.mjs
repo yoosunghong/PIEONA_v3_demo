@@ -258,7 +258,13 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   app.post('/api/me/life/reports/:id/ack',auth,(req,res)=>{if(!autonomy.acknowledge(req.user.id,req.params.id))fail(404,'정산 기록을 찾을 수 없어요.');res.json({ok:true});});
   app.delete('/api/me/life/memories/:id',auth,(req,res)=>{if(!memories.forget(req.user.id,req.params.id))fail(404,'추억을 찾을 수 없어요.');res.json({ok:true});});
   app.post('/api/me/life/actions',auth,(req,res)=>{const body=z.object({requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);if(!['PLANT_SEED','HARVEST_CROP','COOK_FOOD'].includes(body.action.intent))fail(400,'잘못된 생활 작업 요청이에요.');const result=execute(req.user.id,req.user.id,body.action,epoch(req.user.id),body.requestId,'PLAYER');res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});});
-  app.get('/api/me/life',auth,(req,res)=>{autonomy.settle(req.user.id);res.json({...snapshot(req.user.id),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
+  app.post('/api/me/life/storage',auth,(req,res)=>{
+    const body=z.object({requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);
+    if(body.action.intent!=='TAKE_FROM_STORAGE'&&!(body.action.intent==='STOP_ACTIVITY'&&body.action.actor==='COMPANION'))fail(400,'보관함 꺼내기 또는 되돌려 놓기만 요청할 수 있어요.');
+    const result=execute(req.user.id,req.user.id,body.action,epoch(req.user.id),body.requestId);
+    res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});
+  });
+  app.get('/api/me/life',auth,(req,res)=>{autonomy.settle(req.user.id);res.json({...snapshot(req.user.id),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),inventoryAcquisitions:store.all(`SELECT i.item_id AS itemId,i.quantity,MAX(COALESCE((SELECT MAX(timestamp) FROM acquisition_events a WHERE a.owner_id=i.owner_id AND a.item_id=i.item_id),0),COALESCE((SELECT MAX(timestamp) FROM inventory_changes c WHERE c.owner_id=i.owner_id AND c.item_id=i.item_id AND c.quantity>0),0)) AS lastAcquiredAt FROM inventory_entries i WHERE i.owner_id=?`,req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
     COALESCE(NULLIF(s.actor_name,''),u.nickname) AS acquiredByName,COALESCE(s.actor_kind,'PLAYER') AS actor
     FROM fish_discoveries d JOIN users u ON u.id=d.acquired_by LEFT JOIN acquisition_events e ON e.rowid=(SELECT e2.rowid FROM acquisition_events e2 WHERE e2.owner_id=d.owner_id AND e2.item_id=d.item_id ORDER BY e2.timestamp,e2.rowid LIMIT 1) LEFT JOIN life_sessions s ON s.id=e.session_id WHERE d.owner_id=?`,req.user.id)});});
   io.on('connection',socket=>{

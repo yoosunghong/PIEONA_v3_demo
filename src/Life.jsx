@@ -40,7 +40,7 @@ export function useLife(userId,socket,connected,notify){
     if(!connected){notify('마을 연결을 기다려 주세요.');return;}
     const signature=JSON.stringify(action);if(retry.current?.signature!==signature)retry.current={signature,key:crypto.randomUUID()};
     guard.current=true;setPending(true);
-    try{const result=await api('/me/life/actions',{method:'POST',body:{requestId:retry.current.key,action}});retry.current=null;await load();return result;}
+    try{const result=await api(action.intent==='TAKE_FROM_STORAGE'||action.intent==='STOP_ACTIVITY'?'/me/life/storage':'/me/life/actions',{method:'POST',body:{requestId:retry.current.key,action}});retry.current=null;await load();return result;}
     catch(e){if(e.status)retry.current=null;notify(e.message);await load();}
     finally{guard.current=false;setPending(false);}
   };
