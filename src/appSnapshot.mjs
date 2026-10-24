@@ -9,3 +9,10 @@ export async function loadAppSnapshot(request){
   });
   return snapshot;
 }
+
+// Socket presence is newer than an HTTP snapshot that may still be in flight.
+export function applyPresence(users,ids){
+  if(ids===null)return users;
+  const online=new Set(ids);
+  return users.map(user=>({...user,online:online.has(user.id)}));
+}
