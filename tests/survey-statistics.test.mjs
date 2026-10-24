@@ -68,7 +68,7 @@ test('empty statistics, rating averages, multiple selections, no-experience and 
   runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',randomUUID(),2,JSON.stringify({...answer(),q2:1,q10:'이전 설문 의견'}));
   const stats=(await request('/survey/statistics',manager)).body;
   assert.equal(stats.total,2);assert.equal(stats.legacyTotal,1);
-  assert.equal(stats.version,3);
+  assert.equal(stats.version,surveyVersion);
   assert.deepEqual(stats.questions.find(q=>q.id==='q1').counts,[2,1,0,0,0,0,1]);
   assert.deepEqual(stats.questions.find(q=>q.id==='q2'),{id:'q2',answered:2,rated:1,unexperienced:1,average:5,counts:[0,0,0,0,1]});
   assert.equal(stats.questions.find(q=>q.id==='q3').average,2);

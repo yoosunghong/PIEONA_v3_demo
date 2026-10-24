@@ -34,7 +34,7 @@ test('fishing success and conditional rarity boundaries use the specified indepe
   assert.equal(lifeInteractionKey({code:'KeyE',repeat:true}),false);
 });
 
-test('server enforces authentication, location, own village and a single active session',async()=>{
+test('server enforces authentication, location, village presence and a single active session',async()=>{
   const h=await harness();try{
     const owner=await h.register('fisher_owner'),visitor=await h.register('fisher_visitor');
     assert.equal((await h.request('/me/life')).status,401);
@@ -110,4 +110,27 @@ test('SQLite reopen preserves inventory and discoveries and never grants offline
     h.runtime.store.run("UPDATE life_sessions SET status='active'");await h.close();h=null;
     h=await harness(filename);assert.equal(h.runtime.life.active(user.id),undefined);assert.equal((await h.request('/me/life',user)).body.inventory[0].quantity,1);
   }finally{if(h)await h.close();rmSync(dir,{recursive:true,force:true});}
+});
+
+
+test('visitors fish at host coordinates, compete for seats and keep their own rewards',async()=>{
+  const h=await harness();try{
+    const host=await h.register('visit_host'),guest=await h.register('visit_fisher');
+    const village={scenery:[{id:'life-fishing',x:0,z:-6.75,rotation:2}]};
+    h.runtime.store.run('UPDATE users SET village=? WHERE id=?',JSON.stringify(village),host.id);
+    const {villageLife}=await import('../shared/lifeLayout.mjs'),anchor=villageLife(village).anchors[1];
+    const socket=await h.connect(guest,host.id),second=await h.connect(guest,host.id),owner=await h.connect(host);
+    async function move(s,x=anchor.approach.x,z=anchor.approach.z){s.emit('village:move',{villageId:host.id,x,z,rotation:0,moving:true,seatId:null,jumpStarted:0});await emit(s,'village:join',{villageId:host.id});}
+    await move(socket);assert.equal((await emit(socket,'life:start',{anchorId:anchor.id})).ok,true);
+    await move(owner);assert.equal((await emit(owner,'life:start',{anchorId:anchor.id})).ok,false);
+    assert.equal(h.runtime.life.active(guest.id).village_id,host.id);
+    h.advance(FISHING_PERIOD);h.runtime.life.tick();
+    assert.equal((await h.request('/me/life',guest)).body.inventory[0].quantity,1);
+    assert.deepEqual((await h.request('/me/life',host)).body.inventory,[]);
+    await emit(second,'village:leave');assert.ok(h.runtime.life.active(guest.id));
+    await move(socket,anchor.approach.x,anchor.approach.z);assert.equal(h.runtime.life.active(guest.id),undefined);
+    assert.equal((await emit(socket,'life:start',{anchorId:anchor.id})).ok,true);
+    await emit(socket,'village:leave');assert.equal(h.runtime.life.active(guest.id),undefined);
+    h.advance(FISHING_PERIOD*10);assert.deepEqual(h.runtime.life.settle(guest.id),[]);
+  }finally{await h.close();}
 });

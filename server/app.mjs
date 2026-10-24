@@ -1,3 +1,4 @@
+import {petTypes,petColors} from '../shared/pets.mjs';
 import {isLifeScenery,validLifePlacement} from '../shared/lifeLayout.mjs';
 import {WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
 import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance,suppressedScenery} from '../shared/scenery.mjs';
@@ -71,7 +72,7 @@ export function createApp(options = {}) {
     return Array.from(villageVisitors.get(villageId)?.values() || []).map(({sockets,lastMove,...member})=>{
       const user=userById(member.userId);
       return {...member,runnerBusy:!!busy(member.userId),nickname:user.nickname,appearance:profile(user,user.id).appearance};
-    }).concat(life.companionMembers(villageId).map(member=>({...member,appearance:profile(userById(villageId),villageId).avatarAppearance})));
+    }).concat(life.companionMembers(villageId).map(member=>({...member,appearance:profile(userById(member.ownerId),member.ownerId).avatarAppearance})));
   }
   function emitVillage(villageId) {
     io.to(`village:${villageId}`).emit('village:members',{villageId,members:villageMembers(villageId),garden:life.gardenSnapshot(villageId)});
@@ -83,7 +84,7 @@ export function createApp(options = {}) {
     const members=villageVisitors.get(current.villageId),member=members?.get(current.userId);
     member?.sockets.delete(socket.id);
     if(member)member.moving=false;
-    if(member&&!member.sockets.size){if(current.userId===current.villageId)life.leave(current.userId);members.delete(current.userId);}
+    if(member&&!member.sockets.size){if(current.userId===current.villageId)life.leave(current.userId);else if(life.active(current.userId)?.village_id===current.villageId)life.stop(current.userId);members.delete(current.userId);}
     if(members&&!members.size)villageVisitors.delete(current.villageId);
     socket.data.village=null;
     logAction(current.userId,'village_leave',{villageId:current.villageId});
@@ -136,10 +137,17 @@ export function createApp(options = {}) {
     res.clearCookie('pieona_session',{path:'/'}); res.json({ok:true});
   });
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
+  app.patch('/api/me/pet/appearance',auth,(req,res)=>{
+    const data=z.object({petType:z.enum(petTypes.map(p=>p.id)),petColor:z.enum(petColors.map(p=>p.id))}).strict().parse(req.body);
+    const user=userById(req.user.id),look={...profile(user,user.id).avatarAppearance,...data};
+    store.run('UPDATE users SET avatar_appearance=? WHERE id=?',JSON.stringify(look),user.id);
+    emitWorld();for(const room of villageVisitors.keys())emitVillage(room);
+    res.json({user:profile(userById(user.id),user.id)});
+  });
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({hidden:z.boolean().optional(),id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
     const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=SCENERY_RADIUS,'마을 안에 놓아주세요.').refine(item=>!isLifeScenery(item.id)||!item.hidden,'생활 시설은 이동과 회전만 할 수 있어요.');
-    const lookSchema=z.object({character:z.enum(characters.map(c=>c.id)).optional(),ride:z.enum(rides.map(r=>r.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
+    const lookSchema=z.object({petType:z.enum(petTypes.map(p=>p.id)).optional(),petColor:z.enum(petColors.map(p=>p.id)).optional(),character:z.enum(characters.map(c=>c.id)).optional(),ride:z.enum(rides.map(r=>r.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.string().max(9).refine(isSignColor),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
     const signSchema=z.object({customColors:z.array(z.string().max(9).refine(isSignColor)).max(MAX_CUSTOM_SIGN_COLORS).optional(),hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
@@ -166,7 +174,7 @@ export function createApp(options = {}) {
       const before=villageScenery(oldVillage),after=villageScenery(nextVillage);
       const movedFacilities=after.filter(object=>isLifeScenery(object.id)&&sceneryMoved(before.find(item=>item.id===object.id),object));
       if(movedFacilities.length){
-        if(store.one("SELECT 1 FROM life_sessions WHERE owner_id=? AND status IN ('moving','active')",user.id)||store.one("SELECT 1 FROM life_operations WHERE owner_id=? AND status='pending'",user.id))fail(409,'진행 중인 낚시·텃밭·요리 활동을 마친 뒤 시설을 옮겨주세요.');
+        if(store.one("SELECT 1 FROM life_sessions WHERE COALESCE(village_id,owner_id)=? AND status IN ('moving','active')",user.id)||store.one("SELECT 1 FROM life_operations WHERE owner_id=? AND status='pending'",user.id))fail(409,'진행 중인 낚시·텃밭·요리 활동을 마친 뒤 시설을 옮겨주세요.');
 
       }
       const objects=[...after,...(nextVillage.items||[]),villageSign(nextVillage),villageGuestbook(nextVillage)].filter(item=>!item.hidden);
@@ -620,7 +628,7 @@ export function createApp(options = {}) {
       if(data.jumpStarted!==undefined&&(!Number.isFinite(data.jumpStarted)||data.jumpStarted<0||data.jumpStarted>Date.now()+5000))return;
       if(![x,z,rotation].every(value=>typeof value==='number'&&Number.isFinite(value))||typeof moving!=='boolean')return;
       const member=villageVisitors.get(current.villageId)?.get(uid);if(!member)return;
-      if(current.villageId===uid&&life.busy(uid)){
+      if(life.busy(uid)&&(!life.active(uid)||(life.active(uid).village_id||uid)===current.villageId)){
         // The server owns a fishing pose; movement is an explicit cancellation.
         if(['Moving','Gardening','Cooking'].includes(member.activityState)&&!moving&&!data.jumpStarted)return;
         if(!moving&&!data.jumpStarted&&data.seatId===member.seatId)return;

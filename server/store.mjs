@@ -1,3 +1,4 @@
+import {defaultPetAppearance} from '../shared/pets.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -108,7 +109,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
   const incoming = store.one("SELECT status FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'", user.id, viewerId);
   const result = {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
-    avatarAppearance: {hat:'none',accessory:'none',color:'#88b5d7',...(user.avatar_appearance==='{}'?JSON.parse(user.appearance):JSON.parse(user.avatar_appearance))},
+    avatarAppearance: {...defaultPetAppearance,hat:'none',accessory:'none',color:'#88b5d7',...(user.avatar_appearance==='{}'?JSON.parse(user.appearance):JSON.parse(user.avatar_appearance))},
     village: {items:[],theme:'default',...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
     stage: own || s.stageVisible ? stageOf(store, user) : null,
     ...((own || s.stageVisible) ? experienceOf(store,user) : {level:null,xp:null,levelXp:null,nextLevelXp:null}),

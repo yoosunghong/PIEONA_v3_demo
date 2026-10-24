@@ -2,7 +2,7 @@ import {GARDEN_BEDS,KITCHEN} from './garden.mjs';
 import {WALK_RADIUS} from './villageSize.mjs';
 
 export const STORAGE={id:'storage',x:-1.75,z:4.65};
-export const FISHING_ANCHORS=[-1.8,-.6,.6,1.8].map((x,i)=>({id:`fishing:${i}`,x,z:6.3,height:.58,rotation:0}));
+export const FISHING_ANCHORS=[-1.35,-.45,.45,1.35].map((x,i)=>({id:`fishing:${i}`,x,z:6.3,height:.58,rotation:0}));
 export const lifeDefinitions=[
   {id:'life-storage',name:'보관함',x:STORAGE.x,z:STORAGE.z,action:STORAGE.id},
   ...GARDEN_BEDS.map((bed,i)=>({id:`life-garden-${i}`,name:`텃밭 ${i+1}`,x:bed.x,z:bed.z,action:bed.id})),
@@ -27,7 +27,7 @@ export function lifeFootprint(village={},id=null){
     [storage,'scenery:life-storage',.75],
     [kitchen,'scenery:life-kitchen',.9],
     ...beds.map((bed,i)=>[bed,`scenery:life-garden-${i}`,.8]),
-    ...anchors.map(anchor=>[anchor,'scenery:life-fishing',.8]),
+    ...anchors.map(anchor=>[anchor,'scenery:life-fishing',.6]),
   ].filter(([,key])=>!id||key===id).flatMap(([point,key,radius])=>[
     {...point,id:key,radius},...(point.approach?[{...point.approach,id:key,radius:.6}]:[]),
   ]);

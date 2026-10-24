@@ -28,11 +28,11 @@ export function constrainScenePanning(camera,controls,mode,options={}){
   camera.updateMatrixWorld();
 }
 export const sceneMood=id=>villageThemes.find(theme=>theme.id===id)||villageThemes[0];
-export function sceneView(mode,{portrait=false,mood='default'}={}){
+export function sceneView(mode,{portrait=false,petPreview=false,mood='default'}={}){
   if(mode==='topic')return{position:[0,4.3,10],target:[0,1.8,0]};
   if(mode==='edit')return{position:[1,17,12.5],target:[0,.1,0]};
   if(mode==='village')return{position:[11,17,14],target:[0,0,0]};
-  if(portrait)return{position:[0,1.65,5.4],target:[0,1.65,0]};
+  if(portrait)return petPreview?{position:[0,1.15,3.4],target:[0,.9,0]}:{position:[0,1.65,5.4],target:[0,1.65,0]};
   if(mood==='cafe')return{position:[1,4.5,9],target:[-1.9,1,0]};
   return{position:[4.7,3.25,8],target:[0,1.45,0]};
 }

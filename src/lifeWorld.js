@@ -11,8 +11,8 @@ export function createLifeWorld(){
   const sea=new THREE.Mesh(new THREE.RingGeometry(7.05,28,128),new THREE.MeshStandardMaterial({color:0x72becb,roughness:.28,metalness:.2,side:THREE.DoubleSide}));sea.rotation.x=-Math.PI/2;sea.position.y=-.72;root.add(sea);
   for(const anchor of FISHING_ANCHORS){
     const deck=new THREE.Group();deck.userData.action=anchor.id;root.add(deck);
-    for(let i=0;i<7;i++)box(1.13,.12,.18,i%2?wood:trim,anchor.x,.47,5.75+i*.2,deck);
-    box(.1,.8,.1,wood,anchor.x-.47,.02,6.7,deck);box(.1,.8,.1,wood,anchor.x+.47,.02,6.7,deck);
+    for(let i=0;i<7;i++)box(.84,.12,.18,i%2?wood:trim,anchor.x,.47,5.75+i*.2,deck);
+    box(.1,.8,.1,wood,anchor.x-.34,.02,6.7,deck);box(.1,.8,.1,wood,anchor.x+.34,.02,6.7,deck);
     const rod=new THREE.Group();rod.userData.lifeAction=anchor.id;rod.position.set(anchor.x,.62,anchor.z);root.add(rod);
     const start=new THREE.Vector3(.18,.35,.4),end=new THREE.Vector3(.18,1.6,2.05),delta=end.clone().sub(start);
     const pole=new THREE.Mesh(new THREE.CylinderGeometry(.012,.028,delta.length(),8),metal);pole.position.copy(start).addScaledVector(delta,.5);pole.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),delta.normalize());rod.add(pole);

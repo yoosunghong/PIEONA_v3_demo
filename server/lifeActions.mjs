@@ -3,7 +3,7 @@ import {ITEM_DEFINITIONS,ALL_ITEMS} from '../shared/life.mjs';
 import {CROPS,RECIPES,GARDEN_BEDS} from '../shared/garden.mjs';
 
 export const AVATAR_INTENTS=['MOVE_TO','SIT_DOWN','STAND_UP','TAKE_FROM_STORAGE'];
-export const LIFE_INTENTS=[...AVATAR_INTENTS,'START_FISHING','JOIN_FISHING','STOP_ACTIVITY','QUERY_INVENTORY','OPEN_STORAGE','PLANT_SEED','HARVEST_CROP','COOK_FOOD','QUERY_GARDEN','OPEN_GARDEN','SET_AUTONOMY','QUERY_AUTONOMY','QUERY_RELATIONSHIP','UNSUPPORTED'];
+export const LIFE_INTENTS=[...AVATAR_INTENTS,'START_FISHING','STOP_ACTIVITY','QUERY_INVENTORY','OPEN_STORAGE','PLANT_SEED','HARVEST_CROP','COOK_FOOD','QUERY_GARDEN','OPEN_GARDEN','SET_AUTONOMY','QUERY_AUTONOMY','QUERY_RELATIONSHIP','UNSUPPORTED'];
 export const lifeActionSchema=z.object({
   intent:z.enum(LIFE_INTENTS),
   target:z.enum(['PLAYER','STORAGE','GARDEN','KITCHEN','POSITION']).optional(),
@@ -28,9 +28,9 @@ export const lifeActionResponseSchema={type:'OBJECT',nullable:true,properties:{
 },required:['intent','actor','scope','report']};
 export const lifeActionInstructions=`생활 행동은 action에 구조화하라. 일반 대화·취향·가정·인용·부정된 요청에는 action:null. 실행이나 획득을 reply에서 미리 주장하지 마라. 실제 결과는 서버가 응답한다.
 Phase 4: 명시적인 자율 활동 설정은 SET_AUTONOMY와 autonomy 객체를 쓴다. 요청한 설정만 지정하라: enabled, offline, fishing, gardening, replant, crop, recipe. 요리는 사용자가 자동 요리와 정확한 레시피를 허용했을 때만 recipe를 지정한다. 없는 동안 텃밭 관리는 enabled/오프라인/gardening/replant true. 오프라인은 최대 2시간이며 상한이 있다. 자율 활동 중단은 STOP_ACTIVITY, 오프라인 결과 조회는 QUERY_AUTONOMY, 함께한 추억 조회는 QUERY_RELATIONSHIP. 이 명시적 모드 설정 이외의 반복·예약 요청은 UNSUPPORTED다.
-허용 intent: START_FISHING(아바타 혼자), JOIN_FISHING(함께), STOP_ACTIVITY(중단), QUERY_INVENTORY(실제 기록 조회), OPEN_STORAGE, PLANT_SEED, HARVEST_CROP, COOK_FOOD, QUERY_GARDEN(성장 상태), OPEN_GARDEN, UNSUPPORTED.
+허용 intent: START_FISHING(아바타 혼자), STOP_ACTIVITY(중단), QUERY_INVENTORY(실제 기록 조회), OPEN_STORAGE, PLANT_SEED, HARVEST_CROP, COOK_FOOD, QUERY_GARDEN(성장 상태), OPEN_GARDEN, UNSUPPORTED.
 씨앗 심기는 crop HERB/TOMATO/FLOWER를 사용하고 지정된 칸만 plot garden:0/garden:1/garden:2를 준다. 모호한 작물은 추측하지 말고 crop을 생략한다. 수확은 성숙한 작물만, 지정하지 않으면 전부다. 요리는 recipe GRILLED_FISH/HERB_GRILLED_FISH/SEAFOOD_PLATTER/TOMATO_SALAD, 사용자가 명시한 물고기만 fish 배열에 지정한다. 요리는 1회 1개이며 재료를 소비한다. 일회성 복수 수량 요청, 임의 조건부 예약, 먹기, 선물, 판매는 UNSUPPORTED. 자율·오프라인 모드는 위 Phase 4 규칙에 따라 명시적으로 설정한다. 희귀 물고기를 임의로 선택하지 마라. 지원하지 않는 레시피를 생선구이로 바꾸지 마라.
-actor는 COMPANION/PLAYER/BOTH. 함께 낚시는 BOTH, 너는 COMPANION, 나만은 PLAYER, 그만하자는 BOTH. 텃밭·요리 명령은 COMPANION. scope는 TODAY(한국 오늘)/ALL(누적)/SESSION(최근 활동)/STORAGE(현재 보유량). '잡았어?'는 기본 COMPANION, '보관함에 있어?'는 STORAGE와 BOTH. source는 FISHING(잡은 기록)/HARVEST(수확 기록)/COOKING(요리 기록). item은 정확한 아이템 ID일 때만 제공한다. report는 '잡아와/하고 와'처럼 낚시 결과 보고를 요청하면 true(3회 판정 후 자동 종료), 일반 낚시는 false. 다른 유저나 임의 위치는 UNSUPPORTED다. 실행 전에는 '만들었어/심었어'라고 하지 마라.`;
+actor는 COMPANION/PLAYER/BOTH. 함께 낚시는 지원하지 않는다. 너는 COMPANION, 나만은 PLAYER, 그만하자는 BOTH. 텃밭·요리 명령은 COMPANION. scope는 TODAY(한국 오늘)/ALL(누적)/SESSION(최근 활동)/STORAGE(현재 보유량). '잡았어?'는 기본 COMPANION, '보관함에 있어?'는 STORAGE와 BOTH. source는 FISHING(잡은 기록)/HARVEST(수확 기록)/COOKING(요리 기록). item은 정확한 아이템 ID일 때만 제공한다. report는 '잡아와/하고 와'처럼 낚시 결과 보고를 요청하면 true(3회 판정 후 자동 종료), 일반 낚시는 false. 다른 유저나 임의 위치는 UNSUPPORTED다. 실행 전에는 '만들었어/심었어'라고 하지 마라.`;
 
 // Fast, offline commands also make stop independent of model/network latency.
 // Unrecognized phrasing is left to the structured model output, never guessed here.
@@ -56,6 +56,7 @@ export function localLifeAction(text){
   if(/자동\s*낚시/.test(t)&&/켜|시작|해줘/.test(t))return {intent:'SET_AUTONOMY',autonomy:{enabled:true,fishing:true,offline:/오프라인|없는\s*동안/.test(t)}};
   if(/자동.*(?:요리|만들어)/.test(t)){const recipe=[...RECIPES].sort((a,b)=>b.name.length-a.name.length).find(r=>compact.includes(r.name.replace(/\s/g,'')));if(recipe)return {intent:'SET_AUTONOMY',autonomy:{enabled:true,recipe:recipe.id,offline:/오프라인|없는\s*동안/.test(t)}};}
 
+  if(/^(?:나를?\s*)?따라와[.!?~]*$/.test(t))return {intent:'MOVE_TO',target:'PLAYER'};
   if(/알려\s*줘|알려줘/.test(t)&&/잡으면|잡을\s*때/.test(t)||/팔아|판매해|선물해|따라와/.test(t)||/낚시|물고기|텃밭|씨앗|허브|토마토|꽃|심어|수확|요리|구이|구워|샐러드|모둠/.test(t)&&/없는\s*동안|자동|반복|예약|재파종|먹자|자라면|익으면/.test(t))return {intent:'UNSUPPORTED'};
   const quantity=t.match(/(\d+)\s*(?:개|인분)/),many=quantity&&Number(quantity[1])!==1||/두\s*개|세\s*개|네\s*개|다섯|여섯|전부|모두/.test(t);
   const crop=CROPS.find(c=>t.includes(c.name)),plot=t.match(/(\d+)\s*번/),plotField=plot?{plot:`garden:${Number(plot[1])-1}`}:{},cropField=crop?{crop:crop.id}:{};
@@ -75,7 +76,7 @@ export function localLifeAction(text){
     const item=[...ALL_ITEMS].sort((a,b)=>b.name.length-a.name.length).find(i=>t.includes(i.name));
     return {intent:'QUERY_INVENTORY',actor,source:/수확/.test(t)?'HARVEST':/요리|만들었/.test(t)?'COOKING':'FISHING',scope:/보관함|인벤토리|창고|보유|몇.*(?:있어|있니|남아)/.test(t)?'STORAGE':/오늘/.test(t)?'TODAY':/이번|방금|최근/.test(t)?'SESSION':'ALL',...(item?{item:item.itemId}:{})};
   }
-  if(/낚시/.test(t)&&/하자|할까|하러|해\s*줘|해봐|시작|하고\s*(?:와|있어)|해$|해[.!]$/.test(t)||/물고기.*잡아\s*(?:와|줘)/.test(t))return {intent:/같이|함께|우리/.test(t)?'JOIN_FISHING':'START_FISHING',actor,report:/잡아와|하고와/.test(compact)};
+  if(/낚시/.test(t)&&/하자|할까|하러|해\s*줘|해봐|시작|하고\s*(?:와|있어)|해$|해[.!]$/.test(t)||/물고기.*잡아\s*(?:와|줘)/.test(t))return {intent:/같이|함께|우리/.test(t)?'UNSUPPORTED':'START_FISHING',actor,report:/잡아와|하고와/.test(compact)};
   return null;
 }
 

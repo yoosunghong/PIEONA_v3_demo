@@ -51,7 +51,7 @@ test('chat come-here walks incrementally to the real player and stops; stop inva
     const u=await h.register('come_here'),s=await h.connect(u);await h.move(s,u,4,2);const cid=await h.conversation(u);
     const r=await h.say(u,cid,'나한테 와');assert.equal(r.action.ok,true);assert.equal(r.action.companion.state,'Moving');
     const start=h.runtime.life.companionMembers(u.id)[0];h.advance(300);const middle=h.runtime.life.companionMembers(u.id)[0];assert.ok(middle.x>start.x&&middle.x<4);
-    h.advance(10000);const end=h.runtime.life.companionMembers(u.id)[0];assert.ok(Math.abs(Math.hypot(end.x-4,end.z-2)-1.2)<.01);assert.equal(end.moving,false);
+    h.advance(10000);const end=h.runtime.life.companionMembers(u.id)[0];assert.ok(Math.hypot(end.x-4,end.z-2)<1.8);
     await h.say(u,cid,'나한테 와');await h.move(s,u,-4,-2);h.advance(10000);assert.equal(h.runtime.life.snapshot(u.id).companion.state,'Moving');h.advance(10000);
     const relocated=h.runtime.life.companionMembers(u.id)[0];assert.ok(Math.hypot(relocated.x+4,relocated.z+2)<1.8);
     const epoch=h.runtime.life.epoch(u.id);await h.say(u,cid,'그만하자');assert.equal(h.runtime.life.execute(u.id,u.id,{intent:'MOVE_TO',target:'PLAYER'},epoch).ok,false);

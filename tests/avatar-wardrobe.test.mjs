@@ -1,3 +1,4 @@
+import {defaultPetAppearance} from '../shared/pets.mjs';
 import {WALK_RADIUS} from '../shared/villageSize.mjs';
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
@@ -29,13 +30,13 @@ test('player and AI wardrobes save independently, validate and reach visitors',a
   assert.deepEqual((await request('/me',user)).body.user.avatarAppearance,original.avatarAppearance);
   const saved=await request('/me/world',user,{avatarAppearance:avatar,avatarCharacterLooks:{tori:avatar}},'PATCH');
   assert.equal(saved.status,200);assert.deepEqual(saved.body.user.appearance,player);
-  assert.deepEqual(saved.body.user.avatarAppearance,avatar);
+  assert.deepEqual(saved.body.user.avatarAppearance,{...defaultPetAppearance,...avatar});
   assert.deepEqual(saved.body.user.avatarCharacterLooks.tori,avatar);
   const publicUser=(await request('/users/'+user.id,visitor)).body.user;
-  assert.deepEqual(publicUser.avatarAppearance,avatar);assert.deepEqual(publicUser.appearance,player);
+  assert.deepEqual(publicUser.avatarAppearance,{...defaultPetAppearance,...avatar});assert.deepEqual(publicUser.appearance,player);
   assert.equal((await request('/me/world',user,{avatarAppearance:{...avatar,character:'invalid'}},'PATCH')).status,400);
   assert.equal((await request('/me/world',user,{appearance:{...player,hat:'sprout'}},'PATCH')).status,200);
-  assert.deepEqual((await request('/me',user)).body.user.avatarAppearance,avatar);
+  assert.deepEqual((await request('/me',user)).body.user.avatarAppearance,{...defaultPetAppearance,...avatar});
 });
 
 test('expanded village accepts furniture beyond the old boundary and rejects its new edge',async()=>{

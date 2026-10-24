@@ -72,7 +72,7 @@ test('all editor props are accepted by world API and survive reload and visitor 
 test('live visitors receive clothing updates; the host is separate from player positions',async()=>{
   const socket=io(url,{extraHeaders:{Cookie:visitor.cookie},transports:['websocket'],forceNew:true});
   try{await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
-    const joined=await new Promise(r=>socket.emit('village:join',{villageId:owner.id},r));assert.equal(joined.ok,true);assert.equal(joined.members.length,1);assert.equal(joined.members[0].userId,visitor.id);assert.equal(joined.members[0].z,3);
+    const joined=await new Promise(r=>socket.emit('village:join',{villageId:owner.id},r));assert.equal(joined.ok,true);assert.equal(joined.members.filter(m=>m.actorKind!=='COMPANION').length,1);assert.equal(joined.members[0].userId,visitor.id);assert.equal(joined.members[0].z,3);
     const updated=new Promise(resolve=>socket.once('village:members',resolve));
     const appearance={hat:'beret',accessory:'scarf',color:'#a6bc83'};await request('/me/world',visitor,{appearance},'PATCH');
     assert.equal((await updated).villageId,owner.id);
@@ -127,7 +127,7 @@ async function closePlayers(...sockets){
 function villageEvent(socket,event,predicate=()=>true){
   return new Promise((resolve,reject)=>{
     const timer=setTimeout(()=>{socket.off(event,receive);reject(new Error(`Timed out waiting for ${event}`));},2000);
-    function receive(value){if(!predicate(value))return;clearTimeout(timer);socket.off(event,receive);resolve(value);}
+    function receive(value){if(event==='village:move'&&value.actorKind==='COMPANION')return;if(!predicate(value))return;clearTimeout(timer);socket.off(event,receive);resolve(value);}
     socket.on(event,receive);
   });
 }
@@ -136,10 +136,10 @@ test('owner and visitor share poses, stop reliably, restore snapshots and leave 
   const host=await connectPlayer(owner),guest=await connectPlayer(visitor),other=await connectPlayer(third);
   try{
     await joinVillage(host,owner.id);await joinVillage(other,third.id);
-    let unrelatedMoves=0;other.on('village:move',()=>unrelatedMoves++);
-    const arrival=villageEvent(host,'village:members',s=>s.members.length===2);
+    let unrelatedMoves=0;other.on('village:move',m=>{if(m.userId===owner.id||m.userId===visitor.id)unrelatedMoves++;});
+    const arrival=villageEvent(host,'village:members',s=>s.members.filter(m=>m.actorKind!=='COMPANION').length===2);
     const joined=await joinVillage(guest,owner.id);assert.equal(joined.ok,true);
-    assert.equal((await arrival).villageId,owner.id);assert.equal(joined.members.length,2);
+    assert.equal((await arrival).villageId,owner.id);assert.equal(joined.members.filter(m=>m.actorKind!=='COMPANION').length,2);
     const hostStart=joined.members.find(m=>m.userId===owner.id),guestStart=joined.members.find(m=>m.userId===visitor.id);
     assert.notEqual(hostStart.x,guestStart.x);assert.equal('sockets' in hostStart,false);
     const hostPose={villageId:owner.id,x:2,z:1,rotation:1.2,moving:true};
@@ -148,9 +148,9 @@ test('owner and visitor share poses, stop reliably, restore snapshots and leave 
     const guestPose={villageId:owner.id,x:-2,z:2,rotation:-.8,moving:true};
     const seenByHost=villageEvent(host,'village:move',m=>m.userId===visitor.id);
     guest.emit('village:move',guestPose);assert.deepEqual(await seenByHost,{...guestPose,userId:visitor.id});
-    const stopped=villageEvent(guest,'village:move',m=>!m.moving);
+    const stopped=villageEvent(guest,'village:move',m=>m.actorKind!=='COMPANION'&&!m.moving);
     host.emit('village:move',{...hostPose,rotation:2,moving:false});assert.equal((await stopped).rotation,2);
-    const departure=villageEvent(host,'village:members',s=>s.members.length===1);
+    const departure=villageEvent(host,'village:members',s=>s.members.filter(m=>m.actorKind!=='COMPANION').length===1);
     await guest.timeout(2000).emitWithAck('village:leave');assert.equal((await departure).members[0].userId,owner.id);
     const restored=await joinVillage(guest,owner.id),pose=restored.members.find(m=>m.userId===owner.id);
     assert.equal(pose.x,2);assert.equal(pose.rotation,2);assert.equal(pose.moving,false);
@@ -162,13 +162,13 @@ test('one avatar survives another tab leaving or switching villages and disappea
   const host=await connectPlayer(owner),first=await connectPlayer(visitor),second=await connectPlayer(visitor);
   try{
     await joinVillage(host,owner.id);await joinVillage(first,owner.id);
-    let snapshot=await joinVillage(second,owner.id);assert.equal(snapshot.members.length,2);
+    let snapshot=await joinVillage(second,owner.id);assert.equal(snapshot.members.filter(m=>m.actorKind!=='COMPANION').length,2);
     const move=villageEvent(host,'village:move',m=>m.userId===visitor.id);
     first.emit('village:move',{villageId:owner.id,x:3,z:1,rotation:0,moving:false});await move;
     await joinVillage(first,third.id);
-    snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.length,2);
+    snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.filter(m=>m.actorKind!=='COMPANION').length,2);
     assert.equal(snapshot.members.find(m=>m.userId===visitor.id).x,3);
-    const gone=villageEvent(host,'village:members',s=>s.members.length===1);
+    const gone=villageEvent(host,'village:members',s=>s.members.filter(m=>m.actorKind!=='COMPANION').length===1);
     second.disconnect();assert.equal((await gone).members[0].userId,owner.id);
   }finally{await closePlayers(host,first,second);}
 });
@@ -179,10 +179,10 @@ test('a new socket can rejoin after connection loss and receives the remaining p
     await joinVillage(host,owner.id);await joinVillage(guest,owner.id);
     const moved=villageEvent(guest,'village:move',m=>m.userId===owner.id);
     host.emit('village:move',{villageId:owner.id,x:-2,z:1,rotation:.4,moving:false});await moved;
-    const departed=villageEvent(host,'village:members',s=>s.members.length===1);
+    const departed=villageEvent(host,'village:members',s=>s.members.filter(m=>m.actorKind!=='COMPANION').length===1);
     guest.disconnect();await departed;
     guest=await connectPlayer(visitor);
-    const arrived=villageEvent(host,'village:members',s=>s.members.length===2);
+    const arrived=villageEvent(host,'village:members',s=>s.members.filter(m=>m.actorKind!=='COMPANION').length===2);
     const rejoined=await joinVillage(guest,owner.id);await arrived;
     assert.equal(rejoined.members.find(m=>m.userId===owner.id).x,-2);
     const restored=villageEvent(host,'village:move',m=>m.userId===visitor.id);
@@ -200,9 +200,9 @@ test('room scoping, pose validation, boundary clamping and movement throttling p
     const clamp=villageEvent(host,'village:move',m=>m.userId===visitor.id);
     guest.emit('village:move',{villageId:owner.id,x:100,z:100,rotation:20,moving:false});
     const bounded=await clamp;assert.ok(Math.abs(Math.hypot(bounded.x,bounded.z)-WALK_RADIUS)<1e-8);assert.ok(Math.abs(bounded.rotation)<=Math.PI);
-    let received=0;host.on('village:move',()=>received++);
+    let received=0;host.on('village:move',m=>{if(m.userId===visitor.id)received++;});
     for(let i=0;i<100;i++)guest.emit('village:move',{villageId:owner.id,x:i/100,z:0,rotation:0,moving:true});
-    const stop=villageEvent(host,'village:move',m=>!m.moving);
+    const stop=villageEvent(host,'village:move',m=>m.actorKind!=='COMPANION'&&!m.moving);
     guest.emit('village:move',{villageId:owner.id,x:1,z:0,rotation:0,moving:false});await stop;
     assert.ok(received<10,`Movement flood was not bounded: ${received}`);
     snapshot=await joinVillage(host,owner.id);assert.equal(snapshot.members.find(m=>m.userId===visitor.id).moving,false);

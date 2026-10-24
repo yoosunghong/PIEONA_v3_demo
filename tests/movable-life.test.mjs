@@ -89,3 +89,11 @@ test('saved facilities reach visitors and server fishing, planting and cooking u
     assert.equal((await save({scenery:[{id:'life-storage',x:-5,z:0,rotation:0,hidden:true}]})).status,400);
   }finally{socket?.disconnect();await runtime.close();}
 });
+
+
+test('compact fishing docks can be placed at the village edge in every orientation',()=>{
+  for(const [x,z,rotation] of [[0,7,0],[7,0,1],[0,-7,2],[-7,0,3]]){
+    const items=villageScenery({scenery:[{id:'life-fishing',x,z,rotation}]}).map(item=>({...item,hidden:item.id!=='scenery:life-fishing'}));
+    assert.equal(canPlaceDecoration(items,x,z,'scenery:life-fishing'),true);
+  }
+});

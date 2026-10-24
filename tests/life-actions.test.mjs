@@ -23,7 +23,7 @@ async function harness(answer=async()=>({reply:'그냥 수다야.',emotion:'calm
 }
 
 test('offline intent mapping is conservative and supports spec commands and Korean date scopes',()=>{
-  for(const [text,intent] of [['우리 낚시하러 갈까?','JOIN_FISHING'],['너 먼저 낚시하고 있어','START_FISHING'],['물고기 좀 잡아와','START_FISHING'],['이제 그만하자','STOP_ACTIVITY'],['오늘 고등어 몇 마리 잡았어?','QUERY_INVENTORY'],['보관함 열어줘','OPEN_STORAGE'],['도미 잡으면 알려줘','UNSUPPORTED']])assert.equal(localLifeAction(text)?.intent,intent,text);
+  for(const [text,intent] of [['우리 낚시하러 갈까?','UNSUPPORTED'],['너 먼저 낚시하고 있어','START_FISHING'],['물고기 좀 잡아와','START_FISHING'],['이제 그만하자','STOP_ACTIVITY'],['오늘 고등어 몇 마리 잡았어?','QUERY_INVENTORY'],['보관함 열어줘','OPEN_STORAGE'],['도미 잡으면 알려줘','UNSUPPORTED']])assert.equal(localLifeAction(text)?.intent,intent,text);
   for(const text of ['나는 낚시를 좋아해','낚시하지 마','"같이 낚시하자"를 번역해줘','만약 같이 낚시하자고 하면?','아까 낚시했어'])assert.equal(localLifeAction(text),null,text);
   assert.equal(localLifeAction('오늘 황금도미 몇 마리 잡았어?').item,'GOLDEN_BREAM');
   assert.equal(localLifeAction('물고기 좀 잡아와').report,true);
@@ -47,22 +47,13 @@ test('conversation starts real companion movement, reserves a seat, settles shar
   }finally{await h.close();}
 });
 
-test('join reserves adjacent seats atomically, keeps two actors separate and stop scopes work',async()=>{
+test('joint fishing commands and forged joint actions cannot reserve either actor',async()=>{
   const h=await harness();try{
-    const user=await h.register('ai_joiner');await h.connect(user);const cid=await h.conversation(user);
-    await h.say(user,cid,'우리 같이 낚시하자');
-    const ps=h.runtime.life.active(user.id),cs=h.runtime.life.active(user.id,'COMPANION');assert.notEqual(ps.anchor_id,cs.anchor_id);
-    assert.equal(Math.abs(FISHING_ANCHORS.findIndex(a=>a.id===ps.anchor_id)-FISHING_ANCHORS.findIndex(a=>a.id===cs.anchor_id)),1);
-    h.advance(5000);h.advance(FISHING_PERIOD);
-    assert.equal((await h.request('/me/life',user)).body.inventory[0].quantity,2);
-    assert.match((await h.say(user,cid,'오늘 내가 뭐 잡았어?')).reply,/정어리 1마리/);
-    assert.match((await h.say(user,cid,'오늘 우리 뭐 잡았어?')).reply,/정어리 2마리/);
-    assert.match((await h.say(user,cid,'보관함에 물고기 몇 마리 있어?')).reply,/정어리 2마리/);
-    await h.say(user,cid,'너만 중단해');assert.ok(h.runtime.life.active(user.id));assert.equal(h.runtime.life.active(user.id,'COMPANION'),undefined);
-    await h.say(user,cid,'같이 낚시하자');assert.equal(h.runtime.life.active(user.id).id,ps.id);
-    const stopped=await h.say(user,cid,'이제 그만하자');assert.equal(stopped.action.ok,true);
-    h.advance(FISHING_PERIOD*20);assert.equal((await h.request('/me/life',user)).body.inventory[0].quantity,2);
+    const user=await h.register('no_joint_fishing');await h.connect(user);const cid=await h.conversation(user);
+    for(const text of ['우리 같이 낚시하자','함께 낚시하자'])assert.equal((await h.say(user,cid,text)).action.ok,false);
+    assert.equal(h.runtime.life.execute(user.id,user.id,{intent:'JOIN_FISHING'}).ok,false);
     assert.equal(h.runtime.life.active(user.id),undefined);assert.equal(h.runtime.life.active(user.id,'COMPANION'),undefined);
+    assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM life_sessions').n,0);
   }finally{await h.close();}
 });
 
@@ -93,7 +84,7 @@ test('visitor commands, forged model actions, missing presence and busy players 
 
 test('immediate stop overtakes a pending model reply; late actions cannot restart activity',async()=>{
   let release,entered;const started=new Promise(r=>entered=r);
-  const h=await harness(async()=>{entered();return new Promise(r=>release=()=>r({reply:'성공!',emotion:'happy',memories:[],provider:'gemini',action:{intent:'JOIN_FISHING'}}));});try{
+  const h=await harness(async()=>{entered();return new Promise(r=>release=()=>r({reply:'성공!',emotion:'happy',memories:[],provider:'gemini',action:{intent:'START_FISHING'}}));});try{
     const user=await h.register('interrupt_ai');await h.connect(user);const cid=await h.conversation(user);
     const pending=h.say(user,cid,'바다에서 함께 시간을 보내 볼래?');await started;
     assert.equal((await h.say(user,cid,'이제 그만하자')).action.ok,true);release();
@@ -105,7 +96,7 @@ test('immediate stop overtakes a pending model reply; late actions cannot restar
 test('last home tab departure cancels both movement and fishing, other tabs preserve activity',async()=>{
   const h=await harness();try{
     const user=await h.register('offline_ai'),a=await h.connect(user),b=await h.connect(user),cid=await h.conversation(user);
-    await h.say(user,cid,'같이 낚시하자');await emit(a,'village:leave');assert.ok(h.runtime.life.active(user.id,'COMPANION'));
+    await h.say(user,cid,'너 먼저 낚시하고 있어');await emit(a,'village:leave');assert.ok(h.runtime.life.active(user.id,'COMPANION'));
     await emit(b,'village:leave');h.advance(FISHING_PERIOD*20);
     assert.equal(h.runtime.life.active(user.id),undefined);assert.equal(h.runtime.life.active(user.id,'COMPANION'),undefined);assert.deepEqual(h.runtime.life.companionMembers(user.id),[]);assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM acquisition_events').n,0);
     await emit(a,'village:join',{villageId:user.id});await h.say(user,cid,'너 먼저 낚시하고 있어');h.advance(5000);h.advance(FISHING_PERIOD);await emit(a,'village:leave');h.advance(FISHING_PERIOD*20);assert.equal(h.runtime.store.one('SELECT SUM(quantity) n FROM acquisition_events').n,1);
@@ -115,7 +106,7 @@ test('last home tab departure cancels both movement and fishing, other tabs pres
 test('Gemini receives the allowlist schema and its action output survives parsing without trusting reply claims',async()=>{
   let sent;
   const result=await generateAnswer({own:true,lifeActions:true,system:'test'},'함께 바다로 가볼래?',[],{apiKey:'test-key',fetch:async(url,init)=>{sent=JSON.parse(init.body);return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({reply:'준비됐어',emotion:'happy',memories:[],action:{intent:'JOIN_FISHING',actor:'BOTH',scope:'ALL',report:false}})}]}}]})};}});
-  assert.equal(result.action.intent,'JOIN_FISHING');assert.ok(sent.generationConfig.responseSchema.properties.action.properties.intent.enum.includes('STOP_ACTIVITY'));assert.match(sent.systemInstruction.parts[0].text,/미리 주장하지/);
+  assert.equal(result.action.intent,'UNSUPPORTED');assert.ok(!sent.generationConfig.responseSchema.properties.action.properties.intent.enum.includes('JOIN_FISHING')); assert.ok(sent.generationConfig.responseSchema.properties.action.properties.intent.enum.includes('STOP_ACTIVITY'));assert.match(sent.systemInstruction.parts[0].text,/미리 주장하지/);
 });
 
 test('TODAY uses the Korean midnight boundary while ALL and STORAGE retain earlier catches',async()=>{

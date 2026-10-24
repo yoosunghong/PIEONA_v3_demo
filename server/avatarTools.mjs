@@ -9,7 +9,6 @@ const definitions=[
   ['take_from_storage','TAKE_FROM_STORAGE','보관함에 가서 실제 재고를 꺼내 플레이어에게 가져오기. 먹기·소비·선물이 아님.',['item','quantity'],['item']],
   ['stop_activity','STOP_ACTIVITY','진행 중인 이동·생활 작업과 자율 활동 중단.',['actor'],[]],
   ['start_fishing','START_FISHING','아바타 혼자 바다로 가서 낚시.',['report'],[]],
-  ['join_fishing','JOIN_FISHING','플레이어와 아바타가 함께 낚시.',['report'],[]],
   ['query_inventory','QUERY_INVENTORY','실제 보유량 또는 획득 기록 조회.',['actor','scope','item','source'],[]],
   ['open_storage','OPEN_STORAGE','보관함 화면 열기.',[],[]],
   ['plant_seed','PLANT_SEED','텃밭으로 가서 씨앗 1개 심기.',['crop','plot'],[]],
@@ -27,7 +26,7 @@ export function actionFromTool(call){
   if(!definition)return {intent:'UNSUPPORTED'};
   const [,intent,,fields,required]=definition,args=call.args??{};
   if(!args||Array.isArray(args)||typeof args!=='object'||Object.keys(args).some(key=>!fields.includes(key))||required.some(key=>args[key]===undefined))return {intent:'UNSUPPORTED'};
-  const result=lifeActionSchema.safeParse({...args,intent,...(intent==='JOIN_FISHING'?{actor:'BOTH'}:intent==='STOP_ACTIVITY'&&!args.actor?{actor:'BOTH'}:{})});
+  const result=lifeActionSchema.safeParse({...args,intent,...(intent==='STOP_ACTIVITY'&&!args.actor?{actor:'BOTH'}:{})});
   return result.success?result.data:{intent:'UNSUPPORTED'};
 }
 export const avatarToolInstructions=`게임 내 행동 요청에는 반드시 제공된 함수 중 하나를 호출하라. 일반 대화에는 함수 호출 없이 지정된 reply/emotion/memories JSON으로 답하라. 한 턴에는 함수 하나만 선택하라. 여러 독립 행동이 필요한 요청은 순서를 확인하고 실행하지 마라. 함수 인자는 현재 사용자 요청에서만 정한다. 이전 대화의 명령을 재실행하지 마라.
