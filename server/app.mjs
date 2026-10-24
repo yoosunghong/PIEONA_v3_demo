@@ -32,6 +32,10 @@ import {canReadSurvey,surveyStatistics,surveyComments} from './surveyStatistics.
 import {villageSign,isSignColor,MAX_CUSTOM_SIGN_COLORS,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
 import {villageGuestbook,GUESTBOOK_PAGE_SIZE,GUESTBOOK_MAX_LENGTH,guestbookLength} from '../shared/guestbook.mjs';
 import {balanceQuestions as questions,scenarioQuestions} from '../shared/onboarding.mjs';
+import {preferenceQuestions} from '../shared/avatarCards.mjs';
+import {installAvatarCards} from './avatarCards.mjs';
+import {installWordGames} from './wordGames.mjs';
+import {installVillagePolls} from './villagePolls.mjs';
 
 const scrypt = promisify(scryptCallback);
 const hashToken = value => createHash('sha256').update(value).digest('hex');
@@ -86,7 +90,7 @@ export function createApp(options = {}) {
     const members=villageVisitors.get(current.villageId),member=members?.get(current.userId);
     member?.sockets.delete(socket.id);
     if(member)member.moving=false;
-    if(member&&!member.sockets.size){if(current.userId===current.villageId)life.leave(current.userId);else if(life.active(current.userId)?.village_id===current.villageId)life.stop(current.userId);members.delete(current.userId);}
+    if(member&&!member.sockets.size){if(current.userId===current.villageId)life.leave(current.userId);else if(life.active(current.userId)?.village_id===current.villageId)life.stop(current.userId);members.delete(current.userId);wordGames.leave(current.userId,current.villageId);}
     if(members&&!members.size)villageVisitors.delete(current.villageId);
     socket.data.village=null;
     logAction(current.userId,'village_leave',{villageId:current.villageId});
@@ -223,6 +227,8 @@ export function createApp(options = {}) {
     for(const [character,look] of Object.entries(data.avatarCharacterLooks||{}))if(look)avatarSaved[character]={...look,character};
     if(data.avatarAppearance)avatarSaved[data.avatarAppearance.character||'pio']={...data.avatarAppearance};
     store.run('UPDATE users SET avatar_appearance=?,avatar_character_looks=? WHERE id=?',JSON.stringify(data.avatarAppearance||profile(user,user.id).avatarAppearance),JSON.stringify(avatarSaved),user.id);
+    if(data.village?.items?.some(i=>!i.hidden))event(user.id,'village_decorated');
+    if(data.village?.scenery?.some(i=>i.id.startsWith('scenery:life-garden')&&sceneryMoved(villageScenery(oldVillage).find(before=>before.id===i.id),i)))event(user.id,'garden_decorated');
     emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
     res.json({user:profile(userById(user.id),user.id)});
   });
@@ -267,7 +273,7 @@ export function createApp(options = {}) {
     const period=s.questionFrequency==='often'?Math.floor(Date.now()/(4*3600000)):date;
     const answered=store.one("SELECT 1 FROM events WHERE user_id=? AND name='question_answered' AND detail=?", req.user.id,JSON.stringify({period}));
     const skipped=store.one("SELECT 1 FROM events WHERE user_id=? AND name='question_skipped' AND detail=?", req.user.id,JSON.stringify({period}));
-    res.json({balance:questions,scenarios:scenarioQuestions,daily:s.questionFrequency==='off'||answered||skipped?null:prompts[seed%prompts.length],period});
+    res.json({balance:questions,scenarios:scenarioQuestions,preferences:preferenceQuestions,daily:s.questionFrequency==='off'||answered||skipped?null:prompts[seed%prompts.length],period});
   });
   app.post('/api/questions/status', auth, (req,res) => { const data=z.object({action:z.enum(['answered','skipped','reset'])}).parse(req.body); const s=settingsOf(req.user); const period=s.questionFrequency==='often'?Math.floor(Date.now()/(4*3600000)):day(); if(data.action==='reset') store.run("DELETE FROM events WHERE user_id=? AND name IN ('question_answered','question_skipped') AND detail=?",req.user.id,JSON.stringify({period})); else event(req.user.id,`question_${data.action}`,{period}); res.json({ok:true}); });
   app.post('/api/balance', auth, (req,res) => {
@@ -275,6 +281,9 @@ export function createApp(options = {}) {
     if(new Set(answers.map(a=>a.id)).size!==5||answers.some(a=>!questions.find(q=>q.id===a.id))) fail(400,'다섯 질문에 모두 답해주세요.');
     const responses=req.body.responses===undefined?null:z.array(z.object({id:z.enum(scenarioQuestions.map(q=>q.id)),text:z.string().trim().min(1).max(240)}).strict()).length(scenarioQuestions.length).parse(req.body.responses);
     if(responses&&new Set(responses.map(r=>r.id)).size!==scenarioQuestions.length)fail(400,'두 상황에 모두 답해주세요.');
+    const preferences=req.body.preferences===undefined?null:z.array(z.object({id:z.enum(preferenceQuestions.map(q=>q.id)),value:z.string().max(30)}).strict()).length(preferenceQuestions.length).parse(req.body.preferences);
+    const publishPreferences=z.boolean().default(false).parse(req.body.publishPreferences);
+    if(preferences&&(new Set(preferences.map(p=>p.id)).size!==preferenceQuestions.length||preferences.some(p=>!preferenceQuestions.find(q=>q.id===p.id).options.includes(p.value))))fail(400,'취향 질문에 모두 답해주세요.');
     store.transaction(()=>{
       store.run("DELETE FROM memories WHERE owner_id=? AND source='balance'",req.user.id);
       for(const answer of answers){const q=questions.find(q=>q.id===answer.id); const time=now(); store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',id(),req.user.id,`${q.title} → ${q[answer.choice]}`,q.category,'private',1,'balance',time,time);}
@@ -282,8 +291,9 @@ export function createApp(options = {}) {
         store.run("DELETE FROM memories WHERE owner_id=? AND source='onboarding'",req.user.id);
         for(const response of responses){const q=scenarioQuestions.find(q=>q.id===response.id),time=now();store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',id(),req.user.id,`${q.title} 내가 실제로 할 말: “${response.text}”`,q.category,'private',1,'onboarding',time,time);}
       }
+      if(preferences){store.run("DELETE FROM memories WHERE owner_id=? AND source='preferences'",req.user.id);for(const p of preferences){const time=now();store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',id(),req.user.id,`${preferenceQuestions.find(q=>q.id===p.id).title} → ${p.value}`,'취향',publishPreferences?'public':'private',1,'preferences',time,time);}}
       store.run('UPDATE users SET balance=?,revision=revision+1 WHERE id=?',JSON.stringify(answers),req.user.id); event(req.user.id,'balance_completed');
-    }); emitWorld(); res.json({user:profile(userById(req.user.id),req.user.id)});
+    }); ensureSlot(userById(req.user.id));emitWorld();res.json({user:profile(userById(req.user.id),req.user.id)});
   });
   app.get('/api/memories', auth, (req,res)=>res.json({memories:store.all('SELECT * FROM memories WHERE owner_id=? ORDER BY created_at DESC',req.user.id)}));
   app.post('/api/memories', auth, (req,res)=>{
@@ -302,7 +312,7 @@ export function createApp(options = {}) {
   const slotSnapshot=user=>({nickname:user.nickname,intro:user.intro,theme:user.theme,settings:settingsOf(user),balance:JSON.parse(user.balance),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id)});
   function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);for(const table of ['life_sessions','life_operations'])store.run(`UPDATE ${table} SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''`,sid,user.id);});return userById(user.id);}
   app.get('/api/slots',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));res.json({active:user.active_slot,slots:store.all('SELECT * FROM avatar_slots WHERE owner_id=? ORDER BY created_at',user.id).map(s=>{const snap=s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot);return{id:s.id,nickname:snap.nickname,theme:snap.theme,memoryCount:snap.memories.length,balanceComplete:!!snap.balance.length,active:s.id===user.active_slot};})});});
-  app.post('/api/slots',auth,(req,res)=>{const data=z.object({nickname,theme:z.enum(['sage','rose','ocean','sunset']).default('sage')}).parse(req.body);ensureSlot(userById(req.user.id));if(store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',req.user.id).n>=8)fail(400,'프로토타입에서는 최대 8개의 자아를 키울 수 있어요.');const sid=id();store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,req.user.id,JSON.stringify({nickname:data.nickname,intro:'',theme:data.theme,settings:{...defaultSettings},balance:[],memories:[]}),now());event(req.user.id,'slot_created');res.status(201).json({id:sid});});
+  app.post('/api/slots',auth,(req,res)=>{const data=z.object({nickname,theme:z.enum(['sage','rose','ocean','sunset']).default('sage')}).parse(req.body);ensureSlot(userById(req.user.id));if(store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',req.user.id).n>=8)fail(400,'프로토타입에서는 최대 8개의 자아를 키울 수 있어요.');const sid=id();store.transaction(()=>{avatars.unlock(req.user.id,sid);store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,req.user.id,JSON.stringify({nickname:data.nickname,intro:'',theme:data.theme,settings:{...defaultSettings},balance:[],memories:[]}),now());event(req.user.id,'slot_created');});res.status(201).json({id:sid});});
   app.post('/api/slots/:id/activate',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));if(locks.has(`owner:${user.id}`))fail(409,'내 아바타의 답변이 끝난 뒤 자아를 전환해주세요.');const slot=store.one('SELECT * FROM avatar_slots WHERE id=? AND owner_id=?',req.params.id,user.id);if(!slot)fail(404,'나의 자아 슬롯을 찾을 수 없어요.');if(slot.id!==user.active_slot){life.switchAvatar(user.id);const snapshot=JSON.parse(slot.snapshot);store.transaction(()=>{store.run('UPDATE avatar_slots SET snapshot=? WHERE id=?',JSON.stringify(slotSnapshot(user)),user.active_slot);store.run('DELETE FROM memories WHERE owner_id=?',user.id);for(const m of snapshot.memories)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',m.id,user.id,m.content,m.category,m.visibility,m.confirmed,m.source,m.created_at,m.updated_at);store.run('UPDATE users SET nickname=?,intro=?,theme=?,settings=?,balance=?,active_slot=?,revision=revision+1 WHERE id=?',snapshot.nickname,snapshot.intro,snapshot.theme,JSON.stringify(snapshot.settings),JSON.stringify(snapshot.balance),slot.id,user.id);event(user.id,'slot_activated');});emitWorld();}res.json({user:profile(userById(user.id),user.id)});});
 
   app.post('/api/visits',auth,(req,res)=>{const data=z.object({targetId:z.string().uuid(),anonymous:z.boolean().default(false)}).parse(req.body);checkTarget(req,data.targetId);if(data.targetId!==req.user.id){const recent=store.one("SELECT 1 FROM activities WHERE owner_id=? AND actor_id=? AND type='visit' AND created_at>?",data.targetId,req.user.id,new Date(Date.now()-60000).toISOString());if(!recent)activity(data.targetId,req.user.id,'visit','마을에 놀러 왔어요',data.anonymous);event(req.user.id,'visit',{targetId:data.targetId});}res.json({ok:true});});
@@ -352,15 +362,21 @@ export function createApp(options = {}) {
   app.patch('/api/conversations/:id',auth,(req,res)=>{const c=conversationFor(req,req.params.id,true);const data=z.object({share:z.boolean()}).parse(req.body);store.run('UPDATE conversations SET share=? WHERE id=?',Number(data.share),c.id);emitUpdate(c.target_id);res.json({ok:true});});
   app.delete('/api/conversations/:id',auth,(req,res)=>{const c=conversationFor(req,req.params.id,true);store.run('DELETE FROM conversations WHERE id=?',c.id);emitUpdate(c.target_id);res.json({ok:true});});
   app.post('/api/conversations/:id/messages',auth,aiLimiter,async(req,res)=>{
-    const {text,scene}=z.object({text:z.string().trim().min(1).max(1600),scene:z.enum(['garden','cafe','campfire']).default('garden')}).parse(req.body);
+    const {text,scene,villageId}=z.object({villageId:z.string().uuid().optional(),text:z.string().trim().min(1).max(1600),scene:z.enum(['garden','cafe','campfire']).default('garden')}).parse(req.body);
     let c=conversationFor(req,req.params.id,true);let target=checkTarget(req,c.target_id);
     if(c.avatar_slot!==target.active_slot)fail(409,'다른 자아와 나눈 대화예요. 해당 자아로 전환하거나 새 대화를 시작해주세요.');
+    if(villageId&&(villageId!==target.id||!villageVisitors.get(villageId)?.get(req.user.id)?.sockets.size))fail(409,'마을에 다시 연결한 뒤 전송해 주세요.');
+    const publishSpeech=(role,content)=>{
+      if(!villageId||!villageVisitors.get(villageId)?.get(req.user.id)?.sockets.size)return;
+      io.to(`village:${villageId}`).emit('village:speech',{id:id(),villageId,userId:role==='user'?req.user.id:target.id,role,speaker:role==='user'?req.user.nickname:target.nickname,text:content,expiresAt:Date.now()+45000});
+    };
     const lockKey=c.target_id===req.user.id?`owner:${req.user.id}`:c.id,ownsLock=!locks.has(lockKey);
     if(!ownsLock)fail(409,'이전 답변을 기다려 주세요.');
     if(ownsLock)locks.add(lockKey);
     try{
       const context=assembleContext(store,target,req.user.id,text,scene);
       const history=c.context_key===context.contextKey?store.all('SELECT role,content FROM messages WHERE conversation_id=? ORDER BY rowid DESC LIMIT 12',c.id).reverse():[];
+      publishSpeech('user',text);
       const result=await (options.generateAnswer||generateAnswer)(context,text,history);
       // Recheck after the network wait: privacy edits, friendship changes, logout and deletion revoke in-flight work.
       c=conversationFor(req,c.id,true);target=checkTarget(req,c.target_id);
@@ -379,6 +395,8 @@ export function createApp(options = {}) {
         store.run('UPDATE conversations SET context_key=? WHERE id=?',assembleContext(store,userById(target.id),req.user.id,text,scene).contextKey,c.id);
         event(req.user.id,'message_sent',{owner:context.own,provider:result.provider,memories:added.length});
       });
+      avatars.quests(req.user.id);
+      publishSpeech('assistant',result.reply);
       emitWorld();emitUpdate(target.id);
       res.json({reply:result.reply,emotion:result.emotion,memories:added,provider:result.provider,warning:result.warning,stage:stageOf(store,userById(req.user.id)),...experienceOf(store,userById(req.user.id))});
     }finally{if(ownsLock)locks.delete(lockKey);}
@@ -401,8 +419,11 @@ export function createApp(options = {}) {
   const runnerNotes=()=>createRunnerNotes(()=>randomBytes(1)[0]%3);
   const crabs=installCrabGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.crabClock});
   const volleys=installVolleyGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.volleyClock});
-  const busy=(userId,exceptInvite)=>life.busy(userId)||crabs.busy(userId)||volleys.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started)||[...invites.values()].some(i=>i.id!==exceptInvite&&invitePlayers(i).some(p=>p.userId===userId));
+  const busy=(userId,exceptInvite)=>wordGames.busy(userId)||life.busy(userId)||crabs.busy(userId)||volleys.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started)||[...invites.values()].some(i=>i.id!==exceptInvite&&invitePlayers(i).some(p=>p.userId===userId));
   const life=installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction,clock:options.lifeClock,random:options.lifeRandom});
+  const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
+  const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,villageVisitors,emitWorld,isBusy:busy,clock:options.socialClock});
+  const polls=installVillagePolls({app,io,store,auth,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,clock:options.socialClock});
   function raceEmit(r,name,data){for(const player of r.players)io.to(player.socketId).emit(name,data);}
   const invitePlayers=invite=>[{userId:invite.from,socketId:invite.fromSocket,anonymous:invite.anonymous},...invite.guests];
   function cancelInvite(invite,reason){invites.delete(invite.id);for(const p of invitePlayers(invite))io.to(p.socketId).emit('runner:invite-ended',{id:invite.id,reason});}
@@ -659,7 +680,8 @@ export function createApp(options = {}) {
         member.sockets.add(socket.id);members.set(uid,member);villageVisitors.set(villageId,members);
         socket.data.village={villageId,userId:uid};socket.join(`village:${villageId}`);
         logAction(uid,'village_join',{villageId});
-        emitVillage(villageId);ack?.({ok:true,villageId,members:villageMembers(villageId),garden:life.gardenSnapshot(villageId)});
+        const greeting=uid!==villageId?{id:id(),villageId,userId:villageId,role:'assistant',speaker:target.nickname,text:members.has(villageId)?avatars.greeting(target,uid).replace('주인 대신 내가 반겨줄게. ',''):avatars.greeting(target,uid),expiresAt:Date.now()+45000}:null;
+        emitVillage(villageId);ack?.({ok:true,villageId,members:villageMembers(villageId),garden:life.gardenSnapshot(villageId),greeting});
       }catch{ack?.({ok:false});}
     });
     socket.on('village:leave',ack=>{leaveVillage(socket);if(typeof ack==='function')ack({ok:true});});
@@ -710,5 +732,5 @@ export function createApp(options = {}) {
     if(status===500)console.error('[server]',error.name,error.message?.slice(0,160));
     res.status(status).json({error:error instanceof z.ZodError?'입력 형식 또는 길이를 확인해 주세요.':messages[error.message]||(status===500?'처리 중 오류가 발생했어요. 다시 시도해 주세요.':error.message)});
   });
-  return {app,server,io,store,life,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);life.close();crabs.close();volleys.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
+  return {app,server,io,store,life,avatars,wordGames,polls,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);wordGames.close();polls.close();life.close();crabs.close();volleys.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
 }

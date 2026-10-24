@@ -46,6 +46,8 @@ test('chat restoration never crosses account or persona boundaries and ignores d
     await h.request('/conversations',owner,{targetId:visitor.id});
     assert.equal((await h.request('/me/conversation',owner)).body.conversation.id,cid);
     assert.equal((await h.request('/me/conversation',visitor)).body.conversation,null);
+    // This account has earned a card; quest gating is exercised in avatar-cards.test.mjs.
+    h.runtime.store.run("INSERT INTO avatar_quest_rewards(owner_id,quest_id,created_at) VALUES(?,'first-chat',?)",owner.id,new Date().toISOString());
     const slot=(await h.request('/slots',owner,{nickname:'별도 자아'})).body.id;
     await h.request(`/slots/${slot}/activate`,owner,{});
     assert.equal((await h.request('/me/conversation',owner)).body.conversation,null);

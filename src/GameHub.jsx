@@ -2,6 +2,7 @@ import React,{useEffect,useState} from 'react';
 import {Music2,Footprints,Trophy,ArrowLeft,Check,Users,UserRound,Search,House,ChevronDown,PartyPopper,Sparkles,Clock3,Gamepad2,Shell,Volleyball as VolleyIcon} from 'lucide-react';
 import {api,dateLabel} from './api';
 import Rhythm from './Rhythm';
+import WordGames from './WordGames';
 import Runner from './Runner';
 import CrabChase from './CrabChase';
 import Volleyball from './Volleyball';
@@ -25,6 +26,7 @@ const GAMES = [
 ];
 
 export default function GameHub({target,me,notify,onReward,anonymous,socket,members=[],race,onLeaveRace}){
+  const [wordKind,setWordKind]=useState(null);
   const [game,setGame]=useState(null),[selected,setSelected]=useState('runner'),[category,setCategory]=useState('all');
   const [multiplayer,setMultiplayer]=useState(true),[selectedFriends,setSelectedFriends]=useState([]),[inviteProgress,setInviteProgress]=useState(null);
   const [pending,setPending]=useState(null),[sending,setSending]=useState(false),[hideName,setHideName]=useState(!!anonymous);
@@ -66,9 +68,10 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
   function replaySolo(){const kind=race?.kind||game;setSoloReplay({kind,key:Date.now()});if(race)onLeaveRace();setGame(kind);}
   const reward=()=>{onReward();setRevision(value=>value+1);};
   const gameKey=race?.id||soloReplay?.key||'solo',replayProps={autoStart:!race&&!!soloReplay,onSoloReplay:replaySolo};
+  if(wordKind)return <WordGames initialKind={wordKind} target={target} me={me} socket={socket} notify={notify} onBack={()=>setWordKind(null)} onReward={reward}/>;
   if(game||race)return <><div className="game-back"><button className="text-button" onClick={back}><ArrowLeft size={16}/>게임 목록으로</button></div>{game==='rhythm'?<Rhythm target={target} notify={notify} onReward={reward} anonymous={hideName}/>:(game==='volley'||race?.kind==='volley')?<Volleyball key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>: (game==='crab'||race?.kind==='crab')?<CrabChase key={gameKey} {...replayProps} onHome={back} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>:<Runner key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>}</>;
 
-  return <div className="panel-body game-hub">
+  return <div className="panel-body game-hub"><div className="word-game-entry"><button onClick={()=>setWordKind('typing')}><Gamepad2 size={28}/><span><strong>두근두근 타자 대결</strong><small>2인 · 60초 동안 같은 문장으로 겨뤄요</small></span></button><button onClick={()=>setWordKind('wordchain')}><Users size={28}/><span><strong>도란도란 끝말잇기</strong><small>2인 · 15초 안에 이어가는 우리말 놀이</small></span></button></div>
     <section className="playground-catalog" aria-label="미니게임 선택">
       <nav className="playground-categories" aria-label="게임 종류">
         {[['all','전체',Gamepad2],['runner','달리기',Footprints],['rhythm','리듬',Music2],['crab','생존',Shell],['volley','스포츠',VolleyIcon]].map(([id,label,Icon])=><button key={id} aria-pressed={category===id} className={category===id?'active':''} disabled={sending||!!pending} onClick={()=>setCategory(id)}>{id!=='all'&&<Icon size={22}/>}<span>{label}</span></button>)}

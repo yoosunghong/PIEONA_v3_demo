@@ -33,12 +33,13 @@ import {villageLife,lifeInteractionObjects,isLifeScenery} from '../shared/lifeLa
 import {createLifeWorld} from './lifeWorld';
 import {isLifeFocus,lifeFocusView,lifeFocusOccluders} from './lifeFocus.mjs';
 
-const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
+const themes={sage:{accent:0x70a9ad,flowers:0xce87bc},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,editor=null}){
+export default function Scene({pollActive=false,onPollClick,villageSpeech=[],topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,editor=null}){
   const humanoidPortrait=!petPreview;
   const signData=villageSign(village),signKey=JSON.stringify(signData);
   const guestbookData=villageGuestbook(village),guestbookKey=JSON.stringify(guestbookData);
+  const speechNodes=useRef(new Map()),pollNotice=useRef();
   const questionBubble=useRef(),petPromptRef=useRef(false),mountPromptRef=useRef('');
   const [petNearby,setPetNearby]=useState(false);
   const [mountPrompt,setMountPrompt]=useState('');
@@ -47,7 +48,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
   const [lifePrompt,setLifePrompt]=useState('');
   const lifePromptRef=useRef(''),lifeToggle=useRef();
   const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={village,topicGuest,topicLine,onInteract,onWalk,onReady,onPositionChange,movementInput,editor,benches:villageBenches(village),sign:signData,guestbook:guestbookData,items:[...villageScenery(village),...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData)]};
-  callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;
+  callbacks.current.pollActive=pollActive;callbacks.current.onPollClick=onPollClick;callbacks.current.villageSpeech=villageSpeech;callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.gardenData=gardenData;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;}},[mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended]);
   // Keep one WebGL context for this mounted scene, including all look previews.
@@ -60,14 +61,14 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const palette=themes[theme]||themes.sage;
     const mood=sceneMood(village.theme);
     let renderer;try{renderer=rendererRef.current??new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});rendererRef.current=renderer;}catch{setError('3D 화면을 시작할 수 없어요. 브라우저의 하드웨어 가속을 켜주세요.');setLoading(false);return;}
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.12;el.appendChild(renderer.domElement);
-    const world=new THREE.Scene();world.background=new THREE.Color(mood.sky);world.fog=new THREE.FogExp2(mood.sky,.021);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=mood.id==='default'?1:1.12;el.appendChild(renderer.domElement);
+    const world=new THREE.Scene();world.background=new THREE.Color(mood.sky);world.fog=new THREE.FogExp2(mood.sky,mood.id==='default'?.012:.021);
     renderer.domElement.dataset.worldId=crypto.randomUUID();renderer.domElement.dataset.villageTheme=mood.id;
     const camera=new THREE.PerspectiveCamera(38,1,.1,120);camera.position.set(...(portrait?(petPreview?[0,1.15,3.4]:[0,1.65,5.4]):mood.id==='cafe'?[1,4.5,9]:[4.7,3.25,8]));
     const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.enableZoom=true;controls.minDistance=portrait?3:5;controls.maxDistance=26;controls.minPolarAngle=.18;controls.maxPolarAngle=Math.PI*.49;controls.target.set(...(portrait?(petPreview?[0,.9,0]:[0,1.65,0]):mood.id==='cafe'?[-1.9,1,0]:[0,1.45,0]));
     world.add(new THREE.HemisphereLight(mood.sky,0xabc0d0,mood.ambient));
     const sun=new THREE.DirectionalLight(0xfff3e6,2.8);sun.position.set(-5,12,7);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12,near:1,far:40});sun.shadow.normalBias=.025;sun.shadow.intensity=.55;world.add(sun);
-    const rim=new THREE.DirectionalLight(0xcce5ff,1.5);rim.position.set(5,6,-5);world.add(rim);
+    const rim=new THREE.DirectionalLight(0xcce5ff,mood.id==='default'?.75:1.5);rim.position.set(5,6,-5);world.add(rim);
     sun.color.setHex(mood.light);sun.intensity=mood.intensity;
     const materials=[];const geometries=[];
     const mat=(color,extra={})=>{const m=new THREE.MeshStandardMaterial({color,roughness:.85,...extra});materials.push(m);return m;};
@@ -83,6 +84,14 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const stageRing=mesh(new THREE.TorusGeometry(2.05,.025,8,100),mat(0xc9e3ae,{emissive:0xa9d988,emissiveIntensity:.65}),0,.38,0);stageRing.rotation.x=Math.PI/2;
     for(let i=0;i<12;i++){const a=i*Math.PI/6;const tile=box(.55,.08,.48,stone,Math.sin(a)*2.5,.18,Math.cos(a)*2.5);tile.rotation.y=a;}
     for(let i=0;i<6;i++){const x=-.25+Math.sin(i)*.13;box(.88,.08,.48,stone,x,.17,2.9+i*.5);}
+    const pollBox=new THREE.Group();pollBox.position.set(2.6,.16,3.3);pollBox.userData.action='poll';world.add(pollBox);
+    box(.8,.85,.7,mat(0xe9c5aa),0,.48,0,pollBox);box(.91,.1,.81,mat(0xc49476),0,.95,0,pollBox);box(.42,.02,.065,mat(0x6e5350),0,1.015,0,pollBox);
+    const ballot=box(.24,.28,.025,cream,.1,1.14,0,pollBox);ballot.rotation.z=-.2;
+    const pollOutlineMaterial=mat(0xffd33f,{emissive:0xffc928,emissiveIntensity:1.5,transparent:true,opacity:.85});
+    const pollRing=mesh(new THREE.TorusGeometry(.7,.035,8,48),pollOutlineMaterial,0,.05,0,pollBox);pollRing.rotation.x=Math.PI/2;
+    const pollOutlineShape=new THREE.BoxGeometry(.86,.92,.76),pollEdgesGeometry=new THREE.EdgesGeometry(pollOutlineShape);pollOutlineShape.dispose();geometries.push(pollEdgesGeometry);
+    const pollLineMaterial=new THREE.LineBasicMaterial({color:0xffde45,transparent:true,opacity:1});materials.push(pollLineMaterial);
+    const pollEdges=new THREE.LineSegments(pollEdgesGeometry,pollLineMaterial);pollEdges.position.y=.5;pollBox.add(pollEdges);
     const sceneryRoots=new Map();
     const lifeWorld=createLifeWorld();world.add(lifeWorld.root);
     const facilityOutline=createFacilityOutline(renderer,world,camera);for(const [id,root] of lifeWorld.facilities)sceneryRoots.set(id,root);
@@ -320,6 +329,18 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         question.style.left=`${Math.max(110,Math.min(el.clientWidth-110,(point.x+1)*.5*el.clientWidth))}px`;
         question.style.top=`${Math.max(55,(1-point.y)*.5*el.clientHeight)}px`;
       }
+      for(const line of callbacks.current.villageSpeech){
+        const node=speechNodes.current.get(line.id);if(!node)continue;
+        const actor=remoteCharacters.get(line.userId)?.root||(line.userId===ownerId?avatarRoot:null);
+        if(!actor||!actor.visible||!['home','village'].includes(state.current?.mode)){node.style.visibility='hidden';continue;}
+        const point=actor.position.clone().add(new THREE.Vector3(0,3.8,0)).project(camera);
+        const anchor=(point.x+1)*.5*el.clientWidth,half=node.offsetWidth/2;
+        const pair=callbacks.current.villageSpeech.some(other=>other.userId===line.userId&&other.role!==line.role);
+        const left=Math.max(half+8,Math.min(el.clientWidth-half-8,anchor+(pair?(line.role==='user'?-half-8:half+8):0)));
+        node.style.visibility=point.z>=-1&&point.z<=1&&Math.abs(point.x)<1.2&&Math.abs(point.y)<1.2?'visible':'hidden';
+        node.style.left=`${left}px`;node.style.top=`${Math.max(node.offsetHeight+12,(1-point.y)*.5*el.clientHeight)}px`;
+        node.style.setProperty('--speech-tail',`${Math.max(12,Math.min(node.offsetWidth-12,half+anchor-left))}px`);
+      }
       const bubble=topicBubble.current,line=callbacks.current.topicLine;
       if(bubble&&line){
         const point=new THREE.Vector3(line.speakerId===ownerId?-1.15:1.15,3.2,0).project(camera);
@@ -338,7 +359,10 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     });}
     const clock=new THREE.Clock();let lastPausedRender=-1;
     function updateBenchPrompt(value){if(benchPromptRef.current!==value){benchPromptRef.current=value;setBenchPrompt(value);}}
-    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;lifeWorld.update(time,s.villageMembers,s.gardenData);if(!s.inputEnabled||s.mode!=='village')facilityDestination=null;if(s.paused){clearKeys();updateBenchPrompt('');if(viewport.needsDraw||!s.renderSuspended&&time-lastPausedRender>.1){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
+    function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;
+      pollRing.visible=pollEdges.visible=!!callbacks.current.pollActive;pollOutlineMaterial.emissiveIntensity=1.5+Math.sin(time*3)*.5;
+      const notice=pollNotice.current;if(notice){const point=pollBox.position.clone().add(new THREE.Vector3(0,1.9,0)).project(camera);notice.style.left=`${Math.max(90,Math.min(el.clientWidth-90,(point.x+1)*.5*el.clientWidth))}px`;notice.style.top=`${Math.max(50,(1-point.y)*.5*el.clientHeight)}px`;notice.style.visibility=point.z>=-1&&point.z<=1&&['home','village'].includes(s.mode)&&!s.paused?'visible':'hidden';}
+      lifeWorld.update(time,s.villageMembers,s.gardenData);if(!s.inputEnabled||s.mode!=='village')facilityDestination=null;if(s.paused){clearKeys();updateBenchPrompt('');if(viewport.needsDraw||!s.renderSuspended&&time-lastPausedRender>.1){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
       if(s.mode==='home'&&s.inputEnabled&&ownerId===s.viewerId&&Math.hypot(callbacks.current.movementInput?.current?.x||0,callbacks.current.movementInput?.current?.y||0)>.01)callbacks.current.onWalk?.();
       const lifeFocused=isLifeFocus(s.mode);
       const modeChanged=s.mode!==previousMode,focus=s.mode==='guestbook'?callbacks.current.guestbook:callbacks.current.sign,signPose=lifeFocused?callbacks.current.lifeObjectId:[focus.x,focus.z,focus.rotation].join(',');
@@ -550,5 +574,5 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     else{const offset=camera.position.clone().sub(controls.target),distance=THREE.MathUtils.clamp(offset.length()*(action.type==='in'?.8:1.25),controls.minDistance,controls.maxDistance);camera.position.copy(controls.target).add(offset.setLength(distance));}
     controls.update();
   },[editor?.cameraAction]);
-  return <div className="scene-wrap">{questionPending&&!paused&&!isLifeFocus(mode)&&mode!=='edit'&&<button ref={questionBubble} className="avatar-question-notice" onClick={onQuestionClick} aria-label="도착한 아바타 질문 보기"><b>!</b><span>질문이 도착했어요</span></button>}{mountPrompt&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="dragon-mount-prompt"><button type="button" onClick={()=>onInteract?.('mount:toggle')}><kbd>F</kbd> {mountPrompt==='dismount'?'아기용에서 내리기':'아기용 타고 비행'}</button></div>}{petNearby&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="pet-nearby-prompt"><kbd>E</kbd> 쓰다듬기 · <kbd>R</kbd> 부르기</div>}<div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
+  return <div className="scene-wrap">{pollActive&&<button ref={pollNotice} className="poll-world-notice" onClick={onPollClick}>🗳️ 투표가 있습니다</button>}{villageSpeech.map(line=><div key={line.id} ref={node=>{if(node)speechNodes.current.set(line.id,node);else speechNodes.current.delete(line.id);}} className={"village-speech "+line.role} role="status"><strong>{line.speaker} · {line.role==='user'?'질문':'AI 답변'}</strong><p>{line.text}</p></div>)}{questionPending&&!paused&&!isLifeFocus(mode)&&mode!=='edit'&&<button ref={questionBubble} className="avatar-question-notice" onClick={onQuestionClick} aria-label="도착한 아바타 질문 보기"><b>!</b><span>질문이 도착했어요</span></button>}{mountPrompt&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="dragon-mount-prompt"><button type="button" onClick={()=>onInteract?.('mount:toggle')}><kbd>F</kbd> {mountPrompt==='dismount'?'아기용에서 내리기':'아기용 타고 비행'}</button></div>}{petNearby&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="pet-nearby-prompt"><kbd>E</kbd> 쓰다듬기 · <kbd>R</kbd> 부르기</div>}<div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
 }

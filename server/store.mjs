@@ -5,6 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import {createHash} from 'node:crypto';
 
 export const id = () => randomUUID();
 export const now = () => new Date().toISOString();
@@ -50,6 +51,13 @@ export function openStore(filename = './data/pieona.sqlite') {
     CREATE INDEX IF NOT EXISTS events_user_name ON events(user_id,name);
     CREATE TABLE IF NOT EXISTS reports (id TEXT PRIMARY KEY, reporter_id TEXT NOT NULL REFERENCES users(id), target_id TEXT NOT NULL REFERENCES users(id), reason TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS avatar_slots (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), snapshot TEXT NOT NULL, created_at TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS avatar_cards (slot_id TEXT NOT NULL REFERENCES avatar_slots(id),owner_id TEXT NOT NULL REFERENCES users(id),audience TEXT NOT NULL,tier INTEGER NOT NULL,signature TEXT NOT NULL,analysis TEXT NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(slot_id,audience));
+    CREATE TABLE IF NOT EXISTS avatar_quest_rewards (owner_id TEXT NOT NULL REFERENCES users(id),quest_id TEXT NOT NULL,slot_id TEXT,created_at TEXT NOT NULL,PRIMARY KEY(owner_id,quest_id));
+    CREATE TABLE IF NOT EXISTS friend_memory_reads (viewer_id TEXT NOT NULL REFERENCES users(id),owner_id TEXT NOT NULL REFERENCES users(id),signature TEXT NOT NULL,PRIMARY KEY(viewer_id,owner_id));
+    CREATE TABLE IF NOT EXISTS social_game_records (id TEXT NOT NULL,user_id TEXT NOT NULL REFERENCES users(id),village_id TEXT NOT NULL REFERENCES users(id),kind TEXT NOT NULL,score INTEGER NOT NULL,result TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(id,user_id));
+    CREATE TABLE IF NOT EXISTS village_polls (id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id),question TEXT NOT NULL,option_a TEXT NOT NULL,option_b TEXT NOT NULL,stake INTEGER NOT NULL,max_votes INTEGER NOT NULL,deadline INTEGER NOT NULL,status TEXT NOT NULL DEFAULT 'open',result TEXT,created_at TEXT NOT NULL);
+    CREATE UNIQUE INDEX IF NOT EXISTS village_poll_open ON village_polls(owner_id) WHERE status='open';
+    CREATE TABLE IF NOT EXISTS village_ballots (poll_id TEXT NOT NULL REFERENCES village_polls(id),user_id TEXT NOT NULL REFERENCES users(id),slot_id TEXT NOT NULL,nickname TEXT NOT NULL,choice TEXT NOT NULL,reason TEXT NOT NULL,provider TEXT NOT NULL,stake INTEGER NOT NULL,payout INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL,PRIMARY KEY(poll_id,user_id));
     CREATE TABLE IF NOT EXISTS survey_participation (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, completed INTEGER NOT NULL DEFAULT 0, deferred_until INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS survey_responses (id TEXT PRIMARY KEY, version INTEGER NOT NULL, answers TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS account_rewards (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, reward_id TEXT NOT NULL, PRIMARY KEY(user_id,reward_id));
@@ -115,6 +123,9 @@ export function publicUser(store, user, viewerId, online = new Set()) {
   const s = settingsOf(user);
   const relation = store.one('SELECT status,close FROM friendships WHERE owner_id=? AND friend_id=?', viewerId, user.id);
   const incoming = store.one("SELECT status FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'", user.id, viewerId);
+  const permitted=own?[]:visibleMemories(store,user.id,viewerId).filter(m=>m.confirmed);
+  const memorySignature=createHash('sha256').update(JSON.stringify(permitted.map(m=>[m.id,m.content,m.updated_at,m.visibility]))).digest('hex');
+  const memoryRead=own?null:store.one('SELECT signature FROM friend_memory_reads WHERE viewer_id=? AND owner_id=?',viewerId,user.id);
   const result = {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
     ...(own?{rewards}:{}),
@@ -123,6 +134,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
     stage: own || s.stageVisible ? stageOf(store, user) : null,
     ...((own || s.stageVisible) ? experienceOf(store,user) : {level:null,xp:null,levelXp:null,nextLevelXp:null}),
     tags: s.publicTags, online: online.has(user.id), allowVisitors: s.allowVisitors,
+    memoryUpdated:relation?.status==='accepted'&&permitted.length>0&&memoryRead?.signature!==memorySignature,
     allowTopics: s.allowTopics, receiveTranscripts: s.receiveTranscripts,
     scene: s.scene, relation: relation?.status || null, close: !!relation?.close, incoming: !!incoming,
     createdAt: user.created_at
