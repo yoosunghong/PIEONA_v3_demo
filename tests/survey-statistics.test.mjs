@@ -60,12 +60,12 @@ test('empty statistics, rating averages, multiple selections, no-experience and 
   const first=await register(),second=await register();
   const a={...answer(),q1:{selected:[0,1,6],other:'기타 의견'},q2:5,q10:'새 기능을 원해요',q11:'<script>text only</script>'};
   const b={...answer(),q2:'unexperienced',q3:1};
-  assert.equal((await request('/feedback',first,{answers:a})).status,201);
-  assert.equal((await request('/feedback',second,{answers:b})).status,201);
-  assert.equal((await request('/feedback',second,{answers:b})).status,409);
-  // Version 2 measured resemblance at q2; its ratings and comments must not
-  // become activity-enjoyment results just because question IDs are reused.
-  runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',randomUUID(),2,JSON.stringify({...answer(),q2:1,q10:'이전 설문 의견'}));
+  assert.equal((await request('/feedback',first,{version:surveyVersion,answers:a})).status,201);
+  assert.equal((await request('/feedback',second,{version:surveyVersion,answers:b})).status,201);
+  assert.equal((await request('/feedback',second,{version:surveyVersion,answers:b})).status,409);
+  // Version 4 measured pet and companion activities; its option indexes and
+  // comments must not become avatar dialogue results when IDs are reused.
+  runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',randomUUID(),4,JSON.stringify({...answer(),q2:1,q10:'이전 설문 의견'}));
   const stats=(await request('/survey/statistics',manager)).body;
   assert.equal(stats.total,2);assert.equal(stats.legacyTotal,1);
   assert.equal(stats.version,surveyVersion);
@@ -103,14 +103,14 @@ test('new submissions notify readers only; grants and revocations update connect
   try{
     const [adminSocket,managerSocket,userSocket]=sockets;let leaked=false;userSocket.on('survey:changed',()=>{leaked=true;});
     const signals=[waitFor(adminSocket,'survey:changed'),waitFor(managerSocket,'survey:changed')];
-    assert.equal((await request('/feedback',submitter,{answers:answer()})).status,201);await Promise.all(signals);
+    assert.equal((await request('/feedback',submitter,{version:surveyVersion,answers:answer()})).status,201);await Promise.all(signals);
     assert.equal(leaked,false);
     let access=waitFor(userSocket,'survey:access');await change(admin,user,'manager');assert.deepEqual(await access,{role:'manager'});
     const received=waitFor(userSocket,'survey:changed');
-    const another=await register();await request('/feedback',another,{answers:answer()});await received;
+    const another=await register();await request('/feedback',another,{version:surveyVersion,answers:answer()});await received;
     access=waitFor(userSocket,'survey:access');await change(admin,user,'user');assert.deepEqual(await access,{role:'user'});
     assert.equal((await request('/survey/statistics',user)).status,403);
-    leaked=false;const last=await register();const delivered=waitFor(managerSocket,'survey:changed');await request('/feedback',last,{answers:answer()});await delivered;
+    leaked=false;const last=await register();const delivered=waitFor(managerSocket,'survey:changed');await request('/feedback',last,{version:surveyVersion,answers:answer()});await delivered;
     assert.equal(leaked,false);
   }finally{sockets.forEach(socket=>socket.disconnect());}
 });
@@ -123,10 +123,14 @@ test('existing database gets designated admin by immutable ID, roles and answers
     db.exec("CREATE TABLE users(id TEXT PRIMARY KEY,username TEXT UNIQUE NOT NULL,password TEXT NOT NULL,nickname TEXT NOT NULL DEFAULT '',intro TEXT NOT NULL DEFAULT '',theme TEXT NOT NULL DEFAULT 'sage',settings TEXT NOT NULL DEFAULT '{}',balance TEXT NOT NULL DEFAULT '[]',gold INTEGER NOT NULL DEFAULT 0,revision INTEGER NOT NULL DEFAULT 0,created_at TEXT NOT NULL)");
     const adminId='a5a056ab-e1e6-42e6-833f-3a61f31fe05e',imposter=randomUUID();
     db.prepare('INSERT INTO users(id,username,password,nickname,created_at) VALUES(?,?,?,?,?)').run(adminId,'hys8623','unused','안녕하세요유성입니다잘부탁드립니다',new Date().toISOString());
-    db.prepare('INSERT INTO users(id,username,password,nickname,created_at) VALUES(?,?,?,?,?)').run(imposter,'imposter','unused','안녕하세요유성입니다잘부탁드립니다',new Date().toISOString());db.close();
+    db.prepare('INSERT INTO users(id,username,password,nickname,created_at) VALUES(?,?,?,?,?)').run(imposter,'imposter','unused','안녕하세요유성입니다잘부탁드립니다',new Date().toISOString());
+    db.exec('CREATE TABLE survey_participation(user_id TEXT PRIMARY KEY,completed INTEGER NOT NULL DEFAULT 0,deferred_until INTEGER NOT NULL DEFAULT 0)');
+    db.prepare('INSERT INTO survey_participation VALUES(?,1,0)').run(imposter);db.close();
     store=openStore(filename);assert.equal(store.one('SELECT survey_role FROM users WHERE id=?',adminId).survey_role,'admin');assert.equal(store.one('SELECT survey_role FROM users WHERE id=?',imposter).survey_role,'user');
+    assert.deepEqual({...store.one('SELECT completed,version FROM survey_participation WHERE user_id=?',imposter)},{completed:1,version:0});
     store.run("UPDATE users SET nickname='새 닉네임' WHERE id=?",adminId);store.run("UPDATE users SET survey_role='manager' WHERE id=?",imposter);
     store.run('INSERT INTO survey_responses VALUES(?,?,?)',randomUUID(),surveyVersion,JSON.stringify(answer()));store.close();store=openStore(filename);
     assert.equal(store.one('SELECT survey_role FROM users WHERE id=?',adminId).survey_role,'admin');assert.equal(store.one('SELECT survey_role FROM users WHERE id=?',imposter).survey_role,'manager');assert.equal(store.one('SELECT COUNT(*) n FROM survey_responses').n,1);
+    assert.deepEqual({...store.one('SELECT completed,version FROM survey_participation WHERE user_id=?',imposter)},{completed:1,version:0});
   }finally{store?.close();rmSync(directory,{recursive:true,force:true});}
 });

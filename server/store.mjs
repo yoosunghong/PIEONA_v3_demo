@@ -51,6 +51,8 @@ export function openStore(filename = './data/pieona.sqlite') {
     CREATE TABLE IF NOT EXISTS survey_participation (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, completed INTEGER NOT NULL DEFAULT 0, deferred_until INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS survey_responses (id TEXT PRIMARY KEY, version INTEGER NOT NULL, answers TEXT NOT NULL);
   `);
+  // Legacy participation is retained, but cannot count as completion of a new questionnaire.
+  if(!db.prepare('PRAGMA table_info(survey_participation)').all().some(c=>c.name==='version'))db.exec('ALTER TABLE survey_participation ADD COLUMN version INTEGER NOT NULL DEFAULT 0');
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='active_slot'))db.exec("ALTER TABLE users ADD COLUMN active_slot TEXT NOT NULL DEFAULT ''");
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='survey_role'))db.exec("ALTER TABLE users ADD COLUMN survey_role TEXT NOT NULL DEFAULT 'user' CHECK(survey_role IN ('user','manager','admin'))");
   // The requested existing account is pinned to its immutable ID, never a mutable nickname.

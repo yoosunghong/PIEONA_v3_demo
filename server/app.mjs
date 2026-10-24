@@ -491,7 +491,8 @@ export function createApp(options = {}) {
     const counts=store.one(`SELECT SUM(CASE WHEN name='game_finished' THEN 1 ELSE 0 END) games,
       SUM(CASE WHEN name='message_sent' AND json_extract(detail,'$.owner')=1 THEN 1 ELSE 0 END) ownChats,
       SUM(CASE WHEN name='message_sent' AND json_extract(detail,'$.owner')=0 THEN 1 ELSE 0 END) otherChats FROM events WHERE user_id=?`,req.user.id);
-    const completed=!!participation?.completed,deferred=!completed&&participation?.deferred_until>Date.now();
+    const current=participation?.version===surveyVersion;
+    const completed=current&&!!participation.completed,deferred=current&&!completed&&participation.deferred_until>Date.now();
     res.json({completed,deferred,eligible:!completed&&!deferred&&(counts.games>=1||counts.ownChats>=10||counts.otherChats>=5)});
   });
   function surveyReader(req,res,next){if(!canReadSurvey(req.user))return res.status(403).json({error:'설문 통계를 볼 권한이 없어요.'});next();}
@@ -523,7 +524,7 @@ export function createApp(options = {}) {
     res.json({ok:true});
   });
   app.post('/api/survey/defer',auth,(req,res)=>{
-    store.run('INSERT INTO survey_participation(user_id,deferred_until) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET deferred_until=excluded.deferred_until',req.user.id,Date.now()+86400000);
+    store.run('INSERT INTO survey_participation(user_id,deferred_until,version) VALUES(?,?,?) ON CONFLICT(user_id) DO UPDATE SET deferred_until=excluded.deferred_until,completed=CASE WHEN survey_participation.version=excluded.version THEN survey_participation.completed ELSE 0 END,version=excluded.version',req.user.id,Date.now()+86400000,surveyVersion);
     emitUpdate(req.user.id);res.json({ok:true});
   });
   const answerShape=Object.fromEntries(surveyQuestions.map(q=>{
@@ -535,12 +536,14 @@ export function createApp(options = {}) {
     })];
   }));
   app.post('/api/feedback',auth,(req,res)=>{
-    const {answers}=z.object({answers:z.object(answerShape).strict()}).strict().parse(req.body);
+    const payload=z.object({version:z.number().int().optional(),answers:z.unknown()}).strict().parse(req.body);
+    if(payload.version!==surveyVersion)fail(409,'설문 문항이 업데이트됐어요. 새로고침한 뒤 새 설문에 참여해 주세요.');
+    const answers=z.object(answerShape).strict().parse(payload.answers);
     store.transaction(()=>{
-      if(store.one('SELECT completed FROM survey_participation WHERE user_id=?',req.user.id)?.completed)fail(409,'이미 설문에 참여했어요. 고마워요!');
+      if(store.one('SELECT completed FROM survey_participation WHERE user_id=? AND version=?',req.user.id,surveyVersion)?.completed)fail(409,'이미 설문에 참여했어요. 고마워요!');
       // No account IDs, timestamps, event records or response IDs link answers to an account.
       store.run('INSERT INTO survey_responses VALUES(?,?,?)',id(),surveyVersion,JSON.stringify(answers));
-      store.run('INSERT INTO survey_participation(user_id,completed) VALUES(?,1) ON CONFLICT(user_id) DO UPDATE SET completed=1,deferred_until=0',req.user.id);
+      store.run('INSERT INTO survey_participation(user_id,completed,version) VALUES(?,1,?) ON CONFLICT(user_id) DO UPDATE SET completed=1,deferred_until=0,version=excluded.version',req.user.id,surveyVersion);
     });emitUpdate(req.user.id);emitSurveyChange();res.status(201).json({ok:true});
   });
   app.get('/api/stats',auth,(req,res)=>{const counts=store.all('SELECT name,COUNT(*) count FROM events WHERE user_id=? GROUP BY name',req.user.id);res.json({events:counts,memories:store.one('SELECT COUNT(*) count FROM memories WHERE owner_id=?',req.user.id).count,visitors:store.one("SELECT COUNT(DISTINCT actor_id) count FROM activities WHERE owner_id=? AND actor_id<>?",req.user.id,req.user.id).count,stage:stageOf(store,req.user)});});
