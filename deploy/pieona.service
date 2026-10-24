@@ -1,0 +1,30 @@
+[Unit]
+Description=PIEONA multiplayer MVP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pieona
+Group=pieona
+WorkingDirectory=/opt/pieona/app
+EnvironmentFile=/etc/pieona/pieona.env
+ExecStart=/usr/bin/node /opt/pieona/app/server/index.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+StateDirectory=pieona
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pieona
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pieona
+
+[Install]
+WantedBy=multi-user.target

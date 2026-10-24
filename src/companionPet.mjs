@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import {petAppearance} from '../shared/pets.mjs';
+import {createBabyDragon} from './dragonModels.mjs';
 
 // Smooth stylized companion animals: independent of the player's humanoid assets and rig.
 export function createCompanionPet(appearance={}){
   const {petType,petColor}=petAppearance(appearance),cat=petType==='cat',rabbit=petType==='rabbit';
+  if(petType==='babyDragon')return createBabyDragon(petColor);
   const root=new THREE.Group();root.name=`AI ${petType}`;root.userData.petType=petType;root.scale.setScalar(.65);root.userData.generated=true;
   const coat=new THREE.MeshStandardMaterial({color:petColor,roughness:.78});
   const cream=new THREE.MeshStandardMaterial({color:0xfff2da,roughness:.9});

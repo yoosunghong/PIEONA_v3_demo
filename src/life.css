@@ -19,3 +19,30 @@
 .app-shell .autonomy-settings label{align-items:flex-start;text-align:left}
 .app-shell .autonomy-settings label:has(input[type=checkbox]){flex-direction:row;flex-wrap:nowrap;align-items:center}
 .app-shell .autonomy-settings input[type=checkbox]{flex:0 0 18px;margin:0}
+
+/* Reserve separate vertical regions for activity status and the chat drawer. */
+.app-shell .world-panel.is-fishing .fishing-status{
+  top:180px;
+  right:auto;
+  left:50%;
+  bottom:auto;
+  width:min(310px,calc(100% - 48px));
+  max-height:calc(64% - 220px);
+  box-sizing:border-box;
+  overflow:auto;
+  transform:translateX(-50%);
+}
+.app-shell .world-panel.is-fishing .chat-dock.chat-side:not(.is-collapsed){
+  bottom:20px;
+  max-height:36%;
+}
+@media(max-width:700px){
+  .app-shell .world-panel.is-fishing .fishing-status{
+    top:160px;
+    right:auto;
+    width:min(270px,calc(100% - 24px));
+    max-height:calc(64% - 192px);
+  }
+  .app-shell .world-panel.is-fishing .chat-dock.chat-side:not(.is-collapsed){bottom:12px}
+}
+

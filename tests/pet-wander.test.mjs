@@ -41,3 +41,32 @@ test('only pet and call interactions are available; proximity, ownership and ret
     assert.equal((await h.request('/me/pet/interactions',user,{...body,villageId:host.id,requestId:randomUUID()})).status,409);
   }finally{await h.close();}
 });
+
+test('visitors immediately see the absent owner pet wandering in its own village',async()=>{
+  const h=await harness({lifeRandom:()=>.25});try{
+    const owner=await h.register('resident_owner'),visitor=await h.register('resident_visitor');
+    const socket=await h.connect(visitor,owner.id);
+    const joined=await h.emit(socket,'village:join',{villageId:owner.id});
+    const resident=joined.members.find(m=>m.actorKind==='PET'&&m.ownerId===owner.id);
+    assert.ok(resident,'offline owner pet is included in the initial snapshot');
+    assert.ok(resident.appearance.petType);
+    const start={x:resident.x,z:resident.z};
+    for(let i=0;i<10;i++)h.advance(100);
+    const pets=h.runtime.life.petMembers(owner.id);
+    const moved=pets.find(m=>m.ownerId===owner.id);
+    assert.ok(Math.hypot(moved.x-start.x,moved.z-start.z)>.1);
+    assert.equal(moved.activityState,'Wandering');
+    assert.equal(pets.filter(m=>m.ownerId===owner.id).length,1);
+    // The owner's resident remains visible even when the owner visits elsewhere.
+    const ownerSocket=await h.connect(owner,visitor.id);h.advance(100);
+    assert.equal(h.runtime.life.petMembers(owner.id).filter(m=>m.ownerId===owner.id).length,1);
+    assert.ok(h.runtime.life.petMembers(visitor.id).some(m=>m.ownerId===owner.id));
+    await h.emit(ownerSocket,'village:join',{villageId:owner.id});h.advance(100);
+    assert.equal(h.runtime.life.petMembers(owner.id).filter(m=>m.ownerId===owner.id).length,1);
+    await new Promise(resolve=>ownerSocket.emit('village:leave',resolve));h.advance(100);
+    assert.ok(h.runtime.life.petMembers(owner.id).some(m=>m.ownerId===owner.id));
+    await new Promise(resolve=>socket.emit('village:leave',resolve));h.advance(100);
+    assert.equal(h.runtime.life.petMembers(owner.id).length,0,'empty villages release resident simulation');
+  }finally{await h.close();}
+});
+

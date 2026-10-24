@@ -60,6 +60,7 @@ test('village themes persist independently of avatar slots, preserve furniture a
 
 test('all editor props are accepted by world API and survive reload and visitor reads',async()=>{
   const user=await register('prop_catalog_owner');
+  runtime.store.run('INSERT INTO account_rewards(user_id,reward_id) VALUES(?,?)',user.id,'survey-dragon-v1');
   for(const entry of decorations){
     const items=[{...piece(),type:entry.id,rotation:3}];
     const result=await request('/me/world',user,{village:{items}},'PATCH');

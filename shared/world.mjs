@@ -22,19 +22,21 @@ export const decorations = [
   {id:'picnic',name:'피크닉 바구니',category:'furniture',color:'#dfb29b'},
   {id:'flowerLamp',name:'꽃 조명',category:'lighting',color:'#f4d694'},
   {id:'gazebo',name:'정원 정자',category:'buildings',color:'#b8c8df'},
-  {id:'crystal',name:'별빛 수정',category:'lighting',color:'#b8a7e9'}
+  {id:'crystal',name:'별빛 수정',category:'lighting',color:'#b8a7e9'},
+  {id:'dragonNest',name:'아기용 전용 둥지',category:'decor',color:'#b9c8f3',reward:'survey-dragon-v1'}
 ];
 // The legacy 2D catalog also uses these symbols for saved items.
 const decorIcons=['🪑','🏮','🌸','⛱️','⛲','🛒','🪵','🌷','🪨','🐰','🍄','🎠','🌸','🪧','🌿','🍄','📬','🧺','🌼','🏛️','💎'];
-decorations.forEach((item,index)=>{item.icon=decorIcons[index];item.quantity=item.id==='statue'?Infinity:10;});
+decorations.forEach((item,index)=>{item.icon=decorIcons[index]||'🪺';item.quantity=item.reward?1:item.id==='statue'?Infinity:10;});
+export const decorationQuantity=(entry,rewards=[])=>entry.reward&&!rewards.includes(entry.reward)?0:entry.quantity;
 // Placed items use stock; storing or undoing a placement returns it.
-export function remainingDecoration(items,type){
+export function remainingDecoration(items,type,rewards=[]){
   const entry=decorations.find(item=>item.id===type);
-  return entry?Math.max(0,entry.quantity-items.filter(item=>item.type===type&&!item.hidden).length):0;
+  return entry?Math.max(0,decorationQuantity(entry,rewards)-items.filter(item=>item.type===type&&!item.hidden).length):0;
 }
 export const hats=[{id:'none',name:'벗기'},{id:'beret',name:'구름 베레모'},{id:'crown',name:'별 왕관'},{id:'sprout',name:'새싹 머리핀'}];
 export const accessories=[{id:'none',name:'벗기'},{id:'scarf',name:'포근한 스카프'},{id:'bow',name:'리본 타이'},{id:'wings',name:'요정 날개'}];
-export const rides=[{id:'none',name:'내리기'},{id:'motorcycle',name:'오토바이'}];
+export const rides=[{id:'none',name:'내리기'},{id:'motorcycle',name:'오토바이'},{id:'babyDragon',name:'아기용 · 비행',reward:'survey-dragon-v1'}];
 export const colors=['#88b5d7','#d994b6','#a6bc83','#c8a0dd','#e5b570','#eee7da'];
 export const defaultAppearance={hat:'none',accessory:'none',color:colors[0]};
 export const villageThemes=[

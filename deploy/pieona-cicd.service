@@ -1,0 +1,30 @@
+[Unit]
+Description=PIEONA managed cloud release
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pieona
+Group=pieona
+WorkingDirectory=/opt/pieona/current
+EnvironmentFile=/etc/pieona/pieona.env
+ExecStart=/opt/pieona/runtime/bin/node /opt/pieona/current/deploy/start-release.mjs
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+StateDirectory=pieona
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/pieona
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pieona
+
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,7 @@
 import {arrivalQuestions,chooseArrivalQuestion} from '../shared/arrivalQuestions.mjs';
 import {petTypes,petColors} from '../shared/pets.mjs';
+import {dragonMountColor} from '../shared/dragonMount.mjs';
+import {SURVEY_REWARD,DRAGON_PET,DRAGON_NEST} from '../shared/surveyRewards.mjs';
 import {isLifeScenery,validLifePlacement} from '../shared/lifeLayout.mjs';
 import {WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
 import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance,suppressedScenery} from '../shared/scenery.mjs';
@@ -56,7 +58,7 @@ export function createApp(options = {}) {
   app.use('/api', (req, res, next) => { res.set('Cache-Control','no-store'); if (!['GET','HEAD','OPTIONS'].includes(req.method) && req.headers.origin && !origins.has(req.headers.origin)) return res.status(403).json({ error: '허용되지 않은 요청 출처입니다.' }); next(); });
   app.use('/api', rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '요청이 많아요. 잠시 후 다시 시도해 주세요.' } }));
   const authLimiter = rateLimit({ windowMs: 15*60_000, limit: options.testing ? 500 : 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '로그인 시도가 많아요. 15분 후 다시 시도해 주세요.' } });
-  const aiLimiter = rateLimit({ windowMs: 60_000, limit: options.testing ? 500 : 15, keyGenerator: req => req.user.id, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '잠시 숨을 고르고 다시 이야기해 주세요.' } });
+  const aiLimiter = rateLimit({ windowMs: 30*60_000, limit: options.testing ? 500 : 30, keyGenerator: req => req.user.id, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'AI 호출 한도에 도달했어요. 30분 후 다시 시도해 주세요.' } });
   function userById(userId) { const user = store.one('SELECT * FROM users WHERE id=?', userId); if (!user) fail(404, '아바타를 찾을 수 없어요.'); return user; }
   function sessionUser(headers) { const token = cookieToken(headers.cookie); if (!token) return null; return store.one('SELECT u.* FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?', hashToken(token), Date.now()); }
   function auth(req, res, next) { req.user = sessionUser(req.headers); if (!req.user) return res.status(401).json({ error: '로그인이 필요해요.' }); next(); }
@@ -73,7 +75,7 @@ export function createApp(options = {}) {
     return Array.from(villageVisitors.get(villageId)?.values() || []).map(({sockets,lastMove,...member})=>{
       const user=userById(member.userId);
       return {...member,runnerBusy:!!busy(member.userId),nickname:user.nickname,appearance:profile(user,user.id).appearance};
-    }).concat(life.petMembers(villageId).map(member=>({...member,appearance:profile(userById(member.ownerId),member.ownerId).avatarAppearance})));
+    }).concat(life.petMembers(villageId).map(member=>{const user=profile(userById(member.ownerId),member.ownerId);return {...member,appearance:member.actorKind==='MOUNT'?{petType:DRAGON_PET,petColor:dragonMountColor(user.appearance,user.avatarAppearance)}:user.avatarAppearance};}));
   }
   function emitVillage(villageId) {
     io.to(`village:${villageId}`).emit('village:members',{villageId,members:villageMembers(villageId),garden:life.gardenSnapshot(villageId)});
@@ -114,7 +116,7 @@ export function createApp(options = {}) {
     res.cookie('pieona_session', token, { httpOnly: true, sameSite: 'lax', secure, maxAge: 30*86400000, path: '/' });
   }
 
-  app.get('/api/health', (req,res) => res.json({ ok:true, app:'pieona', ai: aiMode(), version:'1.0.0' }));
+  app.get('/api/health', (req,res) => res.json({ ok:true, app:'pieona', ai: aiMode(), version:'1.0.0', revision:process.env.APP_REVISION||'local' }));
   app.post('/api/auth/register', authLimiter, async (req,res) => {
     const data = z.object({ username: z.string().trim().toLowerCase().regex(/^[a-z0-9_]{3,24}$/), password: z.string().min(8).max(128) }).parse(req.body);
     if (store.one('SELECT id FROM users WHERE username=?', data.username)) fail(409, '이미 사용 중인 아이디예요.');
@@ -138,8 +140,29 @@ export function createApp(options = {}) {
     res.clearCookie('pieona_session',{path:'/'}); res.json({ok:true});
   });
   app.get('/api/me', auth, (req,res) => res.json({ user: profile(userById(req.user.id),req.user.id), ai: aiMode() }));
+  const hasDragonReward=userId=>!!store.one('SELECT 1 FROM account_rewards WHERE user_id=? AND reward_id=?',userId,SURVEY_REWARD);
+  app.post('/api/me/mount',auth,(req,res)=>{
+    const {riding,villageId}=z.object({riding:z.boolean(),villageId:z.string().uuid()}).strict().parse(req.body);
+    if(!hasDragonReward(req.user.id))fail(403,'설문을 완료하면 아기용 탈것을 받을 수 있어요.');
+    const player=villageVisitors.get(villageId)?.get(req.user.id);
+    if(!player)fail(409,'마을에 입장한 뒤 탑승해 주세요.');
+    if(player.seatId||busy(req.user.id))fail(409,'현재 활동을 마친 뒤 탑승해 주세요.');
+    const user=userById(req.user.id),look=profile(user,user.id).appearance;
+    if(riding&&look.ride!==DRAGON_PET){
+      const dragon=life.petMembers(villageId).find(m=>m.actorKind==='MOUNT'&&m.ownerId===user.id);
+      if(!dragon||Math.hypot(dragon.x-player.x,dragon.z-player.z)>2.6)fail(409,'내 아기용 가까이로 이동해 주세요.');
+    }
+    const appearance={...look,petColor:dragonMountColor(look,profile(user,user.id).avatarAppearance),ride:riding?DRAGON_PET:'none'};
+    const saved=characterLooks(appearance,JSON.parse(user.character_looks));
+    store.run('UPDATE users SET appearance=?,character_looks=? WHERE id=?',JSON.stringify(appearance),JSON.stringify(saved),user.id);
+    player.jumpStarted=0;
+    life.tick();emitWorld();for(const room of villageVisitors.keys())emitVillage(room);
+    res.json({user:profile(userById(user.id),user.id)});
+  });
+  function checkRewardPet(userId,look){if((look?.petType===DRAGON_PET||look?.ride===DRAGON_PET)&&!hasDragonReward(userId))fail(403,'설문을 완료하면 아기용 탈것을 받을 수 있어요.');}
   app.patch('/api/me/pet/appearance',auth,(req,res)=>{
     const data=z.object({petType:z.enum(petTypes.map(p=>p.id)),petColor:z.enum(petColors.map(p=>p.id))}).strict().parse(req.body);
+    checkRewardPet(req.user.id,data);
     const user=userById(req.user.id),look={...profile(user,user.id).avatarAppearance,...data};
     store.run('UPDATE users SET avatar_appearance=? WHERE id=?',JSON.stringify(look),user.id);
     emitWorld();for(const room of villageVisitors.keys())emitVillage(room);
@@ -156,8 +179,15 @@ export function createApp(options = {}) {
     const data=z.object({avatarAppearance:lookSchema.optional(),avatarCharacterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
     const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
+    // Resolve legacy colors before persisting a mount selected in the wardrobe.
+    if(data.appearance?.ride===DRAGON_PET&&!data.appearance.petColor){const current=profile(user,user.id);data.appearance.petColor=dragonMountColor(current.appearance,current.avatarAppearance);}
+    for(const look of [data.appearance,data.avatarAppearance,...Object.values(data.characterLooks||{}),...Object.values(data.avatarCharacterLooks||{})])checkRewardPet(user.id,look);
+    const nests=data.village?.items?.filter(item=>item.type===DRAGON_NEST)||[];
+    if(nests.length&&!hasDragonReward(user.id))fail(403,'설문을 완료하면 아기용 전용 둥지를 받을 수 있어요.');
+    if(nests.length>1)fail(400,'아기용 전용 둥지는 한 개만 보유할 수 있어요.');
     // Keep legacy/default placements, including overlaps, until an object is moved or restored.
-    const placementChanged=(before,after)=>!before||before.hidden||before.x!==after.x||before.z!==after.z;
+    // Browser and Node trigonometry can differ by a few ULPs for default scenery.
+    const placementChanged=(before,after)=>!before||before.hidden||Math.abs(before.x-after.x)>1e-6||Math.abs(before.z-after.z)>1e-6;
     const sceneryMoved=(before,after)=>placementChanged(before,after)||isLifeScenery(after.id)&&after.id!=='scenery:life-storage'&&before.rotation!==after.rotation;
     const itemMoved=item=>placementChanged(oldVillage.items?.find(old=>old.id===item.id),item);
     if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>Number.isFinite(entry.quantity)&&items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>itemMoved(i)&&!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&(itemMoved(a)||itemMoved(b))&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
@@ -544,6 +574,7 @@ export function createApp(options = {}) {
       // No account IDs, timestamps, event records or response IDs link answers to an account.
       store.run('INSERT INTO survey_responses VALUES(?,?,?)',id(),surveyVersion,JSON.stringify(answers));
       store.run('INSERT INTO survey_participation(user_id,completed,version) VALUES(?,1,?) ON CONFLICT(user_id) DO UPDATE SET completed=1,deferred_until=0,version=excluded.version',req.user.id,surveyVersion);
+      store.run('INSERT OR IGNORE INTO account_rewards(user_id,reward_id) VALUES(?,?)',req.user.id,SURVEY_REWARD);
     });emitUpdate(req.user.id);emitSurveyChange();res.status(201).json({ok:true});
   });
   app.get('/api/stats',auth,(req,res)=>{const counts=store.all('SELECT name,COUNT(*) count FROM events WHERE user_id=? GROUP BY name',req.user.id);res.json({events:counts,memories:store.one('SELECT COUNT(*) count FROM memories WHERE owner_id=?',req.user.id).count,visitors:store.one("SELECT COUNT(DISTINCT actor_id) count FROM activities WHERE owner_id=? AND actor_id<>?",req.user.id,req.user.id).count,stage:stageOf(store,req.user)});});

@@ -8,7 +8,8 @@ import * as THREE from 'three';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
 import {createSitMotion} from './benchMotion.mjs';
-import {createMotorcycleRide} from './motorcycle.mjs';
+import {createAvatarRide} from './dragonRide.mjs';
+import {DRAGON_FLIGHT_HEIGHT} from '../shared/dragonMount.mjs';
 import {villageBenches,nearestBench,benchExit,benchCameraView,benchInteractionKey} from '../shared/benches.mjs';
 import './bench.css';
 import {WALK_SPEED,MOTORCYCLE_SPEED,villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,villageJumpHeight} from './villageMovement.mjs';
@@ -38,8 +39,9 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
   const humanoidPortrait=!petPreview;
   const signData=villageSign(village),signKey=JSON.stringify(signData);
   const guestbookData=villageGuestbook(village),guestbookKey=JSON.stringify(guestbookData);
-  const questionBubble=useRef(),petPromptRef=useRef(false);
+  const questionBubble=useRef(),petPromptRef=useRef(false),mountPromptRef=useRef('');
   const [petNearby,setPetNearby]=useState(false);
+  const [mountPrompt,setMountPrompt]=useState('');
   const topicBubble=useRef(),benchToggle=useRef(),benchPromptRef=useRef('');
   const [benchPrompt,setBenchPrompt]=useState('');
   const [lifePrompt,setLifePrompt]=useState('');
@@ -153,13 +155,13 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     }
     function disposeCharacter(root){root.traverse(o=>{if(o.isSprite){o.material.map?.dispose();o.material.dispose();}if(o.userData.generated)disposeObject(o);});}
     function buildRemote(member,asset){
-      if(member.actorKind==='PET'){
+      if(['PET','MOUNT'].includes(member.actorKind)){
         const pet=createCompanionPet(member.appearance),root=new THREE.Group();root.position.set(member.x??0,.39,member.z??0);root.rotation.y=member.rotation||0;root.add(pet.root);
-        const nameTag=addNameTag(root,member.nickname);nameTag.position.y=1.35;root.userData.look=JSON.stringify(member.appearance||appearance);world.add(root);
+        const nameTag=addNameTag(root,member.nickname);nameTag.position.y=pet.flight?3:1.35;root.userData.look=JSON.stringify(member.appearance||appearance);world.add(root);
         return {root,nameTag,pet,runMotion:pet.runMotion,sitMotion:pet.sitMotion,moving:false,seatId:member.seatId||null};
       }
-      const root=new THREE.Group();root.position.set(member.x??0,.39,member.z??0);root.rotation.y=member.rotation||0;const avatar=clone(asset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);root.add(avatar);dressAvatar(avatar,member.appearance||appearance);const nameTag=addNameTag(root,member.nickname);root.userData.look=JSON.stringify(member.appearance||appearance);const runMotion=createRunMotion(avatar),sitMotion=createSitMotion(avatar),ride=(member.appearance||appearance).ride==='motorcycle'?createMotorcycleRide(avatar,(member.appearance||appearance).color):null;let mixer,idleAction;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);idleAction=mixer.clipAction(asset.animations[0]);idleAction.play();idleAction.timeScale=.45;}world.add(root);return{root,nameTag,mixer,idleAction,runMotion,sitMotion,ride,moving:false,seatId:member.userId===state.current?.viewerId?null:member.seatId||null};}
-    (humanoidPortrait?loadAsset(ownerAppearance.character):Promise.resolve({animations:[]})).then(asset=>{if(disposed)return;characterAsset=asset;if(humanoidPortrait)characterAssets.set(ownerAppearance.character||'pio',asset);const avatar=humanoidPortrait?clone(asset):(hostPet=createCompanionPet(ownerAppearance)).root;const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());if(humanoidPortrait)avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatarRoot.add(avatar);if(humanoidPortrait)dressAvatar(avatar,ownerAppearance);hostRide=humanoidPortrait&&ownerAppearance.ride==='motorcycle'?createMotorcycleRide(avatar,ownerAppearance.color):null;hostTag=addNameTag(avatarRoot,portrait?'꾸미기 미리보기':`${ownerNickname||viewerNickname||'피오'} · AI`);if(!humanoidPortrait)hostTag.position.y=1.35;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);action=mixer.clipAction(asset.animations[0]);action.play();action.timeScale=.55;}setLoading(false);if(captureRef)captureRef.current=()=>{drawFrame();return renderer.domElement.toDataURL('image/png');};callbacks.current.onReady?.();}).catch(()=>{if(!disposed){setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');setLoading(false);}});
+      const root=new THREE.Group();root.position.set(member.x??0,.39,member.z??0);root.rotation.y=member.rotation||0;const avatar=clone(asset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);root.add(avatar);dressAvatar(avatar,member.appearance||appearance);const nameTag=addNameTag(root,member.nickname);root.userData.look=JSON.stringify(member.appearance||appearance);const runMotion=createRunMotion(avatar),sitMotion=createSitMotion(avatar),ride=createAvatarRide(avatar,member.appearance||appearance);let mixer,idleAction;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);idleAction=mixer.clipAction(asset.animations[0]);idleAction.play();idleAction.timeScale=.45;}world.add(root);return{root,nameTag,mixer,idleAction,runMotion,sitMotion,ride,moving:false,seatId:member.userId===state.current?.viewerId?null:member.seatId||null};}
+    (humanoidPortrait?loadAsset(ownerAppearance.character):Promise.resolve({animations:[]})).then(asset=>{if(disposed)return;characterAsset=asset;if(humanoidPortrait)characterAssets.set(ownerAppearance.character||'pio',asset);const avatar=humanoidPortrait?clone(asset):(hostPet=createCompanionPet(ownerAppearance)).root;const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());if(humanoidPortrait)avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatarRoot.add(avatar);if(humanoidPortrait)dressAvatar(avatar,ownerAppearance);hostRide=humanoidPortrait?createAvatarRide(avatar,ownerAppearance):null;hostTag=addNameTag(avatarRoot,portrait?'꾸미기 미리보기':`${ownerNickname||viewerNickname||'피오'} · AI`);if(!humanoidPortrait)hostTag.position.y=1.35;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);action=mixer.clipAction(asset.animations[0]);action.play();action.timeScale=.55;}setLoading(false);if(captureRef)captureRef.current=()=>{drawFrame();return renderer.domElement.toDataURL('image/png');};callbacks.current.onReady?.();}).catch(()=>{if(!disposed){setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');setLoading(false);}});
     const decorationRoot=new THREE.Group();world.add(decorationRoot);
     const signRoot=new THREE.Group();world.add(signRoot);
     const previewRoot=new THREE.Group();world.add(previewRoot);
@@ -219,7 +221,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     let previousMode=mode,previousSignPose='',cameraTransition=null,returnPose=null,gridOpacity=mode==='edit'?gridStyle.opacity:0;
     worldRef.current.cancelCameraTransition=()=>{cameraTransition=null;};
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
-    const initialView=isLifeFocus(mode)?lifeFocusView(mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village):mode==='guestbook'?guestbookCameraView(callbacks.current.guestbook):mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,petPreview,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
+    const initialView=isLifeFocus(mode)?lifeFocusView(mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village):mode==='guestbook'?guestbookCameraView(callbacks.current.guestbook):mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,petPreview,dragonRide:ownerAppearance.ride==='babyDragon',mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
     controls.addEventListener('start',()=>{cameraTransition=null;});
     state.current={mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended};
     function constrainCameraPan(){
@@ -275,6 +277,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       const current=state.current,keyName=(e.code||e.key||'').toLowerCase();
       const typing=e.target?.isContentEditable||e.target?.closest?.('input,textarea,select,[role="textbox"]');
       if(!typing&&!e.defaultPrevented&&!e.isComposing&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&current?.inputEnabled&&!current.paused&&(current.mode==='home'||current.mode==='village')){
+        if((keyName==='keyf'||keyName==='f')&&mountPromptRef.current){e.preventDefault();if(!e.repeat)callbacks.current.onInteract?.('mount:toggle');return;}
         if(keyName==='keyr'||keyName==='r'){e.preventDefault();if(!e.repeat)callbacks.current.onInteract?.('pet:call');return;}
         if((keyName==='keye'||keyName==='e')&&petPromptRef.current){e.preventDefault();if(!e.repeat)callbacks.current.onInteract?.('pet:pet');return;}
       }
@@ -345,7 +348,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       if(modeChanged||detail&&signPose!==previousSignPose){
         const leavingDetail=previousMode==='edit'||previousMode==='sign'||previousMode==='guestbook'||isLifeFocus(previousMode);
         if(modeChanged&&(s.mode==='edit'||detail)&&!leavingDetail)returnPose=standingView||cameraPose(camera,controls);
-        const view=lifeFocused?lifeFocusView(s.mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village):s.mode==='guestbook'?guestbookCameraView(focus):s.mode==='sign'?signCameraView(focus):leavingDetail&&returnPose?returnPose:sceneView(s.mode,{portrait,petPreview,mood:mood.id});
+        const view=lifeFocused?lifeFocusView(s.mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village):s.mode==='guestbook'?guestbookCameraView(focus):s.mode==='sign'?signCameraView(focus):leavingDetail&&returnPose?returnPose:sceneView(s.mode,{portrait,petPreview,dragonRide:ownerAppearance.ride==='babyDragon',mood:mood.id});
         // Drain orbit damping before beginning the cinematic from the current view.
         controls.enableDamping=false;controls.update();controls.enableDamping=true;
         cameraTransition=startCameraTransition(camera,controls,view,reducedMotion.matches?0:1.1);
@@ -378,7 +381,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
           if(entry&&entry.root.userData.look!==JSON.stringify(member.appearance||appearance)){world.remove(entry.root);disposeCharacter(entry.root);entry.mixer?.stopAllAction();entry.mixer?.uncacheRoot(entry.mixer.getRoot());remoteCharacters.delete(member.userId);entry=null;}
           if(!entry){
             const character=(member.appearance||appearance).character||'pio';
-            if(member.actorKind!=='PET'&&!characterAssets.has(character)){
+            if(!['PET','MOUNT'].includes(member.actorKind)&&!characterAssets.has(character)){
               if(!pendingCharacters.has(character)){
                 pendingCharacters.add(character);
                 loadAsset(character).then(asset=>{if(!disposed)characterAssets.set(character,asset);}).catch(()=>{if(!disposed)setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');});
@@ -387,7 +390,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
             }
             entry=buildRemote(member,characterAssets.get(character));if(member.userId===s.viewerId&&ownerId===s.viewerId&&s.mode!=='village'){entry.root.position.set(1.4,.39,2.7);entry.root.rotation.y=.4;}remoteCharacters.set(member.userId,entry);if(s.mode!=='topic'&&member.userId===s.viewerId&&!member.seatId?.startsWith('fishing:'))callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false,seatId:null});}
           entry.root.visible=true;
-          if(member.actorKind==='PET')entry.root.userData.action=`pet:${member.ownerId||member.userId}`;else if(member.userId===ownerId)entry.root.userData.action='avatar';
+          if(['PET','MOUNT'].includes(member.actorKind))entry.root.userData.action=member.actorKind==='MOUNT'?`mount:${member.ownerId}`:`pet:${member.ownerId||member.userId}`;else if(member.userId===ownerId)entry.root.userData.action='avatar';
           const previousX=entry.root.position.x,previousZ=entry.root.position.z;
           const local=member.userId===s.viewerId;
           const walkingToFish=local&&['Moving','Gardening','Cooking'].includes(member.activityState);
@@ -422,7 +425,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
           if(member.userId!==s.viewerId||walkingToFish){entry.root.position.x+=(member.x-entry.root.position.x)*Math.min(1,dt*12);entry.root.position.z+=(member.z-entry.root.position.z)*Math.min(1,dt*12);entry.root.rotation.y+=Math.atan2(Math.sin((member.rotation||0)-entry.root.rotation.y),Math.cos((member.rotation||0)-entry.root.rotation.y))*Math.min(1,dt*12);}
           else{
             const active=s.inputEnabled&&!entry.seatId&&!entry.sitMotion.active&&(s.mode==='village'||ownerId===s.viewerId);
-            if(active&&(jumpRequested||jumpInput?.current)&&(!entry.jumpStarted||Date.now()-entry.jumpStarted>=720)){entry.jumpStarted=Date.now();jumped=true;}
+            if(active&&!entry.ride?.flight&&(jumpRequested||jumpInput?.current)&&(!entry.jumpStarted||Date.now()-entry.jumpStarted>=720)){entry.jumpStarted=Date.now();jumped=true;}
             jumpRequested=false;if(jumpInput)jumpInput.current=false;
             villageDirection(active?heldKeys:new Set(),camera,direction,active?(callbacks.current.movementInput?.current||{x:0,y:0}):{x:0,y:0});
             if(direction.lengthSq()||jumped)facilityDestination=null;
@@ -430,13 +433,13 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
               const target=lifeInteractionObjects(callbacks.current.village).find(item=>item.id===facilityDestination);
               if(!target)facilityDestination=null;
               else{
-                const next=facilityStep(entry.root.position,target,entry.ride?MOTORCYCLE_SPEED:WALK_SPEED,dt);
+                const next=facilityStep(entry.root.position,target,entry.ride?(entry.ride.speed||MOTORCYCLE_SPEED):WALK_SPEED,dt);
                 entry.root.position.x=next.x;entry.root.position.z=next.z;entry.root.rotation.y=next.rotation;
                 if(next.arrived){const id=facilityDestination;facilityDestination=null;entry.moving=false;publishEntry(entry);callbacks.current.onInteract?.(id);}
               }
             }
             if(direction.lengthSq()){
-              entry.root.position.addScaledVector(direction,(entry.ride?MOTORCYCLE_SPEED:WALK_SPEED)*dt);
+              entry.root.position.addScaledVector(direction,(entry.ride?(entry.ride.speed||MOTORCYCLE_SPEED):WALK_SPEED)*dt);
               const radius=Math.hypot(entry.root.position.x,entry.root.position.z);
               if(radius>WALK_RADIUS){entry.root.position.x*=WALK_RADIUS/radius;entry.root.position.z*=WALK_RADIUS/radius;}
               entry.root.rotation.y=Math.atan2(direction.x,direction.z);
@@ -462,16 +465,19 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
             entry.root.position.y=.39+offset;
             if(!entry.sitMotion.active&&!entry.seatId){entry.idleAction?.reset().play();if(local&&entry.exit){entry.root.position.x=entry.exit.x;entry.root.position.z=entry.exit.z;entry.exit=null;publishEntry(entry);}}
           }else if(entry.ride){
-            entry.idleAction?.stop();entry.root.position.y=.39+villageJumpHeight(local?entry.jumpStarted:member.jumpStarted);
+            entry.idleAction?.stop();entry.root.position.y=.39+(entry.ride.height||0)+(entry.ride.flight?0:villageJumpHeight(local?entry.jumpStarted:member.jumpStarted));
             entry.ride.update(dt,moving,true,reducedMotion.matches,dt>0?Math.hypot(dx,dz)/dt:0);
           }else{
             entry.mixer?.update(dt);
-            entry.root.position.y=.39+(moving?entry.runMotion.update(time,true,reducedMotion.matches):0)+villageJumpHeight(local?entry.jumpStarted:member.jumpStarted);
+            entry.root.position.y=.39+(entry.pet?.flight?DRAGON_FLIGHT_HEIGHT+entry.pet.runMotion.update(time,moving,reducedMotion.matches):(moving?entry.runMotion.update(time,true,reducedMotion.matches):0))+villageJumpHeight(local?entry.jumpStarted:member.jumpStarted);
           }
         }
       }
       const player=remoteCharacters.get(s.viewerId);
       const pet=s.villageMembers.find(member=>member.actorKind==='PET'&&member.ownerId===s.viewerId);
+      const dragon=s.villageMembers.find(member=>member.actorKind==='MOUNT'&&member.ownerId===s.viewerId);
+      const nextMountPrompt=player&&!player.seatId&&!player.sitMotion.active?(player.ride?.flight?'dismount':dragon&&Math.hypot(player.root.position.x-dragon.x,player.root.position.z-dragon.z)<=2.6?'mount':''):'';
+      if(nextMountPrompt!==mountPromptRef.current){mountPromptRef.current=nextMountPrompt;setMountPrompt(nextMountPrompt);}
       const near=!!(player&&pet&&Math.hypot(player.root.position.x-pet.x,player.root.position.z-pet.z)<=2.6);
       if(near!==petPromptRef.current){petPromptRef.current=near;setPetNearby(near);}
 
@@ -482,7 +488,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       const benchAvailable=s.mode==='village'&&s.inputEnabled&&!s.paused&&player;
       updateBenchPrompt(benchAvailable&&!player.seatId?.startsWith('fishing:')?(player.seatId?'stand':!player.sitMotion.active&&!villageJumpHeight(player.jumpStarted)&&nearestBench(callbacks.current.benches,player.root.position,s.villageMembers,s.viewerId)?'sit':''):'');
       if(hostPet){hostPet.setInteraction(null);hostPet.runMotion.update(time,false,reducedMotion.matches);}
-      if(hostRide){action?.stop();hostRide.update(dt,false,true,reducedMotion.matches);}
+      if(hostRide){avatarRoot.position.y=.39+(hostRide.height||0);action?.stop();hostRide.update(dt,false,true,reducedMotion.matches);}
       else if(mixer){mixer.update(dt);if(action)action.timeScale=s.emotion==='excited'||s.emotion==='happy'?.8:.32;}
 
       particles.rotation.y=time*.018;particles.position.y=Math.sin(time*.3)*.3;flame.scale.set(1+Math.sin(time*8)*.12,1+Math.sin(time*11)*.1,1);flameLight.intensity=3+Math.sin(time*9)*.5;
@@ -544,5 +550,5 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     else{const offset=camera.position.clone().sub(controls.target),distance=THREE.MathUtils.clamp(offset.length()*(action.type==='in'?.8:1.25),controls.minDistance,controls.maxDistance);camera.position.copy(controls.target).add(offset.setLength(distance));}
     controls.update();
   },[editor?.cameraAction]);
-  return <div className="scene-wrap">{questionPending&&!paused&&!isLifeFocus(mode)&&mode!=='edit'&&<button ref={questionBubble} className="avatar-question-notice" onClick={onQuestionClick} aria-label="도착한 아바타 질문 보기"><b>!</b><span>질문이 도착했어요</span></button>}{petNearby&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="pet-nearby-prompt"><kbd>E</kbd> 쓰다듬기 · <kbd>R</kbd> 부르기</div>}<div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
+  return <div className="scene-wrap">{questionPending&&!paused&&!isLifeFocus(mode)&&mode!=='edit'&&<button ref={questionBubble} className="avatar-question-notice" onClick={onQuestionClick} aria-label="도착한 아바타 질문 보기"><b>!</b><span>질문이 도착했어요</span></button>}{mountPrompt&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="dragon-mount-prompt"><button type="button" onClick={()=>onInteract?.('mount:toggle')}><kbd>F</kbd> {mountPrompt==='dismount'?'아기용에서 내리기':'아기용 타고 비행'}</button></div>}{petNearby&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="pet-nearby-prompt"><kbd>E</kbd> 쓰다듬기 · <kbd>R</kbd> 부르기</div>}<div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
 }

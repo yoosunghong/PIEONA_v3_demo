@@ -28,7 +28,7 @@ export function villagePlayers(members,ownerId,viewerId,nickname,appearance){
 
 // A logged-in player never replaces the AI; an active AI actor replaces its idle model.
 export function showVillageStandIn(mode,ownerId,members,viewerId){
-  return mode==='topic'||!members.some(member=>member.userId===ownerId&&member.actorKind!=='PET');
+  return mode==='topic'||!members.some(member=>member.userId===ownerId&&!['PET','MOUNT'].includes(member.actorKind));
 }
 
 export function joystickAxis(x,y,radius=44){

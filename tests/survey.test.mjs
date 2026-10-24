@@ -75,13 +75,13 @@ test('all stage modes save via partial updates, retain furniture and appear afte
   const login=await request('/auth/login',null,{username:user.username,password:'survey-test-password'});assert.deepEqual(login.body.user.village,{theme:'sunset',items});
 });
 
-test('v5 evaluates avatar dialogue and memory rather than retired AI pet work',()=>{
-  assert.equal(surveyVersion,5);assert.equal(surveyQuestions.length,11);
+test('v7 evaluates avatar dialogue, social comfort and memory rather than retired AI pet work',()=>{
+  assert.equal(surveyVersion,7);assert.equal(surveyQuestions.length,11);
   const text=JSON.stringify(surveyQuestions);
   assert.doesNotMatch(text,/AI 펫|간식|따라다니|자율 활동|스스로 활동|오프라인|접속하지 않은 동안|생활 활동을 부탁/);
   assert.match(surveyQuestions.find(q=>q.id==='q2').title,/대화/);
-  assert.match(surveyQuestions.find(q=>q.id==='q3').title,/취향·말투/);
-  for(const topic of ['질문','기억','외형','직접 낚시','다른 사람의 마을'])assert.ok(surveyQuestions.find(q=>q.id==='q4').options.some(option=>option.includes(topic)),topic);
+  assert.match(surveyQuestions.find(q=>q.id==='q3').title,/교류.*부담/);
+  for(const topic of ['기억','외형','직접 낚시','다른 사람의 마을'])assert.ok(surveyQuestions.find(q=>q.id==='q4').options.some(option=>option.includes(topic)),topic);
 });
 
 test('earlier participants can answer v5 once, while old or versionless tabs cannot mix answers',async()=>{

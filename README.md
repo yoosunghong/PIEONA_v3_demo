@@ -1,5 +1,9 @@
 # ILLOVA — 3D 아바타 소셜 플레이테스트
 
+클라우드 자동 배포: main에 커밋·푸시하면 GitHub Actions가 테스트·빌드 후 Oracle에 반영합니다. [CI/CD 사용법·자동 복원·운영 경로](docs/cicd.md).
+
+Oracle Cloud Ubuntu 배포 준비: [설치·데이터 이전·HTTPS·멀티플레이 확인·백업 안내](docs/oracle-deployment.md). PC에서 `npm run package:oracle`로 비밀값·DB를 제외한 배포 묶음을 만듭니다.
+
 ## 마을 조작과 생활 UI
 
 텃밭·보관함·요리대를 클릭하면 캐릭터가 시설 가까이로 이동한 뒤 우측 생활 패널이 열립니다. WASD/조이스틱 이동 또는 점프로 자동 이동을 취소할 수 있습니다. 채팅은 좌측 탭에서 펼치며, 첫 로딩 화면에 ILLOVA 로고를 표시합니다.

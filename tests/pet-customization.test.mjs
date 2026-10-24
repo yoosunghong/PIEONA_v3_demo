@@ -13,8 +13,9 @@ test('pet species and colors persist independently of the player and reach visit
   const visitor=await register('pet_visitor');
   const {petTypes,petColors}=await import('../shared/pets.mjs');
   const user=await register('pet_style_owner');
+  runtime.store.run('INSERT INTO account_rewards(user_id,reward_id) VALUES(?,?)',user.id,'survey-dragon-v1');
   const original=(await request('/me',user)).body.user.appearance;
-  for(const type of petTypes)for(const color of petColors){
+  for(const type of petTypes.filter(p=>!p.legacy))for(const color of petColors){
     const avatarAppearance={petType:type.id,petColor:color.id};
     const saved=await request('/me/pet/appearance',user,avatarAppearance,'PATCH');assert.equal(saved.status,200);
     const reloaded=(await request('/me',user)).body.user;

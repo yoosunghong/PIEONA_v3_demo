@@ -1,4 +1,5 @@
 import {createPetRuntime} from './petRuntime.mjs';
+import {SURVEY_REWARD} from '../shared/surveyRewards.mjs';
 import {createLifeMemories} from './lifeMemories.mjs';
 import {awardLifeFish} from './lifeRewards.mjs';
 import {randomInt} from 'node:crypto';
@@ -49,8 +50,11 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function viewSession(s){return s?{id:s.id,state:s.status==='moving'?'Moving':'Fishing',actor:s.actor_kind,anchorId:s.anchor_id,startedAt:s.started_at,nextAt:s.status==='active'?s.settled_at+FISHING_PERIOD:null,attempts:s.attempts,caught:s.caught,taskLimit:s.task_limit,items:itemsFor(s.id)}:null;}
   function snapshot(uid){return {serverTime:clock(),relationshipMemories:memories.list(uid,owner(uid).active_slot),session:viewSession(active(uid)),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid)};}
   function publish(uid,results=[],notice){io.to(`user:${uid}`).emit('life:state',{...snapshot(uid),results,...(notice?{notice}:{})});}
-  function petMembers(room){return [...pets].filter(([uid,m])=>(m.villageId||uid)===room).map(([uid,m])=>({...m,nickname:`${owner(uid).nickname} · 펫`,runnerBusy:true}));}
-  function ensurePet(uid){if(!pets.has(uid))pets.set(uid,{userId:`pet:${uid}`,ownerId:uid,actorKind:'PET',x:1.1,z:0,rotation:0,moving:false,seatId:null,activityState:'Idle'});return pets.get(uid);}
+  function petMembers(room){
+    if(villageVisitors.get(room)?.size)ensurePet(room,`resident:${room}`,room);
+    return [...pets.values()].filter(m=>m.villageId===room&&(m.actorKind!=='MOUNT'||JSON.parse(owner(m.ownerId).appearance).ride!=='babyDragon')).map(m=>({...m,nickname:`${owner(m.ownerId).nickname} · ${m.actorKind==='MOUNT'?'아기용 탈것':'펫'}`,runnerBusy:true}));
+  }
+  function ensurePet(uid,key=uid,room=uid){if(!pets.has(key))pets.set(key,{userId:`pet:${uid}`,ownerId:uid,villageId:room,actorKind:'PET',x:1.1,z:0,rotation:0,moving:false,seatId:null,activityState:'Idle'});return pets.get(key);}
   function settle(uid,kind='PLAYER'){
     const s=active(uid,kind);if(!s||s.status!=='active')return [];
     const elapsed=Math.floor((clock()-s.settled_at)/FISHING_PERIOD),count=Math.min(elapsed,s.task_limit?s.task_limit-s.attempts:elapsed);if(count<=0)return [];
@@ -195,7 +199,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     });
     socket.on('life:stop',(data,ack)=>{try{const user=sessionUser(socket.request.headers);if(!user)fail(401,'로그인이 필요해요.');const kind=data?.actor||'PLAYER';if(!['PLAYER','BOTH'].includes(kind))fail(400,'잘못된 중단 요청이에요.');stop(user.id,kind);if(typeof ack==='function')ack({ok:true,...snapshot(user.id)});}catch(e){if(typeof ack==='function')ack({ok:false,error:e.status?e.message:'낚시를 종료하지 못했어요.'});}});
   });
-  const petRuntime=createPetRuntime({app,auth,clock,villageVisitors,pets,ensurePet,emitVillage,emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
+  const petRuntime=createPetRuntime({app,auth,clock,villageVisitors,pets,ensurePet,emitVillage,dragonState:uid=>({available:!!store.one('SELECT 1 FROM account_rewards WHERE user_id=? AND reward_id=?',uid,SURVEY_REWARD),riding:JSON.parse(owner(uid).appearance).ride==='babyDragon'}),emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
   const timer=setInterval(()=>{try{tick();}catch(e){console.error('[life] tick failed',e.message);}},100);timer.unref();
   return {arrive,switchAvatar,memories,active,seatOccupied:(room,seatId,except)=>[...(villageVisitors.get(room)?.values()||[])].some(m=>m.userId!==except&&m.seatId===seatId),busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,petMembers,execute,epoch,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);}};
 }

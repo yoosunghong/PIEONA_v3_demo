@@ -6,3 +6,6 @@ logs/
 *.log
 .cloudflared/
 test-results/
+artifacts/
+release.json
+tmp/
