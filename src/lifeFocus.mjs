@@ -14,7 +14,7 @@ export function lifePanelTabs(context,discovered,total){
   if(context==='storage')return [['storage','보관함'],['collection',`도감 ${discovered}/${total}`]];
   if(context==='garden')return [['garden','텃밭']];
   if(context==='kitchen')return [['kitchen','요리']];
-  return [['memories','우리의 추억']];
+  return [];
 }
 
 // Suppress foreground scenery only while drawing the focused content.

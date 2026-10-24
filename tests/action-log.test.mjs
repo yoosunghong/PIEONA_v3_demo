@@ -24,10 +24,10 @@ test('actual fishing, gardening, cooking receipts produce factual console action
     socket=io(url,{transports:['websocket'],extraHeaders:{Cookie:cookie},forceNew:true});
     await new Promise((r,j)=>{socket.once('connect',r);socket.once('connect_error',j);});
     const joined=await new Promise(r=>socket.emit('village:join',{villageId:uid},r));assert.equal(joined.ok,true);
-    const action=data=>{const result=runtime.life.execute(uid,uid,data,runtime.life.epoch(uid),randomUUID());assert.equal(result.ok,true,result.reply);};
+    const action=data=>{const result=runtime.life.execute(uid,data,randomUUID());assert.equal(result.ok,true,result.reply);};
     const advance=ms=>{time+=ms;runtime.life.tick();};
     socket.emit('village:move',{villageId:uid,x:-.6,z:5.5,rotation:0,moving:false,seatId:null});await new Promise(r=>socket.emit('village:join',{villageId:uid},r));
-    assert.equal((await new Promise(r=>socket.emit('life:start',{anchorId:'fishing:1'},r))).ok,true);advance(45000);runtime.life.stop(uid,'BOTH');
+    assert.equal((await new Promise(r=>socket.emit('life:start',{anchorId:'fishing:1'},r))).ok,true);advance(45000);runtime.life.stop(uid);
     action({intent:'PLANT_SEED',crop:'HERB'});advance(20000);advance(300000);
     action({intent:'HARVEST_CROP'});advance(20000);
     action({intent:'COOK_FOOD',recipe:'HERB_GRILLED_FISH'});advance(20000);

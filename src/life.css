@@ -15,10 +15,6 @@
 
 @media(max-width:700px){.app-shell .own-village.village-mode:not(.chat-is-collapsed) .touch-joystick{bottom:calc(34% + 24px)}}
 .life-tabs{flex-wrap:wrap}.life-result{margin:16px 0;padding:12px 14px;border-radius:12px;background:#edf4e8;color:#405a40;font-size:13px;line-height:1.6}.garden-grid,.recipe-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:20px 0}.garden-card,.recipe-card{padding:20px;border:1px solid #dce4da;border-radius:18px;background:#fbfcf8;min-width:0}.garden-card{display:flex;flex-direction:column;gap:12px}.garden-card h3,.recipe-heading h3{margin:0}.garden-icon{font-size:48px;text-align:center;margin:12px 0}.garden-card p,.recipe-card p{font-size:13px;line-height:1.6;margin:0}.garden-card label,.recipe-card label{display:flex;flex-direction:column;gap:6px;font-size:12px;margin-bottom:8px}.garden-card select,.recipe-card select{width:100%;min-width:0;padding:10px;border:1px solid #cfdacb;border-radius:9px;background:white;color:#304b3e}.garden-card progress{width:100%;accent-color:#83a76b}.garden-card .primary{margin-top:auto}.garden-card.ready{background:#f2f8e9;border-color:#9db786}.recipe-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.recipe-card{display:flex;flex-direction:column;gap:12px}.recipe-heading{display:flex;gap:12px;align-items:center}.recipe-heading>span{font-size:32px}.recipe-heading p{margin-top:6px}.recipe-card .primary{margin-top:auto}.recipe-ingredient{color:#62775c}.life-tabs button{white-space:nowrap}@media(max-width:700px){.garden-grid,.recipe-grid{grid-template-columns:1fr}.garden-card{padding:16px}.garden-icon{font-size:38px;margin:0}.life-tabs button{padding:10px 12px}.stage-controls{flex-wrap:wrap}}
-.autonomy-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:18px;background:#f2f7ee;border-radius:16px}.autonomy-settings label{display:flex;align-items:center;gap:10px;font-size:13px;flex-wrap:wrap}.autonomy-settings input[type=checkbox]{width:18px;height:18px;accent-color:#477757}.autonomy-settings select{width:100%;padding:10px;border:1px solid #ceddca;border-radius:8px;background:white}.life-report{border:1px solid #d8e4d2;border-radius:14px;padding:16px;margin:12px 0;background:#fbfcf8}.life-report small{color:#667d68}.life-report p{font-size:14px;line-height:1.7}.autonomy-panel h3{margin-top:28px}@media(max-width:700px){.autonomy-settings{grid-template-columns:1fr}.life-tabs{gap:6px}}
-.app-shell .autonomy-settings label{align-items:flex-start;text-align:left}
-.app-shell .autonomy-settings label:has(input[type=checkbox]){flex-direction:row;flex-wrap:nowrap;align-items:center}
-.app-shell .autonomy-settings input[type=checkbox]{flex:0 0 18px;margin:0}
 
 /* Reserve separate vertical regions for activity status and the chat drawer. */
 .app-shell .world-panel.is-fishing .fishing-status{
@@ -46,3 +42,5 @@
   .app-shell .world-panel.is-fishing .chat-dock.chat-side:not(.is-collapsed){bottom:12px}
 }
 
+
+@media(max-width:700px){.life-tabs{gap:6px}}

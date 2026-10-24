@@ -1,6 +1,6 @@
 # ILLOVA inventory UI assets
 
-The inventory uses original generated artwork rather than extracting interface pixels from the reference screenshot. The UI itself is implemented in React/CSS and uses real inventory quantities, acquisition timestamps and existing companion delivery actions.
+The inventory uses original generated artwork rather than extracting interface pixels from the reference screenshot. The UI itself is implemented in React/CSS and uses real inventory quantities, acquisition timestamps and discovery records.
 
 - Final sprite sheet: `public/images/inventory-atlas-v2.png` (5 columns × 4 rows, transparent PNG).
 - Generation: built-in `image_gen`, `transparent_background: true`; no API/CLI fallback.
@@ -15,4 +15,4 @@ Generate a NEW production inventory icon SPRITE ATLAS. The supplied screenshot i
 
 ## Interaction details
 
-The bottom "꺼내기" control asks the companion to bring one actual item using the existing `TAKE_FROM_STORAGE` action; delivery automatically returns it to shared storage as before. "넣기" returns an item currently being carried by stopping that companion task. The authenticated storage endpoint accepts only these two actions, validates stock and uses operation IDs to prevent duplicate requests. There is no new inventory capacity or invented personal bag.
+The footer explains that ingredients are consumed through the player’s cooking controls. Inventory browsing does not move or consume items.

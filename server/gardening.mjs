@@ -6,7 +6,7 @@ import {ALL_ITEMS,ITEM_DEFINITIONS} from '../shared/life.mjs';
 
 const fail=message=>{throw Object.assign(new Error(message),{status:409});};
 const describe=items=>items.map(i=>{const d=ALL_ITEMS.find(d=>d.itemId===i.itemId);return `${d.name} ${i.quantity}${d.unit}`;}).join(', ');
-export function createGardening(store,clock,{recover=true,onComplete=()=>{}}={}){
+export function createGardening(store,clock,{recover=true}={}){
   store.db.exec(`CREATE TABLE IF NOT EXISTS garden_plots(owner_id TEXT NOT NULL REFERENCES users(id),plot_id TEXT NOT NULL,crop_id TEXT,planted_at INTEGER,ready_at INTEGER,planting_id TEXT,planted_by TEXT,PRIMARY KEY(owner_id,plot_id));
     CREATE TABLE IF NOT EXISTS life_operations(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id),request_id TEXT NOT NULL,actor TEXT NOT NULL,actor_name TEXT NOT NULL,avatar_slot TEXT,intent TEXT NOT NULL,input TEXT NOT NULL,plan TEXT NOT NULL,status TEXT NOT NULL,started_at INTEGER NOT NULL,completed_at INTEGER,result TEXT,UNIQUE(owner_id,request_id));
     CREATE UNIQUE INDEX IF NOT EXISTS life_pending_operation ON life_operations(owner_id,actor) WHERE status='pending';
@@ -73,12 +73,11 @@ export function createGardening(store,clock,{recover=true,onComplete=()=>{}}={})
         result={ok:true,reply:`${Number(p.id.split(':')[1])+1}번 텃밭에 ${crop.name} 씨앗을 심었어. ${crop.growMs/60000}분 뒤 수확할 수 있어.`,items:[]};
       }else{
         for(const p of planned.plots||[]){const changed=store.run('UPDATE garden_plots SET crop_id=NULL,planted_at=NULL,ready_at=NULL,planting_id=NULL,planted_by=NULL WHERE owner_id=? AND plot_id=? AND planting_id=? AND ready_at<=?',uid,p.id,p.plantingId,clock());if(!changed.changes)fail('수확할 작물 상태가 바뀌었어. 다시 확인해 줘.');}
-        for(const input of planned.inputs){const changed=store.run('UPDATE inventory_entries SET quantity=quantity-? WHERE owner_id=? AND item_id=? AND quantity>=?',input.quantity,uid,input.itemId,input.quantity);if(!changed.changes)fail('작업하는 동안 재료가 부족해졌어. 재료를 확인하고 다시 부탁해 줘.');}
+        for(const input of planned.inputs){const changed=store.run('UPDATE inventory_entries SET quantity=quantity-? WHERE owner_id=? AND item_id=? AND quantity>=?',input.quantity,uid,input.itemId,input.quantity);if(!changed.changes)fail('작업하는 동안 재료가 부족해졌어. 재료를 확인하고 다시 시도해 주세요.');}
         for(const output of planned.outputs)store.run('INSERT INTO inventory_entries VALUES(?,?,?) ON CONFLICT(owner_id,item_id) DO UPDATE SET quantity=quantity+excluded.quantity',uid,output.itemId,output.quantity);
         for(const item of [...planned.inputs.map(i=>({...i,quantity:-i.quantity})),...planned.outputs])store.run('INSERT INTO inventory_changes VALUES(?,?,?,?,?,?)',id(),current.id,uid,item.itemId,item.quantity,clock());
         result={ok:true,reply:current.intent==='COOK_FOOD'?`${describe(planned.inputs)}를 사용해서 ${describe(planned.outputs)}를 만들었어. 보관함에 넣었어.`:`${describe(planned.outputs)}를 수확해서 보관함에 넣었어.`,items:planned.outputs,consumed:planned.inputs};
       }
-      onComplete(current,result,clock());
       store.run("UPDATE life_operations SET status='completed',completed_at=?,result=? WHERE id=?",clock(),JSON.stringify(result),current.id);store.run('DELETE FROM garden_reservations WHERE operation_id=?',current.id);
     });}catch(e){if(!e.status)throw e;result={ok:false,reply:e.message};store.transaction(()=>{store.run("UPDATE life_operations SET status='failed',completed_at=?,result=? WHERE id=?",clock(),JSON.stringify(result),current.id);store.run('DELETE FROM garden_reservations WHERE operation_id=?',current.id);});}
     return result;

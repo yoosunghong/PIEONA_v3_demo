@@ -26,7 +26,7 @@ export function villagePlayers(members,ownerId,viewerId,nickname,appearance){
   return [...members,{userId:viewerId,nickname,appearance,x:0,z:3}];
 }
 
-// A logged-in player never replaces the AI; an active AI actor replaces its idle model.
+// Show the resident stand-in when the owner is away, or on the conversation stage.
 export function showVillageStandIn(mode,ownerId,members,viewerId){
   return mode==='topic'||!members.some(member=>member.userId===ownerId&&!['PET','MOUNT'].includes(member.actorKind));
 }

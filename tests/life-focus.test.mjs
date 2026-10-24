@@ -61,7 +61,7 @@ test('each facility exposes only its own content; AI settings cannot bypass obje
   assert.deepEqual(lifePanelTabs('storage',2,7),[['storage','보관함'],['collection','도감 2/7']]);
   assert.deepEqual(lifePanelTabs('garden',2,7),[['garden','텃밭']]);
   assert.deepEqual(lifePanelTabs('kitchen',2,7),[['kitchen','요리']]);
-  assert.deepEqual(lifePanelTabs('autonomy',2,7),[['memories','우리의 추억']]);
+  assert.deepEqual(lifePanelTabs('autonomy',2,7),[]);
 });
 
 test('focus occlusion preserves the selected facility and saved visibility while hiding foreground objects',()=>{

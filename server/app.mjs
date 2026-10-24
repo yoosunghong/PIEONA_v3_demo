@@ -8,7 +8,6 @@ import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance
 import {villageBenches,BENCH_REACH} from '../shared/benches.mjs';
 import {installLife} from './life.mjs';
 import {createActionLogger} from './actionLog.mjs';
-import {localLifeAction} from './lifeActions.mjs';
 import {generateTopic} from './topic.mjs';
 import express from 'express';
 import helmet from 'helmet';
@@ -301,7 +300,7 @@ export function createApp(options = {}) {
 
   // The account has one publicly active avatar; independent persona slots can be switched for free.
   const slotSnapshot=user=>({nickname:user.nickname,intro:user.intro,theme:user.theme,settings:settingsOf(user),balance:JSON.parse(user.balance),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id)});
-  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);for(const table of ['life_memory_events','life_sessions','life_operations'])store.run(`UPDATE ${table} SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''`,sid,user.id);});return userById(user.id);}
+  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);for(const table of ['life_sessions','life_operations'])store.run(`UPDATE ${table} SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''`,sid,user.id);});return userById(user.id);}
   app.get('/api/slots',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));res.json({active:user.active_slot,slots:store.all('SELECT * FROM avatar_slots WHERE owner_id=? ORDER BY created_at',user.id).map(s=>{const snap=s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot);return{id:s.id,nickname:snap.nickname,theme:snap.theme,memoryCount:snap.memories.length,balanceComplete:!!snap.balance.length,active:s.id===user.active_slot};})});});
   app.post('/api/slots',auth,(req,res)=>{const data=z.object({nickname,theme:z.enum(['sage','rose','ocean','sunset']).default('sage')}).parse(req.body);ensureSlot(userById(req.user.id));if(store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',req.user.id).n>=8)fail(400,'프로토타입에서는 최대 8개의 자아를 키울 수 있어요.');const sid=id();store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,req.user.id,JSON.stringify({nickname:data.nickname,intro:'',theme:data.theme,settings:{...defaultSettings},balance:[],memories:[]}),now());event(req.user.id,'slot_created');res.status(201).json({id:sid});});
   app.post('/api/slots/:id/activate',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));if(locks.has(`owner:${user.id}`))fail(409,'내 아바타의 답변이 끝난 뒤 자아를 전환해주세요.');const slot=store.one('SELECT * FROM avatar_slots WHERE id=? AND owner_id=?',req.params.id,user.id);if(!slot)fail(404,'나의 자아 슬롯을 찾을 수 없어요.');if(slot.id!==user.active_slot){life.switchAvatar(user.id);const snapshot=JSON.parse(slot.snapshot);store.transaction(()=>{store.run('UPDATE avatar_slots SET snapshot=? WHERE id=?',JSON.stringify(slotSnapshot(user)),user.active_slot);store.run('DELETE FROM memories WHERE owner_id=?',user.id);for(const m of snapshot.memories)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',m.id,user.id,m.content,m.category,m.visibility,m.confirmed,m.source,m.created_at,m.updated_at);store.run('UPDATE users SET nickname=?,intro=?,theme=?,settings=?,balance=?,active_slot=?,revision=revision+1 WHERE id=?',snapshot.nickname,snapshot.intro,snapshot.theme,JSON.stringify(snapshot.settings),JSON.stringify(snapshot.balance),slot.id,user.id);event(user.id,'slot_activated');});emitWorld();}res.json({user:profile(userById(user.id),user.id)});});
@@ -353,32 +352,21 @@ export function createApp(options = {}) {
   app.patch('/api/conversations/:id',auth,(req,res)=>{const c=conversationFor(req,req.params.id,true);const data=z.object({share:z.boolean()}).parse(req.body);store.run('UPDATE conversations SET share=? WHERE id=?',Number(data.share),c.id);emitUpdate(c.target_id);res.json({ok:true});});
   app.delete('/api/conversations/:id',auth,(req,res)=>{const c=conversationFor(req,req.params.id,true);store.run('DELETE FROM conversations WHERE id=?',c.id);emitUpdate(c.target_id);res.json({ok:true});});
   app.post('/api/conversations/:id/messages',auth,aiLimiter,async(req,res)=>{
-    const {text,scene,requestId}=z.object({requestId:z.string().uuid().optional(),text:z.string().trim().min(1).max(1600),scene:z.enum(['garden','cafe','campfire']).default('garden')}).parse(req.body);
+    const {text,scene}=z.object({text:z.string().trim().min(1).max(1600),scene:z.enum(['garden','cafe','campfire']).default('garden')}).parse(req.body);
     let c=conversationFor(req,req.params.id,true);let target=checkTarget(req,c.target_id);
     if(c.avatar_slot!==target.active_slot)fail(409,'다른 자아와 나눈 대화예요. 해당 자아로 전환하거나 새 대화를 시작해주세요.');
-    const immediateAction=localLifeAction(text),commandEpoch=life.epoch(req.user.id);
     const lockKey=c.target_id===req.user.id?`owner:${req.user.id}`:c.id,ownsLock=!locks.has(lockKey);
-    if(!ownsLock&&!(c.target_id===req.user.id&&immediateAction?.intent==='STOP_ACTIVITY'))fail(409,'이전 답변을 기다려 주세요.');
+    if(!ownsLock)fail(409,'이전 답변을 기다려 주세요.');
     if(ownsLock)locks.add(lockKey);
     try{
       const context=assembleContext(store,target,req.user.id,text,scene);
       const history=c.context_key===context.contextKey?store.all('SELECT role,content FROM messages WHERE conversation_id=? ORDER BY rowid DESC LIMIT 12',c.id).reverse():[];
-      context.lifeActions=true;
-      context.avatarTools=context.own;
-      context.system+='\n생활 행동은 아직 실행되지 않았다. 보상 수량과 활동 성공 여부를 추측하지 마라.';
-      const useImmediate=immediateAction&&(immediateAction.intent==='STOP_ACTIVITY'||aiMode()==='local'||options.testing);
-      const result=useImmediate?{reply:'',emotion:'calm',memories:[],provider:'local',action:immediateAction}:await (options.generateAnswer||generateAnswer)(context,text,history);
+      const result=await (options.generateAnswer||generateAnswer)(context,text,history);
       // Recheck after the network wait: privacy edits, friendship changes, logout and deletion revoke in-flight work.
       c=conversationFor(req,c.id,true);target=checkTarget(req,c.target_id);
       if(c.avatar_slot!==target.active_slot)fail(409,'아바타가 변경됐어요. 새 대화를 시작해주세요.');
       if(!sessionUser(req.headers))fail(401,'로그인이 만료되었어요.');
       if(assembleContext(store,target,req.user.id,text,scene).contextKey!==context.contextKey)fail(409,'기억 또는 공개 설정이 변경됐어요. 다시 전송해 주세요.');
-      let actionResult;
-      if(result.action){
-        actionResult=life.execute(req.user.id,target.id,result.action,commandEpoch,requestId);
-        // Action replies are built exclusively from server results, never model claims.
-        result.reply=actionResult.reply;result.memories=[];result.emotion=actionResult.ok?'happy':'calm';
-      }
       const added=[];const timestamp=now();
       store.transaction(()=>{
         store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',id(),c.id,'user',text,'calm',timestamp);
@@ -392,7 +380,7 @@ export function createApp(options = {}) {
         event(req.user.id,'message_sent',{owner:context.own,provider:result.provider,memories:added.length});
       });
       emitWorld();emitUpdate(target.id);
-      res.json({reply:result.reply,emotion:result.emotion,memories:added,provider:result.provider,warning:result.warning,action:actionResult,stage:stageOf(store,userById(req.user.id)),...experienceOf(store,userById(req.user.id))});
+      res.json({reply:result.reply,emotion:result.emotion,memories:added,provider:result.provider,warning:result.warning,stage:stageOf(store,userById(req.user.id)),...experienceOf(store,userById(req.user.id))});
     }finally{if(ownsLock)locks.delete(lockKey);}
   });
 

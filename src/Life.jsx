@@ -44,8 +44,7 @@ export function useLife(userId,socket,connected,notify){
     catch(e){if(e.status)retry.current=null;notify(e.message);await load();}
     finally{guard.current=false;setPending(false);}
   };
-  const manage=async(method,path,body)=>{if(guard.current)return;guard.current=true;setPending(true);try{await api(path,{method,body});await load();return true;}catch(e){notify(e.message);}finally{guard.current=false;setPending(false);}};
-  return {data,pending,load,perform,forget:id=>manage('DELETE',`/me/life/memories/${id}`),start:anchorId=>command('life:start',{anchorId}),stop:(actor='PLAYER')=>command('life:stop',{actor})};
+  return {data,pending,load,perform,start:anchorId=>command('life:start',{anchorId}),stop:(actor='PLAYER')=>command('life:stop',{actor})};
 }
 
 export function FishingStatus({data,pending,connected,onStop}){
@@ -54,7 +53,7 @@ export function FishingStatus({data,pending,connected,onStop}){
   const sessions=[data?.session].filter(Boolean);
   const tasks=[data?.task].filter(Boolean);
   if(!sessions.length&&!tasks.length)return null;
-  return <section className="fishing-status" aria-label="낚시 진행 상황"><div><span className="life-eyebrow">우리 마을 생활</span>{tasks.map(task=><div className="fishing-actor" key={task.id}><strong>나 · {task.label}</strong><p>{task.state==='Moving'?'목적지로 이동 중':'작업 중 · 완료되면 보관함에 반영돼요'}</p><button className="text-button" disabled={pending||!connected} onClick={()=>onStop(task.actor)}>내 작업 중단</button></div>)}{sessions.map(session=>{const remaining=Math.max(0,Math.ceil((session.nextAt-data.serverTime-(now-data.receivedAt))/1000));return <div className="fishing-actor" key={session.id}><strong>🎣 나 · {session.state==='Moving'?'바다로 이동 중':'낚시 중'}</strong><p>{session.state==='Moving'?'예약한 자리로 걸어가고 있어요':`${session.caught}마리 획득 · ${connected?`${remaining}초 후 다음 판정`:'연결 확인 중…'}`}{session.taskLimit?` · ${session.attempts}/${session.taskLimit}회`:''}</p><button type="button" className="text-button" disabled={pending||!connected} onClick={()=>onStop(session.actor)}>내 낚시 중단</button></div>;})}</div><button type="button" className="secondary" disabled={pending||!connected} onClick={()=>onStop('BOTH')}>{pending?'처리 중…':'모두 중단'}</button></section>;
+  return <section className="fishing-status" aria-label="낚시 진행 상황"><div><span className="life-eyebrow">우리 마을 생활</span>{tasks.map(task=><div className="fishing-actor" key={task.id}><strong>나 · {task.label}</strong><p>{task.state==='Moving'?'목적지로 이동 중':'작업 중 · 완료되면 보관함에 반영돼요'}</p><button className="text-button" disabled={pending||!connected} onClick={()=>onStop(task.actor)}>내 작업 중단</button></div>)}{sessions.map(session=>{const remaining=Math.max(0,Math.ceil((session.nextAt-data.serverTime-(now-data.receivedAt))/1000));return <div className="fishing-actor" key={session.id}><strong>🎣 나 · {session.state==='Moving'?'바다로 이동 중':'낚시 중'}</strong><p>{session.state==='Moving'?'예약한 자리로 걸어가고 있어요':`${session.caught}마리 획득 · ${connected?`${remaining}초 후 다음 판정`:'연결 확인 중…'}`}{session.taskLimit?` · ${session.attempts}/${session.taskLimit}회`:''}</p><button type="button" className="text-button" disabled={pending||!connected} onClick={()=>onStop(session.actor)}>내 낚시 중단</button></div>;})}</div></section>;
 }
 
 function GardenPanel({data,disabled,onAction}){
@@ -64,7 +63,7 @@ function GardenPanel({data,disabled,onAction}){
   return <><p className="life-description">씨앗은 무료예요. 접속하지 않아도 자라고, 다 자란 작물은 시들지 않아요.</p><div className="garden-grid">{data.garden.plots.map((plot,index)=>{
     const crop=CROPS.find(c=>c.id===plot.cropId),state=cropState(plot,serverNow),seconds=Math.max(0,Math.ceil((plot.readyAt-serverNow)/1000));
     return <article className={'garden-card '+state.toLowerCase()} key={plot.id}><span className="life-eyebrow">작은 텃밭 {index+1}</span><span className="garden-icon" aria-hidden="true">{crop?.icon||'🌱'}</span><h3>{crop?.name||'무엇을 심을까요?'}</h3>{state==='Empty'?<><label>씨앗 선택<select aria-label={`${index+1}번 텃밭 씨앗`} value={seeds[plot.id]||'HERB'} onChange={e=>setSeeds({...seeds,[plot.id]:e.target.value})}>{CROPS.map(c=><option key={c.id} value={c.id}>{c.name} · {c.growMs/60000}분</option>)}</select></label><button className="primary" disabled={disabled||plot.reserved} onClick={()=>onAction({intent:'PLANT_SEED',plot:plot.id,crop:seeds[plot.id]||'HERB'})}>{plot.reserved?'작업 예정':`${index+1}번 텃밭에 심기`}</button></>:<><p role="status">{plot.reserved?'작업 중':state==='Ready'?'수확할 준비가 됐어요!':`${Math.floor(seconds/60)}분 ${seconds%60}초 후 수확`}</p><progress aria-label={`${crop.name} 성장`} max={crop.growMs} value={Math.min(crop.growMs,serverNow-plot.plantedAt)}/><button className="primary" disabled={disabled||plot.reserved||state!=='Ready'} onClick={()=>onAction({intent:'HARVEST_CROP',plot:plot.id,plantingId:plot.plantingId})}>{index+1}번 텃밭 수확</button></>}</article>;
-  })}</div><p className="life-footnote">아바타에게 “허브 좀 심어줘”, “텃밭 수확해줘”, “꽃 다 자랐어?”라고 말해 보세요.</p></>;
+  })}</div></>;
 }
 
 function RecipeCard({recipe,bag,disabled,onAction}){
@@ -75,11 +74,8 @@ function RecipeCard({recipe,bag,disabled,onAction}){
   return <article className="recipe-card"><div className="recipe-heading"><span aria-hidden="true">{recipe.icon}</span><div><h3>{recipe.name}</h3><p>{recipe.description} → 음식 1개</p></div></div>{selected.map((value,index)=><label key={index}>물고기 {index+1}<select aria-label={`${recipe.name} 물고기 ${index+1}`} value={value} onChange={e=>setChoices({...choices,[index]:e.target.value})}><option value="">사용할 물고기 선택</option>{fish.map(f=><option key={f.itemId} value={f.itemId}>{f.name} · {bag.get(f.itemId)}마리 · {RARITIES[f.rarity]}</option>)}</select></label>)}{recipe.ingredients.map(i=><p className="recipe-ingredient" key={i.itemId}>{CROPS.find(c=>c.id===i.itemId).name} · 보유 {bag.get(i.itemId)||0} / 필요 {i.quantity}</p>)}<button className="primary" disabled={disabled||!enough} onClick={()=>onAction({intent:'COOK_FOOD',recipe:recipe.id,...(selected.length?{fish:selected}:{})})}>{enough?`${recipe.name} 만들기`:'재료를 준비해 주세요'}</button></article>;
 }
 
-function RelationshipPanel({events,pending,onForget}){
-  return <div><p className="life-description">실제로 있었던 특별한 순간만 기억해요. 현재 자아와 나에게만 보이고, 이후 대화에서도 참고해요. 잊은 추억은 자동으로 다시 만들지 않아요.</p>{!events.length?<p className="storage-empty">아직 기록된 추억이 없어요. 펫과 교감하거나 첫 수확과 요리를 해 보세요.</p>:events.map(event=><article className="life-report" key={event.id}><small>{new Date(event.timestamp).toLocaleString('ko-KR')}</small><p>{event.summary}</p><button className="text-button" disabled={pending} onClick={()=>onForget(event.id)}>추억에서 잊기</button></article>)}</div>;
-}
 const categories=[['all','전체'],['fish','물고기'],['ingredient','식재료'],['food','음식'],['decoration','가구·장식'],['other','기타']];
-export function StoragePanel({data,onRetry,initialTab='storage',pending,connected,onAction,onForget}){
+export function StoragePanel({data,onRetry,initialTab='storage',pending,connected,onAction}){
   const [tab,setTab]=useState(initialTab),[category,setCategory]=useState('all'),[selected,setSelected]=useState(null);
   useEffect(()=>setTab(initialTab),[initialTab]);
   if(!data?.catalog||!data?.garden)return <div className="panel-body"><p>마을 생활을 불러오고 있어요.</p><button className="secondary" onClick={onRetry}>다시 불러오기</button></div>;
@@ -89,7 +85,7 @@ export function StoragePanel({data,onRetry,initialTab='storage',pending,connecte
   return <div className="life-panel"><div className="life-tabs" role="tablist" aria-label="마을 생활">{lifePanelTabs(initialTab,discoveries.size,fish.length).map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{name}</button>)}</div>
     {data.garden.lastResult&&<p className="life-result" role="status">나 · {data.garden.lastResult.result.reply}</p>}
     {data.task&&<p className="life-description">{data.task.label} 작업을 진행 중이에요. 마을 화면에서 중단할 수 있어요.</p>}
-    {tab==='memories'?<RelationshipPanel events={data.relationshipMemories||[]} pending={pending} onForget={onForget}/>:tab==='garden'?<GardenPanel data={data} disabled={disabled} onAction={onAction}/>:tab==='kitchen'?<><p className="life-description">조리대로 이동해 음식 1개를 만들어요. 완료할 때 재료를 사용하고 보관함에 넣어요. 희귀·특별 물고기는 직접 선택한 경우에만 사용해요.</p><div className="recipe-grid">{RECIPES.map(r=><RecipeCard key={r.id} recipe={r} bag={bag} disabled={disabled} onAction={onAction}/>)}</div></>:<>
+    {tab==='garden'?<GardenPanel data={data} disabled={disabled} onAction={onAction}/>:tab==='kitchen'?<><p className="life-description">조리대로 이동해 음식 1개를 만들어요. 완료할 때 재료를 사용하고 보관함에 넣어요. 희귀·특별 물고기는 직접 선택한 경우에만 사용해요.</p><div className="recipe-grid">{RECIPES.map(r=><RecipeCard key={r.id} recipe={r} bag={bag} disabled={disabled} onAction={onAction}/>)}</div></>:<>
       <p className="life-description">낚시와 수확, 요리로 모은 아이템을 수량 제한과 유통기한 없이 보관해요.</p>
       {tab==='collection'&&<div className="collection-progress"><label htmlFor="fish-progress">도감 완성률 {Math.round(discoveries.size/fish.length*100)}%</label><progress id="fish-progress" value={discoveries.size} max={fish.length}/></div>}
       <div className="storage-layout">{tab==='storage'&&<nav className="storage-categories" aria-label="아이템 카테고리">{categories.map(([id,name])=><button key={id} aria-pressed={category===id} onClick={()=>setCategory(id)}>{name}</button>)}</nav>}
