@@ -34,6 +34,8 @@
 | `/opt/pieona/runtime` | 공식 체크섬을 검증한 Node 24 |
 | `/etc/pieona/pieona.env` | Gemini·공개 origin 등 운영 설정, root 600 |
 | `/etc/pieona/deploy.json` | root가 관리하는 배포 대상·명령 설정 |
+| `/etc/pieona/tunnel.yml` | 공개 도메인의 로컬 origin 경로 |
+| `/etc/pieona/tunnel-credentials.json` | root 600 터널 자격증명, GitHub에 저장하지 않음 |
 | `/usr/local/libexec/pieona-*` | root 소유 고정 배포/DB helper |
 | `/var/lib/pieona/pieona.sqlite` | 운영 DB, 앱 사용자 전용 |
 | `/var/lib/pieona/backups` | 배포 전 백업과 실패한 DB 보존 |
@@ -42,6 +44,8 @@
 | `pieona-deploy` | 릴리스 수신 계정, 앱 시작·정지/고정 DB helper만 sudo 허용 |
 
 기존 P4 서비스와 운영 디스크는 별도이며 앱 배포에서 변경하지 않는다. DB 경로는 고정 경로를 사용한다. DB 경로를 바꾸려면 서비스 환경과 root-owned DB helper를 함께 변경해야 한다. 서버 env 파일에 모델·키 등을 바꾸면 `sudo systemctl restart pieona`가 필요하다. 앱 디렉터리에 `.env`를 만들지 않는다.
+
+`pieona-tunnel.service`는 별도 DynamicUser와 systemd LoadCredential로 실행하며, 앱 사용자에게 터널 파일을 공개하지 않는다. 앱만 재시작할 때 터널은 유지된다. 터널 설정 변경 시 `sudo systemctl restart pieona-tunnel`을 사용한다.
 
 ## GitHub 설정
 
