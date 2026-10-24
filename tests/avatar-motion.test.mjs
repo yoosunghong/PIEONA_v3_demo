@@ -18,19 +18,13 @@ test('village jumps land after one arc and space never interrupts text input',()
   assert.equal(villageMovementKey({key:' ',target:{closest:selector=>selector.includes('button')?{}:null}}),null);
 });
 
-test('AI avatar stays beside the owner and yields only to its active companion actor',()=>{
-  const visitor={userId:'guest'},owner={userId:'owner'};
-  assert.equal(showVillageStandIn('village','owner',[visitor]),true);
-  assert.equal(showVillageStandIn('village','owner',[visitor,owner]),true);
-  assert.equal(showVillageStandIn('village','owner',[]),true);
-  assert.equal(showVillageStandIn('village','owner',villagePlayers([],'owner','owner','나',{})),true);
-  assert.equal(showVillageStandIn('village','owner',[owner,{userId:'companion',actorKind:'COMPANION'}]),false);
-  assert.equal(showVillageStandIn('topic','owner',[{actorKind:'COMPANION'}]),true);
-  assert.equal(showVillageStandIn('home','owner',[{actorKind:'COMPANION'}],'visitor'),true);
-  assert.equal(showVillageStandIn('home','owner',[owner,visitor]),true);
-  assert.equal(showVillageStandIn('home','owner',[owner,visitor],'owner'),true);
-  assert.equal(showVillageStandIn('home','owner',[owner,visitor],'guest'),true);
+test('offline humanoid stand-in yields to the live owner, while pets never replace the avatar',()=>{
+  const visitor={userId:'guest'},owner={userId:'owner'},pet={userId:'pet:owner',actorKind:'PET'};
+  assert.equal(showVillageStandIn('village','owner',[visitor,pet]),true);
+  assert.equal(showVillageStandIn('village','owner',[visitor,owner,pet]),false);
+  assert.equal(showVillageStandIn('home','owner',[owner,pet],'owner'),false);
   assert.equal(showVillageStandIn('home','owner',[],'guest'),true);
+  assert.equal(showVillageStandIn('topic','owner',[owner]),true);
 });
 
 test('touch stick has a dead zone and bounded analog speed in camera space',()=>{

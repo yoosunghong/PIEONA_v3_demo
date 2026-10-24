@@ -1,3 +1,4 @@
+import {arrivalQuestions,chooseArrivalQuestion} from '../shared/arrivalQuestions.mjs';
 import {petTypes,petColors} from '../shared/pets.mjs';
 import {isLifeScenery,validLifePlacement} from '../shared/lifeLayout.mjs';
 import {WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
@@ -72,7 +73,7 @@ export function createApp(options = {}) {
     return Array.from(villageVisitors.get(villageId)?.values() || []).map(({sockets,lastMove,...member})=>{
       const user=userById(member.userId);
       return {...member,runnerBusy:!!busy(member.userId),nickname:user.nickname,appearance:profile(user,user.id).appearance};
-    }).concat(life.companionMembers(villageId).map(member=>({...member,appearance:profile(userById(member.ownerId),member.ownerId).avatarAppearance})));
+    }).concat(life.petMembers(villageId).map(member=>({...member,appearance:profile(userById(member.ownerId),member.ownerId).avatarAppearance})));
   }
   function emitVillage(villageId) {
     io.to(`village:${villageId}`).emit('village:members',{villageId,members:villageMembers(villageId),garden:life.gardenSnapshot(villageId)});
@@ -270,7 +271,7 @@ export function createApp(options = {}) {
 
   // The account has one publicly active avatar; independent persona slots can be switched for free.
   const slotSnapshot=user=>({nickname:user.nickname,intro:user.intro,theme:user.theme,settings:settingsOf(user),balance:JSON.parse(user.balance),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id)});
-  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);for(const table of ['life_memory_events','life_autonomy','life_offline_reports','life_sessions','life_operations'])store.run(`UPDATE ${table} SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''`,sid,user.id);});return userById(user.id);}
+  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);for(const table of ['life_memory_events','life_sessions','life_operations'])store.run(`UPDATE ${table} SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''`,sid,user.id);});return userById(user.id);}
   app.get('/api/slots',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));res.json({active:user.active_slot,slots:store.all('SELECT * FROM avatar_slots WHERE owner_id=? ORDER BY created_at',user.id).map(s=>{const snap=s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot);return{id:s.id,nickname:snap.nickname,theme:snap.theme,memoryCount:snap.memories.length,balanceComplete:!!snap.balance.length,active:s.id===user.active_slot};})});});
   app.post('/api/slots',auth,(req,res)=>{const data=z.object({nickname,theme:z.enum(['sage','rose','ocean','sunset']).default('sage')}).parse(req.body);ensureSlot(userById(req.user.id));if(store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',req.user.id).n>=8)fail(400,'프로토타입에서는 최대 8개의 자아를 키울 수 있어요.');const sid=id();store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,req.user.id,JSON.stringify({nickname:data.nickname,intro:'',theme:data.theme,settings:{...defaultSettings},balance:[],memories:[]}),now());event(req.user.id,'slot_created');res.status(201).json({id:sid});});
   app.post('/api/slots/:id/activate',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));if(locks.has(`owner:${user.id}`))fail(409,'내 아바타의 답변이 끝난 뒤 자아를 전환해주세요.');const slot=store.one('SELECT * FROM avatar_slots WHERE id=? AND owner_id=?',req.params.id,user.id);if(!slot)fail(404,'나의 자아 슬롯을 찾을 수 없어요.');if(slot.id!==user.active_slot){life.switchAvatar(user.id);const snapshot=JSON.parse(slot.snapshot);store.transaction(()=>{store.run('UPDATE avatar_slots SET snapshot=? WHERE id=?',JSON.stringify(slotSnapshot(user)),user.active_slot);store.run('DELETE FROM memories WHERE owner_id=?',user.id);for(const m of snapshot.memories)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',m.id,user.id,m.content,m.category,m.visibility,m.confirmed,m.source,m.created_at,m.updated_at);store.run('UPDATE users SET nickname=?,intro=?,theme=?,settings=?,balance=?,active_slot=?,revision=revision+1 WHERE id=?',snapshot.nickname,snapshot.intro,snapshot.theme,JSON.stringify(snapshot.settings),JSON.stringify(snapshot.balance),slot.id,user.id);event(user.id,'slot_activated');});emitWorld();}res.json({user:profile(userById(user.id),user.id)});});
@@ -280,9 +281,23 @@ export function createApp(options = {}) {
   app.get('/api/activities',auth,(req,res)=>res.json({activities:store.all('SELECT a.*,u.nickname,EXISTS(SELECT 1 FROM notification_reads r WHERE r.activity_id=a.id) AS is_read FROM activities a JOIN users u ON u.id=a.actor_id WHERE a.owner_id=? ORDER BY a.created_at DESC LIMIT 100',req.user.id).map(a=>({...a,actor_id:a.anonymous?null:a.actor_id,nickname:a.anonymous?'익명의 이웃':a.nickname}))}));
   app.post('/api/activities/read',auth,(req,res)=>{const {ids}=z.object({ids:z.array(z.string()).max(100)}).parse(req.body);store.transaction(()=>{for(const aid of ids)store.run('INSERT OR IGNORE INTO notification_reads(activity_id) SELECT id FROM activities WHERE id=? AND owner_id=?',aid,req.user.id);});emitUpdate(req.user.id);res.json({ok:true});});
 
+  app.post('/api/me/questions/arrival',auth,(req,res)=>{
+    const seen=new Set(store.all("SELECT detail FROM events WHERE user_id=? AND name='arrival_question'",req.user.id).map(row=>JSON.parse(row.detail).id));
+    const question=chooseArrivalQuestion(seen,options.questionRandom||Math.random);
+    if(question)event(req.user.id,'arrival_question',{id:question.id});
+    res.json({question});
+  });
+
   app.post('/api/conversations',auth,(req,res)=>{
-    const data=z.object({targetId:z.string().uuid(),share:z.boolean().default(false),anonymous:z.boolean().default(false)}).parse(req.body);const target=checkTarget(req,data.targetId);
+    const data=z.object({targetId:z.string().uuid(),share:z.boolean().default(false),anonymous:z.boolean().default(false),opening:z.enum(arrivalQuestions.map(question=>question.id)).optional(),scene:z.enum(['garden','cafe','campfire']).default('garden')}).parse(req.body);const target=checkTarget(req,data.targetId);
+    if(data.opening&&target.id!==req.user.id)fail(400,'내 아바타에게만 시작 질문을 설정할 수 있어요.');
     const cid=id();store.run('INSERT INTO conversations(id,viewer_id,target_id,share,anonymous,context_key,created_at,avatar_slot) VALUES(?,?,?,?,?,?,?,?)',cid,req.user.id,target.id,Number(data.share),Number(data.anonymous),'',now(),target.active_slot);
+    if(data.opening){
+      const opening=arrivalQuestions.find(question=>question.id===data.opening);
+      const context=assembleContext(store,target,req.user.id,'',data.scene);
+      store.run('UPDATE conversations SET context_key=? WHERE id=?',context.contextKey,cid);
+      store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',id(),cid,'assistant',opening.text,'curious',now());
+    }
     event(req.user.id,'conversation_started',{targetId:target.id,owner:target.id===req.user.id});res.status(201).json({id:cid,shared:!!(data.share&&settingsOf(target).receiveTranscripts)});
   });
   function conversationFor(req,cid,write=false){const c=store.one('SELECT * FROM conversations WHERE id=?',cid);if(!c)fail(404,'대화를 찾을 수 없어요.');const target=userById(c.target_id);if(isBlocked(store,c.viewer_id,c.target_id))fail(403,'차단된 대화예요.');if(c.viewer_id!==req.user.id&&(write||c.target_id!==req.user.id||!c.share||!settingsOf(target).receiveTranscripts))fail(403,'공유 동의가 없는 대화는 열람할 수 없어요.');return c;}

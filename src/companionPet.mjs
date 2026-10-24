@@ -48,8 +48,6 @@ export function createCompanionPet(appearance={}){
   if(rabbit)oval(tail,'tail',cream,0,.01,-.03,.105,.105,.105);
   else{const curve=new THREE.CatmullRomCurve3(cat?[new THREE.Vector3(0,0,0),new THREE.Vector3(0,.14,-.12),new THREE.Vector3(.02,.39,-.18),new THREE.Vector3(.11,.46,-.14)]:[new THREE.Vector3(0,0,0),new THREE.Vector3(0,.16,-.13),new THREE.Vector3(.015,.29,-.08),new THREE.Vector3(.06,.27,.015)]);const tip=new THREE.Mesh(new THREE.TubeGeometry(curve,24,cat?.047:.065,12,false),coat);tip.name='tail';tip.castShadow=true;tail.add(tip);}
   const mouth=new THREE.Line(new THREE.BufferGeometry().setFromPoints(new THREE.QuadraticBezierCurve3(new THREE.Vector3(-.06,-.15,.323),new THREE.Vector3(0,-.19,.34),new THREE.Vector3(.06,-.15,.323)).getPoints(20)),new THREE.LineBasicMaterial({color:0x75584d}));head.add(mouth);
-  const treat=new THREE.Group();treat.name='pet snack';treat.position.set(0,-.19,.37);head.add(treat);treat.visible=false;
-  const biscuit=new THREE.MeshStandardMaterial({color:0xc99253,roughness:1});oval(treat,'biscuit',biscuit,0,0,0,.085,.035,.045);
   const hearts=new THREE.Group();hearts.name='affection';hearts.position.set(0,1.55,0);root.add(hearts);hearts.visible=false;
   const heartShape=new THREE.Shape();heartShape.moveTo(0,-.08);heartShape.bezierCurveTo(-.20,.04,-.11,.18,0,.09);heartShape.bezierCurveTo(.11,.18,.20,.04,0,-.08);
   const heartMaterial=new THREE.MeshStandardMaterial({color:0xee8f9d,roughness:.6,side:THREE.DoubleSide});
@@ -61,10 +59,10 @@ export function createCompanionPet(appearance={}){
     legs.forEach((leg,i)=>{leg.rotation.x=stride*(i===0||i===3?1:-1);});
     tail.rotation.z=reduced?0:Math.sin(time*(moving?12:5))*.35;
     const reacting=interaction&&Date.now()<interaction.until;
-    const petted=reacting&&interaction.kind==='pet',eating=reacting&&interaction.kind==='snack';
-    hearts.visible=!!petted;treat.visible=!!eating;
+    const petted=reacting&&interaction.kind==='pet';
+    hearts.visible=!!petted;
     head.rotation.z=petted?.14+(reduced?0:Math.sin(time*4)*.035):reduced?0:Math.sin(time*1.8)*.025;
-    head.rotation.x=eating&&!reduced?Math.sin(time*12)*.06:0;
+    head.rotation.x=0;
     hearts.position.y=1.5+(reduced?0:Math.sin(time*3)*.08);
     if(petted&&!reduced)tail.rotation.z=Math.sin(time*12)*.5;
     head.children.filter(o=>o.name==='eye').forEach(o=>{o.scale.y=petted?.023:.048;});

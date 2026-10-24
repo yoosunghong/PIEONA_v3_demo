@@ -54,7 +54,7 @@ export function createGardening(store,clock,{recover=true,onComplete=()=>{}}={})
     store.transaction(()=>{
       if(store.one("SELECT 1 FROM life_operations WHERE owner_id=? AND actor=? AND status='pending'",uid,actor))fail('진행 중인 생활 작업을 마치거나 중단해 줘.');
       const planned=plan(uid,action),user=store.one('SELECT nickname,active_slot FROM users WHERE id=?',uid),sid=id();
-      store.run("INSERT INTO life_operations(id,owner_id,request_id,actor,actor_name,avatar_slot,intent,input,plan,status,started_at) VALUES(?,?,?,?,?,?,?,?,?,'pending',?)",sid,uid,key,actor,user.nickname+(actor==='COMPANION'?' · AI':''),user.active_slot,action.intent,JSON.stringify(action),JSON.stringify(planned),clock());
+      store.run("INSERT INTO life_operations(id,owner_id,request_id,actor,actor_name,avatar_slot,intent,input,plan,status,started_at) VALUES(?,?,?,?,?,?,?,?,?,'pending',?)",sid,uid,key,actor,user.nickname,user.active_slot,action.intent,JSON.stringify(action),JSON.stringify(planned),clock());
       for(const plot of planned.plots||[])store.run('INSERT INTO garden_reservations VALUES(?,?,?)',uid,plot.id,sid);
       op=find(uid,key);
     });return op;

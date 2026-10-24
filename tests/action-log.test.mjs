@@ -13,7 +13,7 @@ test('action log allowlist omits sensitive content and isolates logging failures
   assert.doesNotThrow(()=>createActionLogger(()=>{throw new Error('disk full');})('player','test'));
 });
 
-test('actual fishing, gardening, cooking and offline receipts produce factual console action logs',async()=>{
+test('actual fishing, gardening, cooking receipts produce factual console action logs',async()=>{
   let time=Date.now();const lines=[];
   const runtime=createApp({store:openStore(':memory:'),testing:true,lifeClock:()=>time,lifeRandom:()=>0,logWriter:line=>lines.push(JSON.parse(line.slice(9)))});
   let socket;
@@ -26,16 +26,14 @@ test('actual fishing, gardening, cooking and offline receipts produce factual co
     const joined=await new Promise(r=>socket.emit('village:join',{villageId:uid},r));assert.equal(joined.ok,true);
     const action=data=>{const result=runtime.life.execute(uid,uid,data,runtime.life.epoch(uid),randomUUID());assert.equal(result.ok,true,result.reply);};
     const advance=ms=>{time+=ms;runtime.life.tick();};
-    action({intent:'START_FISHING'});advance(10000);advance(45000);runtime.life.stop(uid,'BOTH');
+    socket.emit('village:move',{villageId:uid,x:-.6,z:5.5,rotation:0,moving:false,seatId:null});await new Promise(r=>socket.emit('village:join',{villageId:uid},r));
+    assert.equal((await new Promise(r=>socket.emit('life:start',{anchorId:'fishing:1'},r))).ok,true);advance(45000);runtime.life.stop(uid,'BOTH');
     action({intent:'PLANT_SEED',crop:'HERB'});advance(20000);advance(300000);
     action({intent:'HARVEST_CROP'});advance(20000);
     action({intent:'COOK_FOOD',recipe:'HERB_GRILLED_FISH'});advance(20000);
-    runtime.life.autonomy.configure(uid,{enabled:true,offline:true,fishing:true,gardening:false});
     await new Promise(r=>socket.emit('village:leave',r));advance(90000);
-    await fetch(url+'/api/me/life',{headers:{Cookie:cookie}});await fetch(url+'/api/me/life',{headers:{Cookie:cookie}});
-    for(const name of ['register','village_join','fishing_start','fishing_result','fishing_stop','life_work_start','life_work_complete','inventory_gain','inventory_spend','autonomy_settings','village_leave','offline_settled'])assert.ok(lines.some(l=>l.action===name),name);
-    assert.equal(lines.filter(l=>l.action==='offline_settled').length,1);
-    assert.equal(lines.find(l=>l.action==='offline_settled').fishAttempts,2);
+    for(const name of ['register','village_join','fishing_start','fishing_result','fishing_stop','life_work_start','life_work_complete','inventory_gain','inventory_spend','village_leave'])assert.ok(lines.some(l=>l.action===name),name);
+    assert.equal(lines.filter(l=>l.action==='offline_settled').length,0);
     assert.ok(lines.some(l=>l.action==='inventory_gain'&&l.itemId==='HERB_GRILLED_FISH'&&l.quantity===1));
     assert.ok(lines.every(l=>l.player===uid));assert.doesNotMatch(JSON.stringify(lines),/private-password|pieona_session/);
   }finally{socket?.disconnect();await runtime.close();}

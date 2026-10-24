@@ -73,7 +73,7 @@ test('growth uses server timestamps across departure and runtime recovery; harve
 test('AI plants, queries growth, harvests and cooks real inventory through conversation',async()=>{
   const h=await harness();try{
     const user=await h.register('garden_ai');await h.connect(user);const cid=await h.conversation(user),key=randomUUID();
-    let r=await h.say(user,cid,'허브 좀 심어줘',key);assert.equal(r.action.ok,true);assert.equal(r.action.companion.task.state,'Moving');assert.doesNotMatch(r.reply,/씨앗을 심었어/);
+    let r=await h.say(user,cid,'허브 좀 심어줘',key);assert.equal(r.action.ok,true);assert.equal(r.action.task.state,'Moving');assert.doesNotMatch(r.reply,/씨앗을 심었어/);
     h.advance(10000);assert.match((await h.say(user,cid,'허브 성장 상태 알려줘')).reply,/300초/);
     assert.equal((await h.say(user,cid,'텃밭 수확해줘')).action.ok,false);
     await h.say(user,cid,'허브 좀 심어줘',key);assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM garden_plots').n,1);
@@ -109,11 +109,11 @@ test('stop, last-tab departure, and recovery cancel work without consuming ingre
   }finally{await h.close();}
 });
 
-test('simultaneous actors cannot spend the same ingredient twice and failed writes roll back all changes',async()=>{
+test('simultaneous requests cannot spend the same ingredient twice and failed writes roll back all changes',async()=>{
   const h=await harness();try{
     const user=await h.register('garden_atomic');await h.connect(user);const cid=await h.conversation(user);h.seed(user,'TOMATO',1);
-    assert.equal((await h.action(user,{intent:'COOK_FOOD',recipe:'TOMATO_SALAD'})).status,200);assert.equal((await h.say(user,cid,'토마토 샐러드 만들어줘')).action.ok,true);h.advance(10000);
-    assert.equal((await h.data(user)).inventory.find(i=>i.itemId==='TOMATO_SALAD').quantity,1);assert.equal(h.runtime.store.one("SELECT COUNT(*) n FROM life_operations WHERE status='failed'").n,1);
+    assert.equal((await h.action(user,{intent:'COOK_FOOD',recipe:'TOMATO_SALAD'})).status,200);assert.equal((await h.say(user,cid,'토마토 샐러드 만들어줘')).action.ok,false);h.advance(10000);
+    assert.equal((await h.data(user)).inventory.find(i=>i.itemId==='TOMATO_SALAD').quantity,1);assert.equal(h.runtime.store.one("SELECT COUNT(*) n FROM life_operations WHERE status='failed'").n,0);
     h.seed(user,'SARDINE',1);h.seed(user,'HERB',1);h.runtime.store.db.exec("CREATE TRIGGER block_food BEFORE INSERT ON inventory_entries WHEN NEW.item_id='HERB_GRILLED_FISH' BEGIN SELECT RAISE(ABORT,'test output failure'); END;");
     await h.action(user,{intent:'COOK_FOOD',recipe:'HERB_GRILLED_FISH'});h.advance(10000);
     let bag=new Map((await h.data(user)).inventory.map(i=>[i.itemId,i.quantity]));assert.equal(bag.get('SARDINE'),1);assert.equal(bag.get('HERB'),1);assert.equal(bag.get('HERB_GRILLED_FISH'),undefined);

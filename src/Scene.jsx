@@ -9,11 +9,10 @@ import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
 import {createSitMotion} from './benchMotion.mjs';
 import {createMotorcycleRide} from './motorcycle.mjs';
-import {ALL_ITEMS} from '../shared/life.mjs';
 import {villageBenches,nearestBench,benchExit,benchCameraView,benchInteractionKey} from '../shared/benches.mjs';
 import './bench.css';
 import {WALK_SPEED,MOTORCYCLE_SPEED,villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,villageJumpHeight} from './villageMovement.mjs';
-import {sceneMood,sceneView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning,constrainScenePanning} from './sceneCamera.mjs';
+import {sceneMood,sceneView,avatarChatView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning,constrainScenePanning} from './sceneCamera.mjs';
 import {createSceneViewport} from './sceneViewport.mjs';
 import {editorGridStyle} from './sceneGrid.mjs';
 import {canPlaceDecoration,snapPosition} from './villageEditorState.mjs';
@@ -35,16 +34,18 @@ import {isLifeFocus,lifeFocusView,lifeFocusOccluders} from './lifeFocus.mjs';
 
 const themes={sage:{accent:0xc2ddec,flowers:0xe4d4ec},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,editor=null}){
-  const humanoidPortrait=portrait&&!petPreview;
+export default function Scene({topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,editor=null}){
+  const humanoidPortrait=!petPreview;
   const signData=villageSign(village),signKey=JSON.stringify(signData);
   const guestbookData=villageGuestbook(village),guestbookKey=JSON.stringify(guestbookData);
+  const questionBubble=useRef(),petPromptRef=useRef(false);
+  const [petNearby,setPetNearby]=useState(false);
   const topicBubble=useRef(),benchToggle=useRef(),benchPromptRef=useRef('');
   const [benchPrompt,setBenchPrompt]=useState('');
   const [lifePrompt,setLifePrompt]=useState('');
   const lifePromptRef=useRef(''),lifeToggle=useRef();
   const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={village,topicGuest,topicLine,onInteract,onWalk,onReady,onPositionChange,movementInput,editor,benches:villageBenches(village),sign:signData,guestbook:guestbookData,items:[...villageScenery(village),...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData)]};
-  callbacks.current.lifeObjectId=lifeObjectId;
+  callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.gardenData=gardenData;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;}},[mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended]);
   // Keep one WebGL context for this mounted scene, including all look previews.
@@ -138,7 +139,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     const flowerGeo=new THREE.IcosahedronGeometry(.045,0);geometries.push(flowerGeo);const flowers=new THREE.InstancedMesh(flowerGeo,petal,230);const dummy=new THREE.Object3D();let n=0;for(let i=0;i<600&&n<230;i++){const x=(rand()-.5)*12,z=(rand()-.5)*12;if(x*x+z*z>40||x*x+z*z<8||Math.abs(x)<.8&&z>0||x<-2&&z<1||x>2&&z<3)continue;dummy.position.set(x,.2+rand()*.16,z);dummy.scale.setScalar(.7+rand());dummy.updateMatrix();flowers.setMatrixAt(n++,dummy.matrix);}flowers.count=n;world.add(flowers);
     const particleGeo=new THREE.BufferGeometry();const positions=new Float32Array(90*3);for(let i=0;i<90;i++){positions[i*3]=(rand()-.5)*20;positions[i*3+1]=rand()*8;positions[i*3+2]=(rand()-.5)*18;}particleGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));geometries.push(particleGeo);const particleMat=new THREE.PointsMaterial({color:0xf8e7ba,size:.045,transparent:true,opacity:.65,depthWrite:false});materials.push(particleMat);const particles=new THREE.Points(particleGeo,particleMat);world.add(particles);
     if(portrait){world.background=new THREE.Color(0xeaf5ff);world.fog=null;const pedestal=cyl(1.8,1.9,.12,mat(0xd6e9f9),0,.30,0);pedestal.userData.previewStage=true;}
-    const avatarRoot=new THREE.Group();avatarRoot.position.set(0,.39,0);avatarRoot.userData.action=`pet:${ownerId||viewerId||''}`;world.add(avatarRoot);let mixer,action,characterAsset,hostTag,hostRide,hostPet;const remoteCharacters=new Map(),characterAssets=new Map(),pendingCharacters=new Set();
+    const avatarRoot=new THREE.Group();avatarRoot.position.set(0,.39,0);avatarRoot.userData.action='avatar';world.add(avatarRoot);let mixer,action,characterAsset,hostTag,hostRide,hostPet;const remoteCharacters=new Map(),characterAssets=new Map(),pendingCharacters=new Set();
     function addNameTag(parent,name){
       const label=String(name||'이웃').slice(0,20),canvas=document.createElement('canvas');
       const ctx=canvas.getContext('2d');ctx.font='600 30px sans-serif';
@@ -152,7 +153,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     }
     function disposeCharacter(root){root.traverse(o=>{if(o.isSprite){o.material.map?.dispose();o.material.dispose();}if(o.userData.generated)disposeObject(o);});}
     function buildRemote(member,asset){
-      if(member.actorKind==='COMPANION'){
+      if(member.actorKind==='PET'){
         const pet=createCompanionPet(member.appearance),root=new THREE.Group();root.position.set(member.x??0,.39,member.z??0);root.rotation.y=member.rotation||0;root.add(pet.root);
         const nameTag=addNameTag(root,member.nickname);nameTag.position.y=1.35;root.userData.look=JSON.stringify(member.appearance||appearance);world.add(root);
         return {root,nameTag,pet,runMotion:pet.runMotion,sitMotion:pet.sitMotion,moving:false,seatId:member.seatId||null};
@@ -214,11 +215,12 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     function drop(e){const edit=callbacks.current.editor;if(!edit||edit.busy)return;e.preventDefault();const point=ground(e),type=e.dataTransfer.getData('application/pieona-decoration');if(point&&type)edit.onPlace(point,type);}
     const pointerEvents={pointerdown:down,pointermove:move,pointerup:click,pointercancel:cancel,pointerleave:leave,contextmenu:context,dragover,drop};
     for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.addEventListener(name,handler);
+    let focusedToken=callbacks.current.chatFocusToken,chatReturnPose=null,chatFocusUntil=0;
     let previousMode=mode,previousSignPose='',cameraTransition=null,returnPose=null,gridOpacity=mode==='edit'?gridStyle.opacity:0;
     worldRef.current.cancelCameraTransition=()=>{cameraTransition=null;};
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     const initialView=isLifeFocus(mode)?lifeFocusView(mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village):mode==='guestbook'?guestbookCameraView(callbacks.current.guestbook):mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,petPreview,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
-    controls.addEventListener('start',()=>{cameraTransition=null;});
+    controls.addEventListener('start',()=>{cameraTransition=null;chatReturnPose=null;chatFocusUntil=0;});
     state.current={mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended};
     function constrainCameraPan(){
       const entry=remoteCharacters.get(state.current?.viewerId),seat=entry?.seatId&&entry.seat;
@@ -270,6 +272,13 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       callbacks.current.onPositionChange?.({x:bench.x,z:bench.z,rotation:bench.rotation,moving:false,jumpStarted:0,seatId:bench.id});
     };
     function keydown(e){
+      const current=state.current,keyName=(e.code||e.key||'').toLowerCase();
+      const typing=e.target?.isContentEditable||e.target?.closest?.('input,textarea,select,[role="textbox"]');
+      if(!typing&&!e.defaultPrevented&&!e.isComposing&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&current?.inputEnabled&&!current.paused&&(current.mode==='home'||current.mode==='village')){
+        if(keyName==='keyr'||keyName==='r'){e.preventDefault();if(!e.repeat)callbacks.current.onInteract?.('pet:call');return;}
+        if((keyName==='keye'||keyName==='e')&&petPromptRef.current){e.preventDefault();if(!e.repeat)callbacks.current.onInteract?.('pet:pet');return;}
+      }
+
       if(lifeInteractionKey(e)&&state.current?.mode==='village'&&state.current.inputEnabled&&!state.current.paused){e.preventDefault();lifeToggle.current?.();return;}
       if(benchInteractionKey(e)&&state.current?.mode==='village'&&state.current.inputEnabled&&!state.current.paused){e.preventDefault();benchToggle.current?.();return;}
       const s=state.current,key=villageMovementKey(e);
@@ -301,6 +310,13 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       if(hostTag)hostTag.visible=showNames;
       for(const entry of remoteCharacters.values())entry.nameTag.visible=showNames;
       if(state.current?.mode==='topic'&&!cameraTransition){camera.position.set(0,4.3,Math.max(10,6/camera.aspect));controls.target.set(0,1.8,0);controls.update();}
+      const question=questionBubble.current,host=remoteCharacters.get(ownerId)?.root||avatarRoot;
+      if(question){
+        const point=host.position.clone().add(new THREE.Vector3(0,3.5,0)).project(camera);
+        question.style.visibility=point.z>=-1&&point.z<=1?'visible':'hidden';
+        question.style.left=`${Math.max(110,Math.min(el.clientWidth-110,(point.x+1)*.5*el.clientWidth))}px`;
+        question.style.top=`${Math.max(55,(1-point.y)*.5*el.clientHeight)}px`;
+      }
       const bubble=topicBubble.current,line=callbacks.current.topicLine;
       if(bubble&&line){
         const point=new THREE.Vector3(line.speakerId===ownerId?-1.15:1.15,3.2,0).project(camera);
@@ -326,6 +342,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       const detail=s.mode==='sign'||s.mode==='guestbook'||lifeFocused;
       const localEntry=remoteCharacters.get(s.viewerId),standingView=localEntry?.seatId?seatedReturnPose:null;
       if(localEntry?.seatId&&!localEntry.seatId.startsWith('fishing:')&&(s.mode!=='village'||!callbacks.current.benches.some(bench=>bench.id===localEntry.seatId)))stand(localEntry,!modeChanged);
+      if(modeChanged||detail){chatReturnPose=null;chatFocusUntil=0;}
       if(modeChanged||detail&&signPose!==previousSignPose){
         const leavingDetail=previousMode==='edit'||previousMode==='sign'||previousMode==='guestbook'||isLifeFocus(previousMode);
         if(modeChanged&&(s.mode==='edit'||detail)&&!leavingDetail)returnPose=standingView||cameraPose(camera,controls);
@@ -335,6 +352,18 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         cameraTransition=startCameraTransition(camera,controls,view,reducedMotion.matches?0:1.1);
         previousMode=s.mode;previousSignPose=signPose;if(s.mode!=='village')heldKeys.clear();
       }
+      if(callbacks.current.chatFocusToken!==focusedToken){
+        focusedToken=callbacks.current.chatFocusToken;
+        if(callbacks.current.chatActive&&!detail){
+          const host=remoteCharacters.get(ownerId)?.root||avatarRoot;
+          chatReturnPose ||= cameraPose(camera,controls);
+          cameraTransition=startCameraTransition(camera,controls,avatarChatView(host.position),reducedMotion.matches?0:.65);
+          chatFocusUntil=performance.now()+2600;
+        }
+      }
+      if(chatReturnPose&&(!callbacks.current.chatActive||performance.now()>=chatFocusUntil)){
+        cameraTransition=startCameraTransition(camera,controls,chatReturnPose,reducedMotion.matches?0:.8);chatReturnPose=null;
+      }
       const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&!detail&&!dragged&&!cameraTransition;controls.minDistance=detail?1:localEntry?.seatId||localEntry?.sitMotion.active?2.5:portrait?3:5;controls.maxDistance=editing?30:26;configureScenePanning(controls,s.mode,{portrait});
       if(cameraTransition&&lifeFocused){const view=lifeFocusView(s.mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village);cameraTransition.to.fromArray(view.position);cameraTransition.toTarget.fromArray(view.target);}
       if(cameraTransition&&advanceCameraTransition(cameraTransition,camera,controls,dt))cameraTransition=null;
@@ -342,7 +371,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       gridOpacity+=((editing?gridStyle.opacity:0)-gridOpacity)*Math.min(1,dt*6);grid.visible=gridOpacity>.002;grid.material.opacity=gridOpacity;
       controls.update();
       constrainCameraPan();
-      const players=s.mode==='topic'&&callbacks.current.topicGuest?[{userId:callbacks.current.topicGuest.id,nickname:callbacks.current.topicGuest.nickname,actorKind:'COMPANION',appearance:callbacks.current.topicGuest.avatarAppearance||callbacks.current.topicGuest.appearance,x:1.15,z:0,rotation:-Math.PI/2}]:villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);
+      const players=s.mode==='topic'&&callbacks.current.topicGuest?[{userId:callbacks.current.topicGuest.id,nickname:callbacks.current.topicGuest.nickname,actorKind:'AVATAR',appearance:callbacks.current.topicGuest.appearance,x:1.15,z:0,rotation:-Math.PI/2}]:villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);
       avatarRoot.visible=s.mode==='topic'||showVillageStandIn(s.mode,ownerId,players,s.viewerId);
       avatarRoot.position.set(0,.39,0);avatarRoot.rotation.y=.55+Math.sin(time*.25)*.12;if(s.mode==='topic'){avatarRoot.position.x=-1.15;avatarRoot.rotation.y=Math.PI/2;}
       if(!s.inputEnabled||document.activeElement?.isContentEditable||document.activeElement?.closest?.('input,textarea,select,[role="textbox"]'))heldKeys.clear();
@@ -355,7 +384,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
           if(entry&&entry.root.userData.look!==JSON.stringify(member.appearance||appearance)){world.remove(entry.root);disposeCharacter(entry.root);entry.mixer?.stopAllAction();entry.mixer?.uncacheRoot(entry.mixer.getRoot());remoteCharacters.delete(member.userId);entry=null;}
           if(!entry){
             const character=(member.appearance||appearance).character||'pio';
-            if(member.actorKind!=='COMPANION'&&!characterAssets.has(character)){
+            if(member.actorKind!=='PET'&&!characterAssets.has(character)){
               if(!pendingCharacters.has(character)){
                 pendingCharacters.add(character);
                 loadAsset(character).then(asset=>{if(!disposed)characterAssets.set(character,asset);}).catch(()=>{if(!disposed)setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');});
@@ -364,13 +393,7 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
             }
             entry=buildRemote(member,characterAssets.get(character));if(member.userId===s.viewerId&&ownerId===s.viewerId&&s.mode!=='village'){entry.root.position.set(1.4,.39,2.7);entry.root.rotation.y=.4;}remoteCharacters.set(member.userId,entry);if(s.mode!=='topic'&&member.userId===s.viewerId&&!member.seatId?.startsWith('fishing:'))callbacks.current.onPositionChange?.({x:entry.root.position.x,z:entry.root.position.z,rotation:entry.root.rotation.y,moving:false,seatId:null});}
           entry.root.visible=true;
-          if(member.actorKind==='COMPANION')entry.root.userData.action=`pet:${member.ownerId||member.userId}`;
-          const carryKey=JSON.stringify(member.carriedItem||null);
-          if(entry.carryKey!==carryKey){
-            if(entry.carryTag){entry.carryTag.removeFromParent();entry.carryTag.material.map?.dispose();entry.carryTag.material.dispose();entry.carryTag=null;}
-            if(member.carriedItem){const item=ALL_ITEMS.find(i=>i.itemId===member.carriedItem.itemId);entry.carryTag=addNameTag(entry.root,`📦 ${item?.name||'물건'} ${member.carriedItem.quantity}${item?.unit||'개'} 운반 중`);entry.carryTag.position.y=3.4;}
-            entry.carryKey=carryKey;
-          }
+          if(member.actorKind==='PET')entry.root.userData.action=`pet:${member.ownerId||member.userId}`;else if(member.userId===ownerId)entry.root.userData.action='avatar';
           const previousX=entry.root.position.x,previousZ=entry.root.position.z;
           const local=member.userId===s.viewerId;
           const walkingToFish=local&&['Moving','Gardening','Cooking'].includes(member.activityState);
@@ -454,13 +477,17 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         }
       }
       const player=remoteCharacters.get(s.viewerId);
+      const pet=s.villageMembers.find(member=>member.actorKind==='PET'&&member.ownerId===s.viewerId);
+      const near=!!(player&&pet&&Math.hypot(player.root.position.x-pet.x,player.root.position.z-pet.z)<=2.6);
+      if(near!==petPromptRef.current){petPromptRef.current=near;setPetNearby(near);}
+
 
       const interaction=s.mode==='village'&&s.inputEnabled&&!s.paused&&player&&!player.seatId&&!player.sitMotion.active&&!villageJumpHeight(player.jumpStarted)?nearestLifeInteraction(player.root.position,s.villageMembers,s.viewerId,callbacks.current.village):null;
       const nextPrompt=interaction&&!isClickFacility(interaction.id)?interaction.id:'';
       if(lifePromptRef.current!==nextPrompt){lifePromptRef.current=nextPrompt;setLifePrompt(nextPrompt);}
       const benchAvailable=s.mode==='village'&&s.inputEnabled&&!s.paused&&player;
       updateBenchPrompt(benchAvailable&&!player.seatId?.startsWith('fishing:')?(player.seatId?'stand':!player.sitMotion.active&&!villageJumpHeight(player.jumpStarted)&&nearestBench(callbacks.current.benches,player.root.position,s.villageMembers,s.viewerId)?'sit':''):'');
-      if(hostPet){hostPet.setInteraction(s.villageMembers.find(m=>m.ownerId===ownerId&&m.actorKind==='COMPANION')?.interaction);hostPet.runMotion.update(time,false,reducedMotion.matches);}
+      if(hostPet){hostPet.setInteraction(null);hostPet.runMotion.update(time,false,reducedMotion.matches);}
       if(hostRide){action?.stop();hostRide.update(dt,false,true,reducedMotion.matches);}
       else if(mixer){mixer.update(dt);if(action)action.timeScale=s.emotion==='excited'||s.emotion==='happy'?.8:.32;}
 
@@ -523,5 +550,5 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     else{const offset=camera.position.clone().sub(controls.target),distance=THREE.MathUtils.clamp(offset.length()*(action.type==='in'?.8:1.25),controls.minDistance,controls.maxDistance);camera.position.copy(controls.target).add(offset.setLength(distance));}
     controls.update();
   },[editor?.cameraAction]);
-  return <div className="scene-wrap"><div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
+  return <div className="scene-wrap">{questionPending&&!paused&&!isLifeFocus(mode)&&mode!=='edit'&&<button ref={questionBubble} className="avatar-question-notice" onClick={onQuestionClick} aria-label="도착한 아바타 질문 보기"><b>!</b><span>질문이 도착했어요</span></button>}{petNearby&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="pet-nearby-prompt"><kbd>E</kbd> 쓰다듬기 · <kbd>R</kbd> 부르기</div>}<div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
 }

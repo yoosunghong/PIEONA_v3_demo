@@ -43,6 +43,12 @@ export function createLifeWorld(){
   for(const def of lifeDefinitions){
     const parts=root.children.filter(part=>{const action=part.userData.action||part.userData.lifeAction;return def.action==='fishing'?action?.startsWith('fishing:'):action===def.action;});
     const group=new THREE.Group();group.position.set(def.x,0,def.z);group.userData.itemId='scenery:'+def.id;root.add(group);root.updateMatrixWorld(true);parts.forEach(part=>group.attach(part));facilities.set(group.userData.itemId,group);
+    if(typeof document==='undefined')continue;
+    const canvas=document.createElement('canvas');canvas.width=256;canvas.height=64;
+    const context=canvas.getContext('2d');context.fillStyle='rgba(20,35,48,.58)';context.fillRect(0,0,256,64);
+    context.font='500 30px sans-serif';context.fillStyle='#fff';context.textAlign='center';context.textBaseline='middle';context.fillText(def.name,128,32);
+    const label=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(canvas),transparent:true,depthTest:false,toneMapped:false}));
+    label.name='facility-label';label.scale.set(1.15,.29,1);label.position.y=def.action==='kitchen'?1.5:1.25;label.renderOrder=5;group.add(label);
   }
   return {root,facilities,update(time,members,garden){
     const now=(garden?.serverTime||Date.now())+Math.max(0,Date.now()-(garden?.receivedAt||Date.now()));

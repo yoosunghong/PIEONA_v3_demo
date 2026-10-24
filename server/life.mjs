@@ -1,6 +1,4 @@
 import {createPetRuntime} from './petRuntime.mjs';
-import {DEFAULT_AUTONOMY} from '../shared/autonomy.mjs';
-import {createAutonomy,autonomySettingsSchema} from './autonomy.mjs';
 import {createLifeMemories} from './lifeMemories.mjs';
 import {awardLifeFish} from './lifeRewards.mjs';
 import {randomInt} from 'node:crypto';
@@ -10,8 +8,6 @@ import {FISHING_PERIOD,INTERACTION_REACH,ALL_ITEMS} from '../shared/life.mjs';
 import {createGardening} from './gardening.mjs';
 import {z} from 'zod';
 import {lifeActionSchema,catchText,koreanDayStart} from './lifeActions.mjs';
-import {AVATAR_INTENTS} from './lifeActions.mjs';
-import {createAvatarRuntime} from './avatarRuntime.mjs';
 
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction=()=>{},clock=Date.now,random=()=>randomInt(0,0x100000000)/0x100000000}){
@@ -34,26 +30,27 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       CREATE UNIQUE INDEX life_active_anchor ON life_sessions(COALESCE(village_id,owner_id),anchor_id) WHERE status IN ('moving','active');`);
     store.run("UPDATE life_sessions SET status='stopped',stopped_at=settled_at WHERE status IN ('moving','active')");
   });
-  const companions=new Map(),routes=new Map(),epochs=new Map(),jobs=new Map(),automatic=new Set(),rests=new Map(),greetings=new Map(),wanderNext=new Set();
-  const memories=createLifeMemories(store),autonomy=createAutonomy({store,clock,random,memories,logAction});
+  // Return inventory left in transit by the removed courier, without running old AI jobs.
+  if(store.one("SELECT 1 FROM sqlite_master WHERE type='table' AND name='avatar_carry'"))store.transaction(()=>{
+    for(const row of store.all('SELECT * FROM avatar_carry'))store.run('INSERT INTO inventory_entries(owner_id,item_id,quantity) VALUES(?,?,?) ON CONFLICT(owner_id,item_id) DO UPDATE SET quantity=quantity+excluded.quantity',row.owner_id,row.item_id,row.quantity);
+    store.run('DELETE FROM avatar_carry');
+  });
+  const pets=new Map(),epochs=new Map(),jobs=new Map();
+  const memories=createLifeMemories(store);
   const gardening=createGardening(store,clock,{onComplete:memories.operation}),jobKey=(uid,kind)=>`${uid}:${kind}`;
   const task=(uid,kind)=>{const job=jobs.get(jobKey(uid,kind));return job?{id:job.op.id,actor:kind,intent:job.op.intent,state:memberFor(uid,kind)?.activityState,label:job.label}:null;};
   const epoch=uid=>epochs.get(uid)||0;
   const active=(uid,kind='PLAYER')=>store.one("SELECT * FROM life_sessions WHERE actor_id=? AND actor_kind=? AND status IN ('moving','active')",uid,kind);
   const itemsFor=sid=>store.all('SELECT item_id AS itemId,SUM(quantity) AS quantity FROM acquisition_events WHERE session_id=? GROUP BY item_id ORDER BY item_id',sid);
   const playerVillage=uid=>active(uid)?.village_id||uid;
-  const memberFor=(uid,kind)=>kind==='COMPANION'?companions.get(uid):villageVisitors.get(playerVillage(uid))?.get(uid);
+  const memberFor=uid=>villageVisitors.get(playerVillage(uid))?.get(uid);
   const owner=uid=>store.one('SELECT * FROM users WHERE id=?',uid);
   const anchors=uid=>villageLife(JSON.parse(owner(uid).village)).anchors;
-  const avatar=createAvatarRuntime({store,clock,player:uid=>memberFor(uid,'PLAYER'),companion:(uid,create)=>create?ensureCompanion(uid):companions.get(uid),village:uid=>JSON.parse(owner(uid).village),members:uid=>[...(villageVisitors.get(uid)?.values()||[]),...(companions.has(uid)?[companions.get(uid)]:[])],interrupt:uid=>stop(uid,'COMPANION',false),publish,emitVillage,emitMove:(uid,member)=>io.to(`village:${uid}`).emit('village:move',{villageId:uid,...member}),logAction,busy:uid=>!active(uid)&&!jobs.has(jobKey(uid,'PLAYER'))&&busy(uid)});
   function viewSession(s){return s?{id:s.id,state:s.status==='moving'?'Moving':'Fishing',actor:s.actor_kind,anchorId:s.anchor_id,startedAt:s.started_at,nextAt:s.status==='active'?s.settled_at+FISHING_PERIOD:null,attempts:s.attempts,caught:s.caught,taskLimit:s.task_limit,items:itemsFor(s.id)}:null;}
-  function snapshot(uid){
-    const last=store.one("SELECT * FROM life_sessions WHERE owner_id=? AND actor_kind='COMPANION' AND status='stopped' ORDER BY rowid DESC LIMIT 1",uid);
-    return {serverTime:clock(),autonomy:autonomy.snapshot(uid),relationshipMemories:memories.list(uid,owner(uid).active_slot),session:viewSession(active(uid)),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid),companion:{state:companions.get(uid)?.activityState||'Idle',carriedItem:companions.get(uid)?.carriedItem||null,task:avatar.task(uid)||task(uid,'COMPANION'),session:viewSession(active(uid,'COMPANION')),lastReport:last?{endedAt:last.stopped_at,attempts:last.attempts,caught:last.caught,items:itemsFor(last.id)}:null}};
-  }
+  function snapshot(uid){return {serverTime:clock(),relationshipMemories:memories.list(uid,owner(uid).active_slot),session:viewSession(active(uid)),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid)};}
   function publish(uid,results=[],notice){io.to(`user:${uid}`).emit('life:state',{...snapshot(uid),results,...(notice?{notice}:{})});}
-  function companionMembers(room){return [...companions].filter(([uid,m])=>(m.villageId||uid)===room).map(([uid,m])=>({...m,nickname:`${owner(uid).nickname} · 펫`,runnerBusy:true}));}
-  function ensureCompanion(uid){if(!companions.has(uid))companions.set(uid,{userId:`companion:${uid}`,ownerId:uid,actorKind:'COMPANION',x:1.1,z:0,rotation:0,moving:false,seatId:null,activityState:'Idle'});return companions.get(uid);}
+  function petMembers(room){return [...pets].filter(([uid,m])=>(m.villageId||uid)===room).map(([uid,m])=>({...m,nickname:`${owner(uid).nickname} · 펫`,runnerBusy:true}));}
+  function ensurePet(uid){if(!pets.has(uid))pets.set(uid,{userId:`pet:${uid}`,ownerId:uid,actorKind:'PET',x:1.1,z:0,rotation:0,moving:false,seatId:null,activityState:'Idle'});return pets.get(uid);}
   function settle(uid,kind='PLAYER'){
     const s=active(uid,kind);if(!s||s.status!=='active')return [];
     const elapsed=Math.floor((clock()-s.settled_at)/FISHING_PERIOD),count=Math.min(elapsed,s.task_limit?s.task_limit-s.attempts:elapsed);if(count<=0)return [];
@@ -61,7 +58,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     store.transaction(()=>{
       for(let i=1;i<=count;i++){
         const timestamp=s.settled_at+i*FISHING_PERIOD,cycle=s.attempts+i;
-        const fish=awardLifeFish(store,s,cycle,timestamp,random,memories,false);
+        const fish=awardLifeFish(store,s,cycle,timestamp,random,memories);
         results.push({cycle,actor:kind,itemId:fish?.itemId||null});
       }
       store.run('UPDATE life_sessions SET settled_at=?,attempts=attempts+?,caught=caught+? WHERE id=?',s.settled_at+count*FISHING_PERIOD,count,results.filter(r=>r.itemId).length,s.id);
@@ -71,28 +68,25 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   }
   function finish(uid,kind,s){
     logAction(uid,'fishing_stop',{actor:kind,sessionId:s.id});
-    routes.delete(s.id);store.run("UPDATE life_sessions SET status='stopped',stopped_at=? WHERE id=?",clock(),s.id);
-    const member=kind==='PLAYER'?villageVisitors.get(s.village_id||uid)?.get(uid):memberFor(uid,kind);
+    store.run("UPDATE life_sessions SET status='stopped',stopped_at=? WHERE id=?",clock(),s.id);
+    const member=villageVisitors.get(s.village_id||uid)?.get(uid);
     if(member){const approach=anchors(s.village_id||uid).find(a=>a.id===s.anchor_id)?.approach;if(approach)Object.assign(member,{x:approach.x,z:approach.z});Object.assign(member,{seatId:null,moving:false,jumpStarted:0,activityState:'Idle'});}
   }
   function stop(uid,kind='PLAYER',pause=true){
     if(pause)logAction(uid,'life_stop',{actor:kind});
-    if(kind!=='PLAYER'){if(pause)autonomy.disable(uid);automatic.delete(uid);rests.delete(uid);wanderNext.delete(uid);}
     const room=playerVillage(uid);
-    epochs.set(uid,epoch(uid)+1);const kinds=kind==='BOTH'?['PLAYER','COMPANION']:[kind],results=[],items=[];
+    epochs.set(uid,epoch(uid)+1);const kinds=['PLAYER'],results=[],items=[];
     for(const actor of kinds){const s=active(uid,actor);if(!s)continue;results.push(...settle(uid,actor));items.push(...itemsFor(s.id));finish(uid,actor,s);}
     for(const actor of kinds){const key=jobKey(uid,actor),job=jobs.get(key);if(job){gardening.cancel(job.op);jobs.delete(key);const member=memberFor(uid,actor);if(member)Object.assign(member,{moving:false,activityState:'Idle'});}}
-    if(kind!=='PLAYER')avatar.stop(uid);
     publish(uid,results);emitVillage(uid);if(room!==uid)emitVillage(room);return items;
   }
-  function leave(uid){const state=companions.get(uid)?.activityState||'Idle';stop(uid,playerVillage(uid)===uid?'BOTH':'COMPANION',false);autonomy.depart(uid,state);companions.delete(uid);emitVillage(uid);}
-  function arrive(uid){const report=autonomy.arrive(uid);if(report)publish(uid,[],report.reply);}
-  function switchAvatar(uid){autonomy.settle(uid);stop(uid,'BOTH');autonomy.configure(uid,DEFAULT_AUTONOMY);companions.delete(uid);}
-  function preempt(uid){if(automatic.has(uid))stop(uid,'COMPANION',false);autonomy.pause(uid);}
+  function leave(uid){stop(uid,'PLAYER',false);pets.delete(uid);emitVillage(uid);}
+  function arrive(){}
+  function switchAvatar(uid){stop(uid);pets.delete(uid);}
   function occupied(uid){return new Set([...store.all("SELECT anchor_id FROM life_sessions WHERE COALESCE(village_id,owner_id)=? AND status IN ('moving','active')",uid).map(s=>s.anchor_id),...[...(villageVisitors.get(uid)?.values()||[])].map(m=>m.seatId).filter(Boolean)]);}
   function insertSession(uid,kind,anchor,moving,report=false,villageId=uid){
     const user=owner(uid),time=clock();
-    store.run('INSERT INTO life_sessions(id,owner_id,actor_id,actor_kind,actor_name,avatar_slot,anchor_id,started_at,settled_at,status,task_limit,village_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',id(),uid,uid,kind,`${user.nickname}${kind==='COMPANION'?' · AI':''}`,user.active_slot,anchor.id,time,time,moving?'moving':'active',report?3:null,villageId);
+    store.run('INSERT INTO life_sessions(id,owner_id,actor_id,actor_kind,actor_name,avatar_slot,anchor_id,started_at,settled_at,status,task_limit,village_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',id(),uid,uid,kind,user.nickname,user.active_slot,anchor.id,time,time,moving?'moving':'active',report?3:null,villageId);
     const session=active(uid,kind);logAction(uid,'fishing_start',{actor:kind,sessionId:session.id});return session;
   }
   function start(uid,anchorId,villageId){
@@ -107,22 +101,6 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     Object.assign(member,{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing'});
     publish(uid);emitVillage(villageId);return snapshot(uid);
   }
-  function walk(uid,kind,s){
-    const member=kind==='COMPANION'?ensureCompanion(uid):memberFor(uid,kind),anchor=anchors(uid).find(a=>a.id===s.anchor_id);
-    const points=[{x:member.x,z:member.z},anchor.approach,{x:anchor.x,z:anchor.z}];
-    const lengths=points.slice(1).map((p,i)=>Math.hypot(p.x-points[i].x,p.z-points[i].z));
-    routes.set(s.id,{uid,kind,points,lengths,started:clock()});
-    Object.assign(member,{seatId:null,jumpStarted:0,moving:true,activityState:'Moving'});
-  }
-  function startCompanion(uid,report){
-    const player=villageVisitors.get(uid)?.get(uid);if(!player)fail(409,'내 마을에 접속한 상태에서 부탁해 주세요.');
-    if(jobs.has(jobKey(uid,'COMPANION')))fail(409,'진행 중인 작업을 마치거나 중단해 주세요.');
-    if(active(uid,'COMPANION'))return '이미 낚시를 준비하거나 진행 중이야.';
-    const ca=anchors(uid).find(a=>!occupied(uid).has(a.id));if(!ca)fail(409,'빈 낚시 자리가 없어요.');
-    const member=ensureCompanion(uid);member.villageId=uid;
-    walk(uid,'COMPANION',insertSession(uid,'COMPANION',ca,true,report));publish(uid);emitVillage(uid);
-    return report?'바다로 가서 3번 낚시해 볼게. 끝나면 결과를 알려줄게.':'먼저 바다로 가서 낚시할게.';
-  }
   function query(uid,action){
     if(action.scope==='STORAGE'){
       const items=store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=? AND (? IS NULL OR item_id=?) AND quantity>0 ORDER BY item_id',uid,action.item||null,action.item||null);
@@ -134,7 +112,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       const items=action.scope==='SESSION'&&!latest?[]:store.all(`SELECT c.item_id AS itemId,SUM(c.quantity) AS quantity FROM inventory_changes c JOIN life_operations o ON o.id=c.operation_id WHERE c.owner_id=? AND c.quantity>0 AND o.intent=? AND (? IS NULL OR o.actor=?) AND c.timestamp>=? AND c.timestamp<=? AND (? IS NULL OR c.item_id=?) AND (? IS NULL OR o.id=?) GROUP BY c.item_id`,uid,intent,actor,actor,action.scope==='TODAY'?koreanDayStart(clock()):0,clock(),action.item||null,action.item||null,latest,latest);
       return {items,reply:`${action.scope==='TODAY'?'오늘(한국 시간)':action.scope==='SESSION'?'최근 작업에서':'지금까지'} ${action.actor==='PLAYER'?'네가':action.actor==='BOTH'?'우리가':'내가'} ${action.source==='HARVEST'?'수확한':'만든'} 기록은 ${items.length?catchText(items):'0개'}야.`};
     }
-    const kinds=action.actor==='BOTH'?['PLAYER','COMPANION']:[action.actor],items=[];
+    const kinds=['PLAYER'],items=[];
     for(const kind of kinds){
       const latest=action.scope==='SESSION'?store.one('SELECT id FROM life_sessions WHERE owner_id=? AND actor_kind=? ORDER BY rowid DESC LIMIT 1',uid,kind)?.id:null;
       if(action.scope==='SESSION'&&!latest)continue;
@@ -152,7 +130,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     const op=gardening.prepare(uid,requestId,action,kind),plan=JSON.parse(op.plan);
     try{
       if(active(uid,kind))stop(uid,kind,false);
-      const member=kind==='COMPANION'?ensureCompanion(uid):player;
+      const member=player;
       const start={x:member.x,z:member.z},distance=Math.hypot(plan.target.x-start.x,plan.target.z-start.z),arrived=clock()+Math.ceil(distance/2.4*1000);
       const label=action.intent==='COOK_FOOD'?'요리':action.intent==='PLANT_SEED'?'씨앗 심기':'작물 수확';
       jobs.set(jobKey(uid,kind),{op,plan,start,started:clock(),arrived,ends:arrived+(plan.durationMs||2000),label});
@@ -163,12 +141,10 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   }
   function execute(uid,targetId,raw,expectedEpoch=epoch(uid),requestId=id(),forcedActor){
     const parsed=lifeActionSchema.safeParse(raw);
-    if(!parsed.success)return {ok:false,intent:'UNSUPPORTED',reply:'함께 낚시는 종료했어요. 펫과 교감하거나 혼자 낚시를 즐겨 주세요.'};
-    const action=parsed.data;
+    if(!parsed.success)return {ok:false,intent:'UNSUPPORTED',reply:'지원하지 않는 생활 행동이에요. 펫은 쓰다듬거나 부를 수 있어요.'};
+    const action={...parsed.data,actor:'PLAYER'};
     try{
       if(targetId!==uid)fail(403,'생활 행동과 보관함 조회는 내 AI 아바타에게만 부탁할 수 있어요.');
-      autonomy.settle(uid);
-      if(action.intent==='QUERY_AUTONOMY'){return {ok:true,intent:action.intent,reply:autonomy.snapshot(uid).reports[0]?.result.reply||'아직 오프라인 활동 정산 기록이 없어.',autonomy:autonomy.snapshot(uid)};}
       if(action.intent==='QUERY_RELATIONSHIP'){const events=memories.list(uid,owner(uid).active_slot);return {ok:true,intent:action.intent,reply:events.length?events.slice(0,5).map(e=>e.summary).join(' '):'아직 기록된 특별한 생활 추억은 없어. 같이 만들어 보자.',events};}
       if(action.intent==='UNSUPPORTED')fail(400,'그 행동은 아직 지원하지 않아. 낚시, 텃밭 심기·수확, 기본 요리와 보관함 조회를 부탁해 줘.');
       if(action.intent==='STOP_ACTIVITY'){const items=stop(uid,action.actor);return {ok:true,intent:action.intent,items,reply:`${action.actor==='BOTH'?'우리 둘의':action.actor==='PLAYER'?'네':'내'} 생활 작업과 이동을 멈췄어. 이번 활동에서 잡은 기록은 ${catchText(items)}야.`,...snapshot(uid)};}
@@ -177,18 +153,12 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       if(action.intent==='QUERY_INVENTORY'){tick();return {ok:true,intent:action.intent,...query(uid,action)};}
       if(action.intent==='OPEN_STORAGE')return {ok:true,intent:action.intent,reply:'우리 보관함을 열었어. 실제 보유 수량과 도감을 확인해 봐.'};
       if(expectedEpoch!==epoch(uid))fail(409,'중단 또는 마을 이동 이후 도착한 요청이라 실행하지 않았어. 다시 부탁해 줘.');
-      if(action.intent==='SET_AUTONOMY'){preempt(uid);const settings=autonomy.configure(uid,action.autonomy||{});if(!settings.enabled)stop(uid,'COMPANION');publish(uid);return {ok:true,intent:action.intent,reply:settings.enabled?`자율 활동을 켰어. ${settings.offline?'접속 종료 후 최대 2시간 동안 허용한 활동을 정산할게.':'접속 중에만 활동할게.'} ${settings.replant?'빈 밭에는 '+ALL_ITEMS.find(i=>i.itemId===settings.crop).name+'를 심을게.':''} ${settings.recipe?'허용한 요리만 재료를 사용해 만들게.':'요리 재료는 자동으로 사용하지 않아.'}`:'자율 활동과 오프라인 작업을 껐어.',...snapshot(uid)};}
-      if(!forcedActor)preempt(uid);
-      if(AVATAR_INTENTS.includes(action.intent))return {...avatar.execute(uid,action,requestId),...snapshot(uid)};
-      if(!forcedActor&&avatar.engaged(uid))stop(uid,'COMPANION',false);
-      if(['PLANT_SEED','HARVEST_CROP','COOK_FOOD'].includes(action.intent))return startGardenJob(uid,action,forcedActor||'COMPANION',requestId);
-      if(action.intent==='START_FISHING'&&action.actor==='PLAYER')fail(400,'혼자 낚시하려면 바닷가 자리에서 E 키를 눌러 줘. 펫은 주변에서 기다릴게.');
-      const reply=startCompanion(uid,action.report);
-      return {ok:true,intent:action.intent,reply,...snapshot(uid)};
+      if(['PLANT_SEED','HARVEST_CROP','COOK_FOOD'].includes(action.intent))return startGardenJob(uid,action,'PLAYER',requestId);
+      if(action.intent==='START_FISHING')fail(400,'바닷가의 빈 낚시 자리에서 E 키를 눌러 낚시할 수 있어.');
+      fail(400,'펫은 마을을 산책하는 친구야. 가까이에서 E로 쓰다듬거나 R로 불러 줘.');
     }catch(e){if(!e.status)throw e;return {ok:false,intent:action.intent,reply:e.message};}
   }
   function tick(){
-    avatar.tick();
     const changed=new Set();
     for(const [key,job] of jobs){
       const uid=job.op.owner_id,kind=job.op.actor,member=memberFor(uid,kind);if(!member){stop(uid,kind);continue;}
@@ -198,63 +168,22 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       if(clock()>=job.ends){
         let result;
         try{result=gardening.complete(job.op);}catch(e){gardening.cancel(job.op,'작업 저장에 실패했어. 재료와 작물은 그대로야. 다시 부탁해 줘.');result={ok:false,reply:'작업 저장에 실패했어. 재료와 작물은 그대로야. 다시 부탁해 줘.'};console.error('[life] garden operation failed',e.message);}
-        if(kind==='COMPANION'&&automatic.has(uid)){automatic.delete(uid);autonomy.completed(uid,job.op.intent);}
         logAction(uid,'life_work_complete',{actor:kind,intent:job.op.intent,operationId:job.op.id,ok:result.ok});
         for(const item of result.items||[])logAction(uid,'inventory_gain',{actor:kind,operationId:job.op.id,...item});
         for(const item of result.consumed||[])logAction(uid,'inventory_spend',{actor:kind,operationId:job.op.id,...item});
         jobs.delete(key);Object.assign(member,{moving:false,activityState:'Idle'});publish(uid,[],result.reply);changed.add(uid);
       }else if(member.moving){const {sockets,lastMove,...pose}=member;io.to(`village:${uid}`).emit('village:move',{villageId:uid,...pose});}
     }
-    for(const [sid,route] of routes){
-      const member=memberFor(route.uid,route.kind);if(!member){stop(route.uid,route.kind);continue;}
-      let distance=Math.max(0,(clock()-route.started)/1000)*2.4,index=0;
-      while(index<route.lengths.length&&distance>=route.lengths[index])distance-=route.lengths[index++];
-      if(index===route.lengths.length){
-        const s=active(route.uid,route.kind),anchor=anchors(route.uid).find(a=>a.id===s.anchor_id),arrived=route.started+Math.ceil(route.lengths.reduce((a,b)=>a+b,0)/2.4*1000);
-        store.run("UPDATE life_sessions SET status='active',started_at=?,settled_at=? WHERE id=?",arrived,arrived,sid);
-        Object.assign(member,{x:anchor.x,z:anchor.z,rotation:anchor.rotation,moving:false,seatId:anchor.id,activityState:'Fishing'});routes.delete(sid);publish(route.uid);changed.add(route.uid);
-      }else{
-        const a=route.points[index],b=route.points[index+1],fraction=distance/route.lengths[index];
-        Object.assign(member,{x:a.x+(b.x-a.x)*fraction,z:a.z+(b.z-a.z)*fraction,rotation:Math.atan2(b.x-a.x,b.z-a.z)});
-        const {sockets,lastMove,...pose}=member;
-        io.to(`village:${route.uid}`).emit('village:move',{villageId:route.uid,...pose});
-      }
-    }
     for(const s of store.all("SELECT * FROM life_sessions WHERE status='active'")){
-      const results=settle(s.actor_id,s.actor_kind),current=active(s.actor_id,s.actor_kind);
-      if(current?.task_limit&&current.attempts>=current.task_limit){const items=itemsFor(current.id);finish(current.actor_id,current.actor_kind,current);if(current.actor_kind==='COMPANION'&&automatic.has(current.actor_id)){automatic.delete(current.actor_id);autonomy.completed(current.actor_id,'START_FISHING');wanderNext.add(current.actor_id);}publish(current.actor_id,results,`낚시를 마쳤어! ${catchText(items)}${items.length?'를 보관함에 넣었어.':'야. 이번에는 물고기를 잡지 못했어.'}`);changed.add(current.owner_id);}
-      else if(results.length)publish(s.actor_id,results);
+      const results=settle(s.actor_id,s.actor_kind);
+      if(results.length)publish(s.actor_id,results);
     }
-    for(const [uid,members] of villageVisitors){
-      const player=members.get(uid);if(!player)continue;
-      autonomy.heartbeat(uid,companions.get(uid)?.activityState||'Idle');
-      const nearby=companions.get(uid);if(nearby&&autonomy.settings(uid).enabled&&Math.hypot(player.x-nearby.x,player.z-nearby.z)<2&&clock()-(greetings.get(uid)||0)>300000){greetings.set(uid,clock());publish(uid,[],'옆에 왔네! 오늘도 우리 마을에서 같이 지내자.');}
-      const rest=rests.get(uid);
-      if(rest){const member=ensureCompanion(uid),fraction=Math.min(1,Math.max(0,(clock()-rest.start)/2000)),justRested=fraction===1&&member.activityState!=='Resting';Object.assign(member,{x:rest.x+(rest.target.x-rest.x)*fraction,z:rest.z+(rest.target.z-rest.z)*fraction,moving:fraction<1,activityState:fraction<1?'Moving':'Resting',rotation:Math.atan2(rest.target.x-rest.x,rest.target.z-rest.z)});if(justRested)publish(uid);io.to(`village:${uid}`).emit('village:move',{villageId:uid,...member});if(clock()>=rest.end){rests.delete(uid);automatic.delete(uid);member.activityState='Idle';autonomy.completed(uid,'REST');publish(uid);changed.add(uid);}continue;}
-      if(active(uid,'COMPANION')||jobs.has(jobKey(uid,'COMPANION'))||avatar.engaged(uid))continue;
-      let action=autonomy.plan(uid,gardening);if(!action)continue;if(action.intent==='START_FISHING'&&wanderNext.has(uid)){action={intent:'REST'};wanderNext.delete(uid);}
-      try{
-        if(action.intent==='REST'){const member=ensureCompanion(uid);rests.set(uid,{start:clock(),end:clock()+22000,x:member.x,z:member.z,target:{x:member.x>=0?-1.8:1.8,z:1}});member.activityState='Moving';member.moving=true;}
-        else if(action.intent==='START_FISHING')startCompanion(uid,true);
-        else startGardenJob(uid,lifeActionSchema.parse(action),'COMPANION',id());
-        automatic.add(uid);publish(uid);changed.add(uid);
-      }catch(e){if(!e.status)throw e;autonomy.pause(uid);}
-
-    }
-    pets.tick();
+    petRuntime.tick();
     for(const uid of changed)emitVillage(uid);
   }
-  app.put('/api/me/life/autonomy',auth,(req,res)=>{const settings=autonomySettingsSchema.parse(req.body);epochs.set(req.user.id,epoch(req.user.id)+1);preempt(req.user.id);autonomy.configure(req.user.id,settings);if(!settings.enabled)stop(req.user.id,'COMPANION');publish(req.user.id);res.json(snapshot(req.user.id));});
-  app.post('/api/me/life/reports/:id/ack',auth,(req,res)=>{if(!autonomy.acknowledge(req.user.id,req.params.id))fail(404,'정산 기록을 찾을 수 없어요.');res.json({ok:true});});
   app.delete('/api/me/life/memories/:id',auth,(req,res)=>{if(!memories.forget(req.user.id,req.params.id))fail(404,'추억을 찾을 수 없어요.');res.json({ok:true});});
   app.post('/api/me/life/actions',auth,(req,res)=>{const body=z.object({requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);if(!['PLANT_SEED','HARVEST_CROP','COOK_FOOD'].includes(body.action.intent))fail(400,'잘못된 생활 작업 요청이에요.');const result=execute(req.user.id,req.user.id,body.action,epoch(req.user.id),body.requestId,'PLAYER');res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});});
-  app.post('/api/me/life/storage',auth,(req,res)=>{
-    const body=z.object({requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);
-    if(body.action.intent!=='TAKE_FROM_STORAGE'&&!(body.action.intent==='STOP_ACTIVITY'&&body.action.actor==='COMPANION'))fail(400,'보관함 꺼내기 또는 되돌려 놓기만 요청할 수 있어요.');
-    const result=execute(req.user.id,req.user.id,body.action,epoch(req.user.id),body.requestId);
-    res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});
-  });
-  app.get('/api/me/life',auth,(req,res)=>{autonomy.settle(req.user.id);res.json({...snapshot(req.user.id),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),inventoryAcquisitions:store.all(`SELECT i.item_id AS itemId,i.quantity,MAX(COALESCE((SELECT MAX(timestamp) FROM acquisition_events a WHERE a.owner_id=i.owner_id AND a.item_id=i.item_id),0),COALESCE((SELECT MAX(timestamp) FROM inventory_changes c WHERE c.owner_id=i.owner_id AND c.item_id=i.item_id AND c.quantity>0),0)) AS lastAcquiredAt FROM inventory_entries i WHERE i.owner_id=?`,req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
+  app.get('/api/me/life',auth,(req,res)=>{res.json({...snapshot(req.user.id),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),inventoryAcquisitions:store.all(`SELECT i.item_id AS itemId,i.quantity,MAX(COALESCE((SELECT MAX(timestamp) FROM acquisition_events a WHERE a.owner_id=i.owner_id AND a.item_id=i.item_id),0),COALESCE((SELECT MAX(timestamp) FROM inventory_changes c WHERE c.owner_id=i.owner_id AND c.item_id=i.item_id AND c.quantity>0),0)) AS lastAcquiredAt FROM inventory_entries i WHERE i.owner_id=?`,req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
     COALESCE(NULLIF(s.actor_name,''),u.nickname) AS acquiredByName,COALESCE(s.actor_kind,'PLAYER') AS actor
     FROM fish_discoveries d JOIN users u ON u.id=d.acquired_by LEFT JOIN acquisition_events e ON e.rowid=(SELECT e2.rowid FROM acquisition_events e2 WHERE e2.owner_id=d.owner_id AND e2.item_id=d.item_id ORDER BY e2.timestamp,e2.rowid LIMIT 1) LEFT JOIN life_sessions s ON s.id=e.session_id WHERE d.owner_id=?`,req.user.id)});});
   io.on('connection',socket=>{
@@ -264,9 +193,9 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
         const result=start(user.id,data.anchorId,socket.data.village?.villageId);if(typeof ack==='function')ack({ok:true,...result});
       }catch(e){if(typeof ack==='function')ack({ok:false,error:e.status?e.message:'낚시를 시작하지 못했어요.'});}
     });
-    socket.on('life:stop',(data,ack)=>{try{const user=sessionUser(socket.request.headers);if(!user)fail(401,'로그인이 필요해요.');const kind=data?.actor||'PLAYER';if(!['PLAYER','COMPANION','BOTH'].includes(kind))fail(400,'잘못된 중단 요청이에요.');stop(user.id,kind);if(typeof ack==='function')ack({ok:true,...snapshot(user.id)});}catch(e){if(typeof ack==='function')ack({ok:false,error:e.status?e.message:'낚시를 종료하지 못했어요.'});}});
+    socket.on('life:stop',(data,ack)=>{try{const user=sessionUser(socket.request.headers);if(!user)fail(401,'로그인이 필요해요.');const kind=data?.actor||'PLAYER';if(!['PLAYER','BOTH'].includes(kind))fail(400,'잘못된 중단 요청이에요.');stop(user.id,kind);if(typeof ack==='function')ack({ok:true,...snapshot(user.id)});}catch(e){if(typeof ack==='function')ack({ok:false,error:e.status?e.message:'낚시를 종료하지 못했어요.'});}});
   });
-  const pets=createPetRuntime({app,auth,clock,villageVisitors,companions,ensureCompanion,engaged:uid=>!!active(uid,'COMPANION')||jobs.has(jobKey(uid,'COMPANION'))||avatar.engaged(uid)||rests.has(uid),emitVillage,emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
+  const petRuntime=createPetRuntime({app,auth,clock,villageVisitors,pets,ensurePet,emitVillage,emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
   const timer=setInterval(()=>{try{tick();}catch(e){console.error('[life] tick failed',e.message);}},100);timer.unref();
-  return {arrive,switchAvatar,autonomy,memories,active,seatOccupied:avatar.seatOccupied,busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,companionMembers,execute,epoch,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);avatar.close();}};
+  return {arrive,switchAvatar,memories,active,seatOccupied:(room,seatId,except)=>[...(villageVisitors.get(room)?.values()||[])].some(m=>m.userId!==except&&m.seatId===seatId),busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,petMembers,execute,epoch,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);}};
 }

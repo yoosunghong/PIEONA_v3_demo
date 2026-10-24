@@ -1,7 +1,8 @@
 import React,{useEffect,useState} from 'react';
 import * as THREE from 'three';
-import {createCompanionPet} from './companionPet.mjs';
-import {disposeObject} from './worldAssets';
+import {loadAsset} from './avatar';
+import {clone} from 'three/addons/utils/SkeletonUtils.js';
+import {dressAvatar,disposeObject} from './worldAssets';
 import {AvatarBadge} from './Panels';
 
 // Render each look once; list rows display images instead of running more scenes.
@@ -12,7 +13,7 @@ function portraitFor(appearance){
   if(portraits.has(key))return portraits.get(key);
   const result=queue.then(async()=>{
     const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
-    const avatar=createCompanionPet(appearance).root,scene=new THREE.Scene();
+    const avatar=clone(await loadAsset(appearance?.character)),scene=new THREE.Scene();dressAvatar(avatar,appearance||{});
     try{
       renderer.setSize(128,128);renderer.setPixelRatio(1);
       renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;
@@ -36,7 +37,7 @@ function portraitFor(appearance){
 }
 
 export default function AvatarPortrait({user}){
-  const [src,setSrc]=useState(null),look=JSON.stringify(user.avatarAppearance||user.appearance||{});
-  useEffect(()=>{let active=true;setSrc(null);portraitFor(user.avatarAppearance||user.appearance).then(value=>{if(active)setSrc(value);}).catch(()=>{});return()=>{active=false;};},[look]);
+  const [src,setSrc]=useState(null),look=JSON.stringify(user.appearance||{});
+  useEffect(()=>{let active=true;setSrc(null);portraitFor(user.appearance).then(value=>{if(active)setSrc(value);}).catch(()=>{});return()=>{active=false;};},[look]);
   return src?<span className="avatar-badge avatar-portrait"><img src={src} alt=""/></span>:<AvatarBadge user={user}/>;
 }

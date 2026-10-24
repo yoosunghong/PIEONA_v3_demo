@@ -1,3 +1,6 @@
+import {mkdtempSync,rmSync,rmdirSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {io} from 'socket.io-client';
@@ -22,28 +25,19 @@ async function harness(answer=async()=>({reply:'그냥 수다야.',emotion:'calm
   return {runtime,register,connect,conversation,say,request,advance,time:()=>time,close:async()=>{sockets.forEach(s=>s.disconnect());await runtime.close();}};
 }
 
-test('offline intent mapping is conservative and supports spec commands and Korean date scopes',()=>{
-  for(const [text,intent] of [['우리 낚시하러 갈까?','UNSUPPORTED'],['너 먼저 낚시하고 있어','START_FISHING'],['물고기 좀 잡아와','START_FISHING'],['이제 그만하자','STOP_ACTIVITY'],['오늘 고등어 몇 마리 잡았어?','QUERY_INVENTORY'],['보관함 열어줘','OPEN_STORAGE'],['도미 잡으면 알려줘','UNSUPPORTED']])assert.equal(localLifeAction(text)?.intent,intent,text);
-  for(const text of ['나는 낚시를 좋아해','낚시하지 마','"같이 낚시하자"를 번역해줘','만약 같이 낚시하자고 하면?','아까 낚시했어'])assert.equal(localLifeAction(text),null,text);
-  assert.equal(localLifeAction('오늘 황금도미 몇 마리 잡았어?').item,'GOLDEN_BREAM');
-  assert.equal(localLifeAction('물고기 좀 잡아와').report,true);
-  assert.equal(lifeActionSchema.safeParse({intent:'START_FISHING',ownerId:'other'}).success,false);
+test('life intents address the player; removed companion commands cannot execute',async()=>{
+  for(const text of ['내 옆으로 와','따라와','자율 활동 켜줘','없는 동안 텃밭 관리해줘'])assert.equal(localLifeAction(text).intent,'UNSUPPORTED');
+  assert.equal(localLifeAction('오늘 뭐 잡았어?').actor,'PLAYER');
+  assert.equal(localLifeAction('이전 대화를 반복해줘'),null);
+  assert.equal(lifeActionSchema.safeParse({intent:'MOVE_TO',target:'PLAYER'}).success,false);
+  assert.equal(lifeActionSchema.safeParse({intent:'SET_AUTONOMY'}).success,false);
+  assert.equal(lifeActionSchema.safeParse({intent:'COOK_FOOD',actor:'COMPANION'}).success,false);
   assert.equal(koreanDayStart(Date.parse('2026-10-22T15:00:00Z')),Date.parse('2026-10-22T15:00:00Z'));
-});
-
-test('conversation starts real companion movement, reserves a seat, settles shared inventory exactly once',async()=>{
   const h=await harness();try{
-    const user=await h.register('ai_fisher'),socket=await h.connect(user),cid=await h.conversation(user);
-    const r=await h.say(user,cid,'너 먼저 낚시하고 있어');assert.equal(r.action.ok,true);assert.equal(r.action.companion.state,'Moving');assert.equal(r.action.session,null);assert.deepEqual(r.memories,[]);
-    const sid=h.runtime.life.active(user.id,'COMPANION').id;
-    await h.say(user,cid,'너 먼저 낚시하고 있어');assert.equal(h.runtime.life.active(user.id,'COMPANION').id,sid);
-    const initial=h.runtime.life.companionMembers(user.id)[0];h.advance(500);const walking=h.runtime.life.companionMembers(user.id)[0];assert.ok(walking.z>initial.z&&walking.z<6.3);assert.equal(h.runtime.life.settle(user.id,'COMPANION').length,0);
-    h.advance(5000);assert.equal(h.runtime.life.snapshot(user.id).companion.state,'Fishing');
-    h.advance(FISHING_PERIOD);h.runtime.life.tick();
-    const data=(await h.request('/me/life',user)).body;assert.equal(data.inventory[0].quantity,1);assert.equal(data.discoveries[0].actor,'COMPANION');assert.match(data.discoveries[0].acquiredByName,/AI/);
-    const members=(await emit(socket,'village:join',{villageId:user.id})).members;assert.equal(members.filter(m=>m.actorKind==='COMPANION').length,1);
-    const query=await h.say(user,cid,'오늘 뭐 잡았어?');assert.match(query.reply,/정어리 1마리/);assert.equal(query.action.items[0].actor,'COMPANION');
-    await h.say(user,cid,'그냥 수다');assert.equal(h.runtime.life.active(user.id,'COMPANION').id,sid);
+    const user=await h.register('no_pet_jobs');await h.connect(user);const cid=await h.conversation(user);
+    for(const text of ['너 먼저 낚시하고 있어','물고기 좀 잡아와','자율 활동 켜줘','내 옆으로 와'])assert.equal((await h.say(user,cid,text)).action.ok,false);
+    assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM life_sessions').n,0);
+    assert.equal(h.runtime.life.snapshot(user.id).companion,undefined);
   }finally{await h.close();}
 });
 
@@ -54,18 +48,6 @@ test('joint fishing commands and forged joint actions cannot reserve either acto
     assert.equal(h.runtime.life.execute(user.id,user.id,{intent:'JOIN_FISHING'}).ok,false);
     assert.equal(h.runtime.life.active(user.id),undefined);assert.equal(h.runtime.life.active(user.id,'COMPANION'),undefined);
     assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM life_sessions').n,0);
-  }finally{await h.close();}
-});
-
-test('fetch task automatically stops after three judgments and reports only earned catches',async()=>{
-  const h=await harness();try{
-    const user=await h.register('ai_reporter'),socket=await h.connect(user),cid=await h.conversation(user);
-    await h.say(user,cid,'물고기 좀 잡아와');
-    const report=new Promise(resolve=>{const listener=data=>{if(data.notice){socket.off('life:state',listener);resolve(data);}};socket.on('life:state',listener);});
-    h.advance(5000);h.advance(FISHING_PERIOD*20);
-    const event=await report;assert.match(event.notice,/정어리 3마리/);assert.equal(event.companion.state,'Idle');assert.equal(event.companion.lastReport.attempts,3);
-    assert.equal(h.runtime.life.active(user.id,'COMPANION'),undefined);assert.equal((await h.request('/me/life',user)).body.inventory[0].quantity,3);
-    assert.match((await h.say(user,cid,'최근 낚시 결과 알려줘')).reply,/정어리 3마리/);
   }finally{await h.close();}
 });
 
@@ -93,30 +75,10 @@ test('immediate stop overtakes a pending model reply; late actions cannot restar
   }finally{if(release)release();await h.close();}
 });
 
-test('last home tab departure cancels both movement and fishing, other tabs preserve activity',async()=>{
-  const h=await harness();try{
-    const user=await h.register('offline_ai'),a=await h.connect(user),b=await h.connect(user),cid=await h.conversation(user);
-    await h.say(user,cid,'너 먼저 낚시하고 있어');await emit(a,'village:leave');assert.ok(h.runtime.life.active(user.id,'COMPANION'));
-    await emit(b,'village:leave');h.advance(FISHING_PERIOD*20);
-    assert.equal(h.runtime.life.active(user.id),undefined);assert.equal(h.runtime.life.active(user.id,'COMPANION'),undefined);assert.deepEqual(h.runtime.life.companionMembers(user.id),[]);assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM acquisition_events').n,0);
-    await emit(a,'village:join',{villageId:user.id});await h.say(user,cid,'너 먼저 낚시하고 있어');h.advance(5000);h.advance(FISHING_PERIOD);await emit(a,'village:leave');h.advance(FISHING_PERIOD*20);assert.equal(h.runtime.store.one('SELECT SUM(quantity) n FROM acquisition_events').n,1);
-  }finally{await h.close();}
-});
-
 test('Gemini receives the allowlist schema and its action output survives parsing without trusting reply claims',async()=>{
   let sent;
   const result=await generateAnswer({own:true,lifeActions:true,system:'test'},'함께 바다로 가볼래?',[],{apiKey:'test-key',fetch:async(url,init)=>{sent=JSON.parse(init.body);return {ok:true,json:async()=>({candidates:[{content:{parts:[{text:JSON.stringify({reply:'준비됐어',emotion:'happy',memories:[],action:{intent:'JOIN_FISHING',actor:'BOTH',scope:'ALL',report:false}})}]}}]})};}});
   assert.equal(result.action.intent,'UNSUPPORTED');assert.ok(!sent.generationConfig.responseSchema.properties.action.properties.intent.enum.includes('JOIN_FISHING')); assert.ok(sent.generationConfig.responseSchema.properties.action.properties.intent.enum.includes('STOP_ACTIVITY'));assert.match(sent.systemInstruction.parts[0].text,/미리 주장하지/);
-});
-
-test('TODAY uses the Korean midnight boundary while ALL and STORAGE retain earlier catches',async()=>{
-  const h=await harness();try{
-    const user=await h.register('midnight_ai');await h.connect(user);const cid=await h.conversation(user);
-    await h.say(user,cid,'너 먼저 낚시하고 있어');h.advance(5000);h.advance(FISHING_PERIOD);h.advance(FISHING_PERIOD);
-    assert.match((await h.say(user,cid,'오늘 뭐 잡았어?')).reply,/정어리 1마리/);
-    assert.match((await h.say(user,cid,'지금까지 뭐 잡았어?')).reply,/정어리 2마리/);
-    assert.match((await h.say(user,cid,'보관함에 몇 마리 있어?')).reply,/정어리 2마리/);
-  }finally{await h.close();}
 });
 
 test('Phase 1 schema migrates without losing old inventory or granting offline rewards',async()=>{
@@ -131,4 +93,18 @@ test('Phase 1 schema migrates without losing old inventory or granting offline r
   const runtime=createApp({store,testing:true});try{
     const session=store.one("SELECT * FROM life_sessions WHERE id='legacy-session'");assert.equal(session.actor_kind,'PLAYER');assert.equal(session.status,'stopped');assert.equal(session.caught,1);assert.equal(runtime.life.active(uid),undefined);runtime.life.tick();assert.equal(store.one('SELECT quantity FROM inventory_entries').quantity,1);
   }finally{await runtime.close();}
+});
+
+test('retired courier stock returns once on migration and survives reopening',async()=>{
+  const directory=mkdtempSync(join(tmpdir(),'pet-retirement-')),filename=join(directory,'store.sqlite'),uid='00000000-0000-4000-8000-000000000002';let runtime;
+  try{
+    const store=openStore(filename);store.run('INSERT INTO users(id,username,password,created_at) VALUES(?,?,?,?)',uid,'old_courier','unused',new Date().toISOString());
+    store.db.exec('CREATE TABLE avatar_carry(owner_id TEXT PRIMARY KEY,item_id TEXT NOT NULL,quantity INTEGER NOT NULL)');
+    store.run("INSERT INTO avatar_carry VALUES(?,'SARDINE',2)",uid);
+    runtime=createApp({store,testing:true});
+    assert.equal(runtime.store.one('SELECT quantity FROM inventory_entries WHERE owner_id=?',uid).quantity,2);
+    assert.equal(runtime.store.one('SELECT COUNT(*) n FROM avatar_carry').n,0);await runtime.close();
+    runtime=createApp({store:openStore(filename),testing:true});
+    assert.equal(runtime.store.one('SELECT quantity FROM inventory_entries WHERE owner_id=?',uid).quantity,2);
+  }finally{if(runtime)await runtime.close();for(const suffix of ['','-wal','-shm'])rmSync(filename+suffix,{force:true});rmdirSync(directory);}
 });

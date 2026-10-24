@@ -77,11 +77,11 @@ test('saved facilities reach visitors and server fishing, planting and cooking u
     assert.equal((await save(changed)).status,409);assert.equal((await save(village)).status,200);
     await emit('life:stop');
     const action=action=>request('/me/life/actions',{requestId:randomUUID(),action});
-    let result=await action({intent:'PLANT_SEED',actor:'COMPANION',plot:'garden:0',crop:'HERB'});assert.equal(result.body.ok,true,JSON.stringify(result.body));
+    let result=await action({intent:'PLANT_SEED',actor:'PLAYER',plot:'garden:0',crop:'HERB'});assert.equal(result.body.ok,true,JSON.stringify(result.body));
     let plan=JSON.parse(runtime.store.one("SELECT plan FROM life_operations WHERE owner_id=? AND status='pending'",user.id).plan);assert.deepEqual(plan.target,life.beds[0].approach);
     time+=15000;runtime.life.tick();assert.equal((await request('/me/life')).body.garden.plots.find(p=>p.id==='garden:0').cropId,'HERB');
     runtime.store.run('INSERT INTO inventory_entries VALUES(?,?,?)',user.id,'TOMATO',2);
-    result=await action({intent:'COOK_FOOD',actor:'COMPANION',recipe:'TOMATO_SALAD'});assert.equal(result.body.ok,true,JSON.stringify(result.body));
+    result=await action({intent:'COOK_FOOD',actor:'PLAYER',recipe:'TOMATO_SALAD'});assert.equal(result.body.ok,true,JSON.stringify(result.body));
     plan=JSON.parse(runtime.store.one("SELECT plan FROM life_operations WHERE owner_id=? AND status='pending'",user.id).plan);assert.deepEqual(plan.target,life.kitchen.approach);
     time+=15000;runtime.life.tick();
     assert.equal((await save(changed)).status,200);
