@@ -24,16 +24,21 @@
 .game-hub .playground-step, .game-hub .playground-card h3, .game-hub .playground-selected-game h3 { margin: 0; }
 .game-hub .playground-catalog, .game-hub .playground-room { min-width: 0; border: 1px solid #e0edff; border-radius: 23px; background: linear-gradient(135deg, #ffffffef, #f9fcffed); box-shadow: 0 3px 6px #8cb2dc12; }
 .game-hub .playground-catalog { display: flex; flex-direction: column; padding: 16px 22px 22px; overflow: auto; scrollbar-width: thin; scrollbar-color: #bbcee9 transparent; }
-.game-hub .playground-categories { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; min-height: 39px; }
+.game-hub .playground-categories { display: flex; flex-wrap: wrap; flex-shrink: 0; align-items: center; gap: 12px; margin-bottom: 15px; min-height: 39px; }
 .game-hub .playground-categories button { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 38px; padding: 7px 18px; border-radius: 24px; font-size: 16px; font-weight: 700; color: #47638e; white-space: nowrap; }
 .game-hub .playground-categories button.active { background: linear-gradient(110deg, #31baff, #5866ff); color: white; }
 .game-hub .playground-game-count { margin-left: auto; font-size: 12px; color: #8094b2; white-space: nowrap; }
-.game-hub .playground-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px; }
+.game-hub .playground-cards { display: grid; flex-shrink: 0; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 18px; }
 .game-hub .playground-card { padding: 0; overflow: hidden; text-align: left; border: 2px solid #e5efff; border-radius: 17px; background: linear-gradient(135deg, #fff, #f3f8ff); box-shadow: 0 3px 4px #7a9ccc0a; }
 .game-hub .playground-card.selected { border-color: #2c7bff; box-shadow: 0 0 0 1px #2d7fff0d, 0 4px 12px #4e92f415; }
 .game-hub .playground-card:hover:not(:disabled) { filter: none; transform: translateY(-3px); box-shadow: 0 7px 18px #4e92f424; }
 .game-hub .playground-card-art { position: relative; aspect-ratio: 1 / 1.05; overflow: hidden; background: #dceaff; }
 .game-hub .playground-card-art > img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 50%; display: block; }
+.game-hub .playground-word-art { display: grid; place-items: center; color: #657ac3; background: radial-gradient(circle at 35% 30%, #fff, #e4eaff 75%); }
+.game-hub .playground-word-art.wordchain { color: #4f9780; background: radial-gradient(circle at 35% 30%, #fff, #dff3e9 75%); }
+.game-hub .playground-choose-game { flex: 1; gap: 12px; }
+.game-hub .playground-choose-game h3 { font-size: 22px; color: #365c92; }
+.game-hub .playground-choose-game small { font-size: 12px; }
 .game-hub .playground-check { position: absolute; top: 7px; right: 7px; width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; color: white; background: linear-gradient(135deg, #39c5ff, #2768ff); box-shadow: 0 0 0 3px #ffffffc9; }
 .game-hub .playground-check svg { stroke-width: 3; }
 .game-hub .playground-card-copy { padding: 14px 15px 15px; }

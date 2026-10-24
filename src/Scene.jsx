@@ -1,3 +1,5 @@
+import {communityPlacements,POLLBOX_ID,CHALKBOARD_ID} from '../shared/communityObjects.mjs';
+import {createChalkboard} from './chalkboardModel';
 import {createCompanionPet} from './companionPet.mjs';
 import {createFacilityOutline,selectedFacility} from './facilityOutline.mjs';
 import {facilityStep,isClickFacility} from './lifeNavigation.mjs';
@@ -35,8 +37,9 @@ import {isLifeFocus,lifeFocusView,lifeFocusOccluders} from './lifeFocus.mjs';
 
 const themes={sage:{accent:0x70a9ad,flowers:0xce87bc},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({pollActive=false,onPollClick,villageSpeech=[],topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,editor=null}){
+export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,villageSpeech=[],topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,editor=null}){
   const humanoidPortrait=!petPreview;
+  const community=communityPlacements(village),communityKey=JSON.stringify(community);
   const signData=villageSign(village),signKey=JSON.stringify(signData);
   const guestbookData=villageGuestbook(village),guestbookKey=JSON.stringify(guestbookData);
   const speechNodes=useRef(new Map()),pollNotice=useRef();
@@ -47,7 +50,7 @@ export default function Scene({pollActive=false,onPollClick,villageSpeech=[],top
   const [benchPrompt,setBenchPrompt]=useState('');
   const [lifePrompt,setLifePrompt]=useState('');
   const lifePromptRef=useRef(''),lifeToggle=useRef();
-  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={village,topicGuest,topicLine,onInteract,onWalk,onReady,onPositionChange,movementInput,editor,benches:villageBenches(village),sign:signData,guestbook:guestbookData,items:[...villageScenery(village),...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData)]};
+  const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={village,topicGuest,topicLine,onInteract,onWalk,onReady,onPositionChange,movementInput,editor,benches:villageBenches(village),sign:signData,guestbook:guestbookData,items:[...villageScenery(village),...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData),...community]};
   callbacks.current.pollActive=pollActive;callbacks.current.onPollClick=onPollClick;callbacks.current.villageSpeech=villageSpeech;callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.gardenData=gardenData;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;}},[mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended]);
@@ -84,7 +87,7 @@ export default function Scene({pollActive=false,onPollClick,villageSpeech=[],top
     const stageRing=mesh(new THREE.TorusGeometry(2.05,.025,8,100),mat(0xc9e3ae,{emissive:0xa9d988,emissiveIntensity:.65}),0,.38,0);stageRing.rotation.x=Math.PI/2;
     for(let i=0;i<12;i++){const a=i*Math.PI/6;const tile=box(.55,.08,.48,stone,Math.sin(a)*2.5,.18,Math.cos(a)*2.5);tile.rotation.y=a;}
     for(let i=0;i<6;i++){const x=-.25+Math.sin(i)*.13;box(.88,.08,.48,stone,x,.17,2.9+i*.5);}
-    const pollBox=new THREE.Group();pollBox.position.set(2.6,.16,3.3);pollBox.userData.action='poll';world.add(pollBox);
+    const pollBox=new THREE.Group();pollBox.position.set(2.6,.16,3.3);pollBox.userData.action='poll';pollBox.userData.itemId=POLLBOX_ID;world.add(pollBox);
     box(.8,.85,.7,mat(0xe9c5aa),0,.48,0,pollBox);box(.91,.1,.81,mat(0xc49476),0,.95,0,pollBox);box(.42,.02,.065,mat(0x6e5350),0,1.015,0,pollBox);
     const ballot=box(.24,.28,.025,cream,.1,1.14,0,pollBox);ballot.rotation.z=-.2;
     const pollOutlineMaterial=mat(0xffd33f,{emissive:0xffc928,emissiveIntensity:1.5,transparent:true,opacity:.85});
@@ -182,11 +185,11 @@ export default function Scene({pollActive=false,onPollClick,villageSpeech=[],top
     const gridStyle=editorGridStyle(mood);
     const grid=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(gridPoints,3)),new THREE.LineDashedMaterial({color:gridStyle.color,transparent:true,opacity:0,dashSize:.075,gapSize:.04,depthWrite:false,toneMapped:false,fog:false}));grid.computeLineDistances();grid.position.y=.165;grid.visible=!!editor;world.add(grid);
     // Item updates are independent of the scene, so editing never resets the camera.
-    worldRef.current={sceneryRoots,decorationRoot,signRoot,previewRoot,world,controls,camera};
+    worldRef.current={pollBox,sceneryRoots,decorationRoot,signRoot,previewRoot,world,controls,camera};
     const raycaster=new THREE.Raycaster(),groundPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-.16);let pointerDown,dragged=null;
     function ray(e){const rect=el.getBoundingClientRect();raycaster.setFromCamera(new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1),camera);}
     function ground(e){ray(e);const point=raycaster.ray.intersectPlane(groundPlane,new THREE.Vector3());return point?{x:snapPosition(point.x),z:snapPosition(point.z)}:null;}
-    function itemHit(e){ray(e);for(const hit of raycaster.intersectObjects([...sceneryRoots.values(),...decorationRoot.children,...signRoot.children],true)){let obj=hit.object;while(obj){if(obj.userData.itemId){if(obj.visible)return obj;break;}obj=obj.parent;}}return null;}
+    function itemHit(e){ray(e);for(const hit of raycaster.intersectObjects([...sceneryRoots.values(),...decorationRoot.children,...signRoot.children,pollBox],true)){let obj=hit.object;while(obj){if(obj.userData.itemId){if(obj.visible)return obj;break;}obj=obj.parent;}}return null;}
     function down(e){
       if(e.button!==0)return;pointerDown={x:e.clientX,y:e.clientY,id:e.pointerId};
       const edit=callbacks.current.editor;if(!edit||edit.busy)return;
@@ -361,7 +364,7 @@ export default function Scene({pollActive=false,onPollClick,villageSpeech=[],top
     function updateBenchPrompt(value){if(benchPromptRef.current!==value){benchPromptRef.current=value;setBenchPrompt(value);}}
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;
       pollRing.visible=pollEdges.visible=!!callbacks.current.pollActive;pollOutlineMaterial.emissiveIntensity=1.5+Math.sin(time*3)*.5;
-      const notice=pollNotice.current;if(notice){const point=pollBox.position.clone().add(new THREE.Vector3(0,1.9,0)).project(camera);notice.style.left=`${Math.max(90,Math.min(el.clientWidth-90,(point.x+1)*.5*el.clientWidth))}px`;notice.style.top=`${Math.max(50,(1-point.y)*.5*el.clientHeight)}px`;notice.style.visibility=point.z>=-1&&point.z<=1&&['home','village'].includes(s.mode)&&!s.paused?'visible':'hidden';}
+      const notice=pollNotice.current;if(notice){const point=pollBox.position.clone().add(new THREE.Vector3(0,1.9,0)).project(camera);notice.style.left=`${Math.max(90,Math.min(el.clientWidth-90,(point.x+1)*.5*el.clientWidth))}px`;notice.style.top=`${Math.max(50,(1-point.y)*.5*el.clientHeight)}px`;notice.style.visibility=pollBox.visible&&point.z>=-1&&point.z<=1&&['home','village'].includes(s.mode)&&!s.paused?'visible':'hidden';}
       lifeWorld.update(time,s.villageMembers,s.gardenData);if(!s.inputEnabled||s.mode!=='village')facilityDestination=null;if(s.paused){clearKeys();updateBenchPrompt('');if(viewport.needsDraw||!s.renderSuspended&&time-lastPausedRender>.1){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
       if(s.mode==='home'&&s.inputEnabled&&ownerId===s.viewerId&&Math.hypot(callbacks.current.movementInput?.current?.x||0,callbacks.current.movementInput?.current?.y||0)>.01)callbacks.current.onWalk?.();
       const lifeFocused=isLifeFocus(s.mode);
@@ -524,9 +527,10 @@ export default function Scene({pollActive=false,onPollClick,villageSpeech=[],top
   useEffect(()=>{
     const scene=worldRef.current;if(!scene||!editor?.onThumbnails)return;
     const book=createVillageGuestbook({x:0,z:0,rotation:0});
-    try{editor.onThumbnails(modelThumbnails([...scene.sceneryRoots,[GUESTBOOK_ID,book]]));}
+    const board=createChalkboard({x:0,z:0,rotation:0});
+    try{editor.onThumbnails(modelThumbnails([...scene.sceneryRoots,[GUESTBOOK_ID,book],[CHALKBOARD_ID,board],[POLLBOX_ID,scene.pollBox]]));}
     catch{editor.onThumbnails(null);}
-    finally{disposeObject(book);}
+    finally{disposeObject(book);disposeObject(board);}
   },[editor?.onThumbnails,village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
@@ -545,17 +549,19 @@ export default function Scene({pollActive=false,onPollClick,villageSpeech=[],top
     const scene=worldRef.current;if(!scene)return;
     disposeObject(scene.signRoot);scene.signRoot.clear();
     const model=createVillageSign(villageSign(village));model.userData.itemId=SIGN_ID;if(!signData.hidden)scene.signRoot.add(model);else disposeObject(model);
+    const poll=community.find(item=>item.id===POLLBOX_ID);scene.pollBox.position.set(poll.x,.16,poll.z);scene.pollBox.rotation.y=poll.rotation*Math.PI/2;scene.pollBox.visible=!poll.hidden;
+    const board=community.find(item=>item.id===CHALKBOARD_ID);if(!board.hidden){const model=createChalkboard(board,chalkStrokes);model.userData.itemId=CHALKBOARD_ID;scene.signRoot.add(model);}
     const book=createVillageGuestbook(villageGuestbook(village));book.userData.itemId=GUESTBOOK_ID;if(!guestbookData.hidden)scene.signRoot.add(book);else disposeObject(book);
-  },[signKey,guestbookKey,village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
+  },[signKey,guestbookKey,communityKey,JSON.stringify(chalkStrokes),village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;
     const {previewRoot}=scene;
     disposeObject(previewRoot);previewRoot.clear();
     if(!editor)return;
-    const chosen=[...villageScenery(village),...(village.items||[]),signPlacementItem(villageSign(village)),guestbookPlacementItem(villageGuestbook(village))].find(item=>item.id===editor.selected),type=chosen?.type||editor.tool;
+    const chosen=[...villageScenery(village),...(village.items||[]),signPlacementItem(villageSign(village)),guestbookPlacementItem(villageGuestbook(village)),...community].find(item=>item.id===editor.selected),type=chosen?.type||editor.tool;
     if(!type)return;
     const preview=new THREE.Group();preview.position.set(chosen?.x||0,.17,chosen?.z||0);preview.visible=!!chosen;
-    const sample=isScenery(chosen?.id)?new THREE.Mesh(new THREE.BoxGeometry(1.4,.1,1.4),new THREE.MeshBasicMaterial()):type==='villageGuestbook'?createVillageGuestbook({x:0,z:0,rotation:0}):type==='villageSign'?createVillageSign({...villageSign(village),x:0,z:0,rotation:0}):createDecoration(type);sample.rotation.y=(chosen?.rotation??editor.rotation??0)*Math.PI/2;
+    const sample=isScenery(chosen?.id)?new THREE.Mesh(new THREE.BoxGeometry(1.4,.1,1.4),new THREE.MeshBasicMaterial()):type==='chalkboard'?createChalkboard({x:0,z:0,rotation:0}):type==='pollbox'?new THREE.Mesh(new THREE.BoxGeometry(.91,1.3,.81),new THREE.MeshBasicMaterial()):type==='villageGuestbook'?createVillageGuestbook({x:0,z:0,rotation:0}):type==='villageSign'?createVillageSign({...villageSign(village),x:0,z:0,rotation:0}):createDecoration(type);sample.rotation.y=(chosen?.rotation??editor.rotation??0)*Math.PI/2;
     const bounds=new THREE.Box3().setFromObject(isScenery(chosen?.id)?scene.sceneryRoots.get(chosen.id):sample),size=bounds.getSize(new THREE.Vector3());
     const w=Math.max(.85,size.x+.15),d=Math.max(.85,size.z+.15);
     if(!chosen){sample.traverse(o=>{if(o.isMesh){o.material.transparent=true;o.material.opacity=.55;o.castShadow=false;}});preview.add(sample);}else disposeObject(sample);
@@ -565,7 +571,7 @@ export default function Scene({pollActive=false,onPollClick,villageSpeech=[],top
     for(const [x,z] of [[1,0],[-1,0],[0,1],[0,-1]]){const arrow=new THREE.ArrowHelper(new THREE.Vector3(x,0,z),new THREE.Vector3(x*w*.5,.1,z*d*.5),.42,color,.16,.13);arrow.line.material.depthTest=false;arrow.cone.material.depthTest=false;arrow.renderOrder=21;preview.add(arrow);}
     preview.userData.tint=valid=>{lineMat.color.setHex(valid?color:0xff8394);base.material.color.copy(lineMat.color);};
     previewRoot.add(preview);
-  },[JSON.stringify(village.scenery),JSON.stringify(village.items),village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),JSON.stringify(village.sign),guestbookKey,!!editor,editor?.selected,editor?.tool,editor?.rotation]);
+  },[JSON.stringify(village.scenery),JSON.stringify(village.items),village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),JSON.stringify(village.sign),guestbookKey,communityKey,!!editor,editor?.selected,editor?.tool,editor?.rotation]);
   useEffect(()=>{
     const scene=worldRef.current,action=editor?.cameraAction;if(!scene||!action)return;
     const {camera,controls}=scene;

@@ -1,5 +1,5 @@
-Tool: built-in image_gen.imagegen
-Output asset: public/images/avatar-cards/portraits.png
-Transparent background: false
-
-Use case: stylized-concept. Asset type: production artwork atlas for a Korean cozy social game avatar card UI. Create a high quality landscape 1536x1024 image split into FOUR perfectly equal vertical panels edge to edge (each exactly one quarter of total width), no gaps, no dividers. Each panel is a separate portrait illustration composed with face centered in its panel, full head visible, upper body with plush toy, richly softly blurred magical village garden background. Style: extremely cute premium 3D rendered chibi dolls, huge glossy expressive anime eyes, detailed fluffy hair, soft rounded cheeks, warm dreamy cinematic bokeh, delicate pastel lighting, like collectible miniature figurine portraits. Panel 1: beige wavy bob hair, amber eyes, cream cardigan, hugging a white bunny plush, golden sunlit cozy cottage garden. Panel 2: peach pink bob hair with tiny bunny on head, pink eyes, holding a pink camera, pale pink outfit, sunny flowering garden, happy wink. Panel 3: dark navy bob hair, blue eyes, black cat ear headphones, hugging black kitten plush, cool teal nighttime garden. Panel 4: ivory tousled hair, brown eyes, brass goggles on head, hugging penguin plush, sage explorer outfit, sunny green garden. The uploaded reference is visual style inspiration only. Artwork only: absolutely no letters, no typography, no card borders, no hearts, no UI. Keep subjects contained in each equal panel. Upper half of each panel is the head, lower half shoulders and toy. Generate a fresh illustration with excellent detail.
+Current assets: public/images/avatar-cards/{pio,luna,moa,tori}-profile.png
+Method: built-in image_gen, one faithful portrait per actual in-game character.
+References: actual FBX models rendered by scripts/render-card-references.mjs.
+Full final prompts and source/output mapping: docs/avatar-card-portrait-generation.json
+The old theme-based portraits.png atlas is no longer used by the avatar card UI.

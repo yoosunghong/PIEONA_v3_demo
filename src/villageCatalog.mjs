@@ -1,3 +1,4 @@
+import {communityDefinitions,isCommunityObject} from '../shared/communityObjects.mjs';
 import {isLifeScenery} from '../shared/lifeLayout.mjs';
 import {decorations,remainingDecoration,decorationQuantity} from '../shared/world.mjs';
 import {isScenery} from '../shared/scenery.mjs';
@@ -22,9 +23,9 @@ export function villageCatalog(items,rewards=[]){
   const catalog=decorations.map(item=>({...item,key:item.id,total:decorationQuantity(item,rewards),remaining:remainingDecoration(items,item.id,rewards)}));
   const groups=new Map();
   for(const item of items){
-    if(!isScenery(item.id)&&item.id!==SIGN_ID&&item.id!==GUESTBOOK_ID)continue;
+    if(!isCommunityObject(item.id)&&!isScenery(item.id)&&item.id!==SIGN_ID&&item.id!==GUESTBOOK_ID)continue;
     const key=fixedCatalogKey(item);
-    if(!groups.has(key))groups.set(key,{key,id:item.id,name:isScenery(item.id)?item.name:item.id===SIGN_ID?'마을 팻말':'마을 방명록',category:isScenery(item.id)?sceneryCategory(item):'other',fixed:true,total:0,remaining:0,storedIds:[]});
+    if(!groups.has(key))groups.set(key,{key,id:item.id,name:isCommunityObject(item.id)?communityDefinitions.find(def=>def.id===item.id).name:isScenery(item.id)?item.name:item.id===SIGN_ID?'마을 팻말':'마을 방명록',category:isScenery(item.id)?sceneryCategory(item):'other',fixed:true,total:0,remaining:0,storedIds:[]});
     const group=groups.get(key);group.total++;
     if(item.hidden){group.remaining++;group.storedIds.push(item.id);}
   }

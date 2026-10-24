@@ -27,6 +27,12 @@ export function openStore(filename = './data/pieona.sqlite') {
       confirmed INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS memories_owner ON memories(owner_id);
+    CREATE TABLE IF NOT EXISTS chalkboards (
+      owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, strokes TEXT NOT NULL DEFAULT '[]', revision INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE IF NOT EXISTS chalkboard_requests (
+      owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, request_id TEXT NOT NULL, author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, PRIMARY KEY(owner_id,request_id,author_id)
+    );
     CREATE TABLE IF NOT EXISTS guestbook_entries (
       id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       author_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, content TEXT NOT NULL,

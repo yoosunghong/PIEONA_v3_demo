@@ -8,6 +8,22 @@ const preferences=preferenceQuestions.map(q=>({id:q.id,value:q.options[0]}));
 const localAnswer=async()=>({reply:'같이 이야기하자!',emotion:'happy',memories:[],provider:'test'});
 const cardHarness=options=>harness({generateCardAnalysis:async()=>({provider:'local'}),...options});
 
+test('card portraits follow the AI character independently of theme and player character, including slot previews and visitors',async()=>{
+  const h=await cardHarness();
+  try{
+    const owner=await h.register('portrait_owner'),visitor=await h.register('portrait_visitor');
+    await h.request('/balance',owner,{answers,preferences});
+    assert.equal((await h.request('/me/world',owner,{appearance:{character:'tori',hat:'none',accessory:'none',color:'#88b5d7'}},'PATCH')).status,200);
+    for(const character of ['pio','luna','moa','tori']){
+      assert.equal((await h.request('/me/world',owner,{avatarAppearance:{character,hat:'none',accessory:'none',color:'#88b5d7'}},'PATCH')).status,200);
+      const result=(await h.request('/avatar-cards',owner)).body;
+      assert.equal(result.card.character,character);
+      assert.ok(result.slots.every(slot=>slot.preview.character===character));
+      assert.equal((await h.request(`/users/${owner.id}/avatar-card`,visitor)).body.card.character,character);
+    }
+  }finally{await h.close();}
+});
+
 test('tutorial preferences create one independent card; invalid preferences are atomic and tiers follow 3/5/7/10',async()=>{
   const h=await cardHarness({generateAnswer:localAnswer});
   try{

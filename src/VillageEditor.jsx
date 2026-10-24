@@ -1,3 +1,4 @@
+import {communityDefinitions,communityPlacements,isCommunityObject} from '../shared/communityObjects.mjs';
 import {isLifeScenery} from '../shared/lifeLayout.mjs';
 import {isScenery,villageScenery} from '../shared/scenery.mjs';
 import React,{useCallback,useEffect,useLayoutEffect,useReducer,useRef,useState} from 'react';
@@ -11,12 +12,12 @@ import {fixedCatalogKey,villageCatalog,filterVillageCatalog,rememberDecoration} 
 import {SIGN_ID,villageSign,signPlacementItem} from '../shared/sign.mjs';
 import {SignThumbnail} from './SignEditor';
 import {GUESTBOOK_ID,villageGuestbook,guestbookPlacementItem} from '../shared/guestbook.mjs';
-const fixedItem=id=>id===SIGN_ID||id===GUESTBOOK_ID||isScenery(id);
+const fixedItem=id=>isCommunityObject(id)||id===SIGN_ID||id===GUESTBOOK_ID||isScenery(id);
 
 const categories=[{id:'all',name:'전체',Icon:Grid2X2},{id:'recent',name:'최근 사용',Icon:Clock},{id:'furniture',name:'가구',Icon:Armchair},{id:'plants',name:'식물',Icon:Flower2},{id:'decor',name:'장식',Icon:Trees},{id:'buildings',name:'건물',Icon:House},{id:'lighting',name:'조명',Icon:Lightbulb},{id:'other',name:'기타',Icon:Blocks}];
 
 export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange}){
-  const [history,dispatch]=useReducer(editorHistory,{past:[],present:[...(me.village?.items||[]).map(item=>({...item})),signPlacementItem(villageSign(me.village)),guestbookPlacementItem(villageGuestbook(me.village)),...villageScenery(me.village)],future:[]});
+  const [history,dispatch]=useReducer(editorHistory,{past:[],present:[...(me.village?.items||[]).map(item=>({...item})),signPlacementItem(villageSign(me.village)),guestbookPlacementItem(villageGuestbook(me.village)),...villageScenery(me.village),...communityPlacements(me.village)],future:[]});
   const items=history.present;
   const recentKey='pieona:village-recent:'+me.id;
   const [recent,setRecent]=useState(()=>{try{const value=JSON.parse(localStorage.getItem(recentKey)||'[]');return Array.isArray(value)?value.filter(key=>typeof key==='string').slice(0,50):[];}catch{return [];}});
@@ -30,7 +31,7 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
   const onThumbnails=useCallback(result=>{if(result)setFixedImages(result);else setError('소품 미리보기를 불러오지 못했어요. 새로고침 후 다시 시도해주세요.');},[]);
   const [selected,setSelected]=useState(null),[tool,setTool]=useState(null),[rotation,setRotation]=useState(0),[busy,setBusy]=useState(false),[error,setError]=useState(''),[exitPrompt,setExitPrompt]=useState(false),[cameraAction,setCameraAction]=useState(null);
   const busyRef=useRef(false),initial=useRef(JSON.stringify(items)),backRef=useRef();
-  const chosen=items.find(item=>item.id===selected),active=isScenery(chosen?.id)?{id:chosen.id,name:chosen.name}:chosen?.id===GUESTBOOK_ID?{id:'villageGuestbook',name:'마을 방명록'}:chosen?.id===SIGN_ID?{id:'villageSign',name:'마을 팻말'}:decorations.find(item=>item.id===(chosen?.type||tool));
+  const chosen=items.find(item=>item.id===selected),active=isCommunityObject(chosen?.id)?{id:chosen.id,name:chosen.name}:isScenery(chosen?.id)?{id:chosen.id,name:chosen.name}:chosen?.id===GUESTBOOK_ID?{id:'villageGuestbook',name:'마을 방명록'}:chosen?.id===SIGN_ID?{id:'villageSign',name:'마을 팻말'}:decorations.find(item=>item.id===(chosen?.type||tool));
   const dirty=initial.current!==JSON.stringify(items);
   useEffect(()=>{if(!dirty)return;const warn=e=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
   const catalog=filterVillageCatalog(villageCatalog(items,me.rewards),{category,query,sort,recent});
@@ -86,7 +87,7 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
   async function save(){
     if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');
     try{
-      await api('/me/world',{method:'PATCH',body:{village:{items:items.filter(item=>!fixedItem(item.id)),sign:placement(SIGN_ID),guestbook:placement(GUESTBOOK_ID),scenery:items.filter(item=>isScenery(item.id)).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden}))}}});
+      await api('/me/world',{method:'PATCH',body:{village:{items:items.filter(item=>!fixedItem(item.id)),sign:placement(SIGN_ID),guestbook:placement(GUESTBOOK_ID),...Object.fromEntries(communityDefinitions.map(def=>[def.key,placement(def.id)])),scenery:items.filter(item=>isScenery(item.id)).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden}))}}});
       initial.current=JSON.stringify(items);
       try{await onRefresh();}catch{notify('배치는 저장됐어요. 홈 화면을 새로고침하면 저장한 마을을 볼 수 있어요.');}
       notify('마을 꾸미기를 저장했어요.');onClose();
@@ -107,7 +108,7 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
     window.addEventListener('keydown',keydown);return()=>window.removeEventListener('keydown',keydown);
   });
   const camera=type=>setCameraAction({type,at:performance.now()});
-  useLayoutEffect(()=>{onSceneChange({scenery:items.filter(item=>isScenery(item.id)).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden})),items:items.filter(item=>!fixedItem(item.id)),sign:{...villageSign(me.village),...items.find(item=>item.id===SIGN_ID)},guestbook:placement(GUESTBOOK_ID),editor:{selected,tool,rotation,busy:busy||clearPrompt,onSelect:select,onCancel:cancel,onPlace:place,onMove:move,cameraAction,onThumbnails}});},[items,selected,tool,rotation,busy,clearPrompt,cameraAction,onThumbnails,onSceneChange]);
+  useLayoutEffect(()=>{onSceneChange({scenery:items.filter(item=>isScenery(item.id)).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden})),items:items.filter(item=>!fixedItem(item.id)),sign:{...villageSign(me.village),...items.find(item=>item.id===SIGN_ID)},guestbook:placement(GUESTBOOK_ID),...Object.fromEntries(communityDefinitions.map(def=>[def.key,placement(def.id)])),editor:{selected,tool,rotation,busy:busy||clearPrompt,onSelect:select,onCancel:cancel,onPlace:place,onMove:move,cameraAction,onThumbnails}});},[items,selected,tool,rotation,busy,clearPrompt,cameraAction,onThumbnails,onSceneChange]);
   const studioTheme=villageThemes.find(theme=>theme.id===me.village?.theme)?.id||'default';
   return <main className="village-studio" data-theme={studioTheme} aria-label="마을 꾸미기" aria-busy={busy}>
     <header className="studio-heading"><button ref={backRef} className="studio-back" aria-label="마을 꾸미기 나가기" disabled={busy} onClick={close}><ArrowLeft/></button><div><h1>마을 꾸미기</h1><p>나만의 특별한 공간을 만들어보세요</p></div></header>
@@ -117,9 +118,9 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
       <div className="studio-inventory"><nav className="studio-categories" aria-label="전체 소품 분류">{categories.map(({id,name,Icon})=><button key={id} className={category===id?'active':''} aria-pressed={category===id} onClick={()=>setCategory(id)}><Icon strokeWidth={1.65}/><span>{name}</span></button>)}</nav>
         <div ref={cardsRef} className="studio-cards" aria-label="배치할 소품">{catalog.length?catalog.map(item=>{
           const thumbnail=item.fixed?fixedImages[item.id]:images[item.id];
-          return <button key={item.key} className={'studio-card '+((item.fixed?item.storedIds.includes(selected):(chosen?.type||tool)===item.id)?'selected':'')} aria-label={isLifeScenery(item.id)?item.name+' 위치 조정':item.name+' 배치 · 남은 수량 '+item.remaining+'개'} aria-pressed={isLifeScenery(item.id)?selected===item.id:!item.fixed&&tool===item.id} disabled={busy||item.remaining===0&&!isLifeScenery(item.id)} draggable={!item.fixed&&!busy&&item.remaining>0} onDragStart={e=>{e.dataTransfer.setData('application/pieona-decoration',item.id);e.dataTransfer.effectAllowed='copy';pick(item.id);}} onClick={()=>item.fixed?restore(item.storedIds[0]||item.id):pick(item.id)}>
+          return <button key={item.key} className={'studio-card '+((item.fixed?fixedCatalogKey(chosen||{})===item.key:(chosen?.type||tool)===item.id)?'selected':'')} aria-label={item.fixed&&!item.remaining?item.name+' 위치 조정':item.name+' 배치 · 남은 수량 '+item.remaining+'개'} aria-pressed={item.fixed?fixedCatalogKey(chosen||{})===item.key:tool===item.id} disabled={busy||item.remaining===0&&!item.fixed} draggable={!item.fixed&&!busy&&item.remaining>0} onDragStart={e=>{e.dataTransfer.setData('application/pieona-decoration',item.id);e.dataTransfer.effectAllowed='copy';pick(item.id);}} onClick={()=>item.fixed?restore(item.storedIds[0]||item.id):pick(item.id)}>
             <span className="studio-card-art">{item.id===SIGN_ID?<SignThumbnail shape={villageSign(me.village).shape}/>:thumbnail?<img src={thumbnail} alt="" draggable={false}/>:item.id===GUESTBOOK_ID?<BookOpen size={32}/>:item.fixed?<Trees size={32}/>:<span className="studio-card-placeholder" style={{background:item.color}}/>}</span>
-            <strong>{item.name}</strong><small className="studio-card-stock">{isLifeScenery(item.id)?'선택하여 이동 · 회전':Number.isFinite(item.total)?item.reward&&item.total===0?'설문 완료 시 지급':`배치 가능 ${item.remaining} / ${item.total}`:'수량 제한 없음'}</small><span className="studio-card-count" aria-label={Number.isFinite(item.remaining)?'남은 수량 '+item.remaining+'개':'수량 제한 없음'}>{isLifeScenery(item.id)?'이동':Number.isFinite(item.remaining)?item.remaining:'∞'}</span><span className="studio-card-add"><Plus size={13}/></span>
+            <strong>{item.name}</strong><small className="studio-card-stock">{item.fixed&&!item.remaining?'선택하여 이동 · 회전':Number.isFinite(item.total)?item.reward&&item.total===0?'설문 완료 시 지급':`배치 가능 ${item.remaining} / ${item.total}`:'수량 제한 없음'}</small><span className="studio-card-count" aria-label={Number.isFinite(item.remaining)?'남은 수량 '+item.remaining+'개':'수량 제한 없음'}>{item.fixed&&!item.remaining?'이동':Number.isFinite(item.remaining)?item.remaining:'∞'}</span><span className="studio-card-add"><Plus size={13}/></span>
           </button>;
         }):<p className="studio-empty">{category==='recent'&&!query.trim()?'최근 사용한 소품이 없어요. 소품을 배치하면 여기에 표시돼요.':'검색한 소품이 없어요.'}<button onClick={()=>{setQuery('');setCategory('all');}}>전체 소품 보기</button></p>}</div>
       </div><button className="studio-sign-position" aria-label="마을 팻말 위치 조정" disabled={busy} onClick={()=>restore(SIGN_ID)}><SignThumbnail shape={villageSign(me.village).shape}/><span><strong>마을 팻말</strong><small>{items.find(item=>item.id===SIGN_ID)?.hidden?'보관 중 · 다시 배치':'선택하여 이동 · 회전'}</small></span></button><button className="studio-sign-position studio-guestbook-position" aria-label="마을 방명록 위치 조정" disabled={busy} onClick={()=>restore(GUESTBOOK_ID)}><BookOpen size={30}/><span><strong>마을 방명록</strong><small>{items.find(item=>item.id===GUESTBOOK_ID)?.hidden?'보관 중 · 다시 배치':'선택하여 이동 · 회전'}</small></span></button><div className="studio-scenery-note"><Trees size={15}/>생활 시설도 선택하여 이동 · 회전할 수 있어요</div><div className="studio-catalog-foot"><span><span className="studio-dot"/>{items.filter(item=>!fixedItem(item.id)&&!item.hidden).length} / 24 배치</span><button className="studio-clear-all" disabled={busy||!items.some(item=>!item.hidden&&!isLifeScenery(item.id))} title="모든 배치 소품을 인벤토리에 보관" onClick={()=>setClearPrompt(true)}><Trash2 size={12}/>전체 삭제</button></div>

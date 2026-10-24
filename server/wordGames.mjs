@@ -2,7 +2,7 @@ import {z} from 'zod';
 import {id,now} from './store.mjs';
 import {TYPING_PHRASES,validateChain,normalizeWord} from '../shared/wordGames.mjs';
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
-export function installWordGames({app,io,store,auth,checkTarget,userById,villageVisitors,emitWorld,isBusy=()=>false,clock=Date.now}){
+export function installWordGames({app,io,store,auth,checkTarget,userById,villageVisitors,emitWorld,emitVillage=()=>{},isBusy=()=>false,clock=Date.now}){
   const rooms=new Map();
   const present=(uid,village)=>!!villageVisitors.get(village)?.get(uid)?.sockets.size;
   const busy=uid=>[...rooms.values()].some(r=>r.status!=='finished'&&r.players.some(p=>p.id===uid));
@@ -19,7 +19,7 @@ export function installWordGames({app,io,store,auth,checkTarget,userById,village
         if(daily<=10&&(clock()-r.startedAt>=10000||r.used.length>=2)){store.run('UPDATE users SET gold=gold+? WHERE id=?',winner===p.id?20:10,p.id);const user=userById(p.id);store.run('INSERT OR IGNORE INTO avatar_experience VALUES(?,?,?,10)',`duel:${r.id}:${p.id}`,p.id,user.active_slot);}
       }
     });
-    publish(r);emitWorld();
+    publish(r);emitVillage(r.villageId);emitWorld();
   }
   function tick(){for(const r of rooms.values()){
     if(r.status==='waiting'&&clock()-r.createdAt>120000)finish(r,null,'대기 시간이 끝났어요.');
@@ -35,13 +35,13 @@ export function installWordGames({app,io,store,auth,checkTarget,userById,village
     checkTarget(req,req.params.id);tick();if(!present(req.user.id,req.params.id))fail(409,'마을에 연결한 뒤 시작해주세요.');
     if(busy(req.user.id)||isBusy(req.user.id))fail(409,'이미 참가한 게임이나 생활 활동을 먼저 마쳐주세요.');
     const {kind}=z.object({kind:z.enum(['typing','wordchain'])}).parse(req.body);
-    const r={id:id(),villageId:req.params.id,kind,status:'waiting',createdAt:clock(),players:[{id:req.user.id,nickname:req.user.nickname,correct:0,attempted:0,index:0,score:0,lastInput:0}],used:[],turn:0,log:[]};rooms.set(r.id,r);publish(r);res.status(201).json({room:snapshot(r)});
+    const r={id:id(),villageId:req.params.id,kind,status:'waiting',createdAt:clock(),players:[{id:req.user.id,nickname:req.user.nickname,correct:0,attempted:0,index:0,score:0,lastInput:0}],used:[],turn:0,log:[]};rooms.set(r.id,r);publish(r);emitVillage(r.villageId);res.status(201).json({room:snapshot(r)});
   });
   app.post('/api/duels/:id/join',auth,(req,res)=>{
     tick();const r=rooms.get(req.params.id);if(!r)fail(404,'대결을 찾을 수 없어요.');checkTarget(req,r.villageId);
     if(r.status!=='waiting'||r.players.length!==1)fail(409,'이미 시작한 대결이에요.');
     if(!present(req.user.id,r.villageId)||busy(req.user.id)||isBusy(req.user.id))fail(409,'같은 마을에서 대기 중인 친구만 참가할 수 있어요.');
-    r.players.push({id:req.user.id,nickname:req.user.nickname,correct:0,attempted:0,index:0,score:0,lastInput:0});r.status='playing';r.startedAt=clock()+3000;r.deadline=r.startedAt+(r.kind==='typing'?60000:15000);publish(r);res.json({room:snapshot(r)});
+    r.players.push({id:req.user.id,nickname:req.user.nickname,correct:0,attempted:0,index:0,score:0,lastInput:0});r.status='playing';r.startedAt=clock()+3000;r.deadline=r.startedAt+(r.kind==='typing'?60000:15000);publish(r);emitVillage(r.villageId);res.json({room:snapshot(r)});
   });
   app.post('/api/duels/:id/action',auth,(req,res)=>{
     tick();const r=roomFor(req),p=r.players.find(p=>p.id===req.user.id);
