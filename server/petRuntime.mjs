@@ -2,14 +2,25 @@ import {petWanderStep} from '../shared/petWander.mjs';
 import {WALK_RADIUS} from '../shared/villageSize.mjs';
 import {z} from 'zod';
 
-export function createPetRuntime({app,auth,clock,villageVisitors,pets,ensurePet,emitVillage,emitMove,logAction,random=Math.random}){
+export function createPetRuntime({app,auth,clock,villageVisitors,pets,ensurePet,emitVillage,emitMove,logAction,dragonState=()=>null,random=Math.random}){
   let last=clock();const receipts=new Map();
   function tick(){
     const now=clock(),dt=(now-last)/1000;last=now;
     const present=new Map();
-    for(const [room,members] of villageVisitors)for(const [uid,player] of members)if(!present.has(uid)||room===uid)present.set(uid,{room,player});
-    for(const [uid,{room,player}] of present){
-      const created=!pets.has(uid),pet=ensurePet(uid),oldRoom=pet.villageId||uid,newRoom=oldRoom!==room;
+    for(const [room,members] of villageVisitors){
+      if(!members.size)continue;
+      // The owner's resident pet remains here while visitors are in the village.
+      present.set(`resident:${room}`,{uid:room,room,player:members.get(room)||null});
+      for(const [uid,player] of members)if(uid!==room&&(!present.has(uid)))present.set(uid,{uid,room,player});
+    }
+    for(const [key,value] of [...present]){
+      const state=dragonState(value.uid);
+      if(state?.available&&!state.riding)present.set(`mount:${key}`,{...value,mount:true});
+    }
+    for(const [key,{uid,room,player,mount}] of present){
+      const created=!pets.has(key),pet=ensurePet(uid,key,room),oldRoom=pet.villageId||uid,newRoom=oldRoom!==room;
+      if(mount){pet.actorKind='MOUNT';pet.userId=`mount:${uid}`;}
+      if(mount&&created&&player){pet.x=player.x+.6;pet.z=player.z-.7;pet.nextWander=now+12000;}
       pet.villageId=room;
       if(newRoom){pet.x=player.x+.6;pet.z=player.z-.7;pet.destination=null;emitVillage(oldRoom);}
       const reacting=pet.interaction&&now<pet.interaction.until;
@@ -31,7 +42,7 @@ export function createPetRuntime({app,auth,clock,villageVisitors,pets,ensurePet,
     const {kind,requestId,villageId}=z.object({kind:z.enum(['pet','call']),requestId:z.string().uuid(),villageId:z.string().uuid()}).strict().parse(req.body);
     const uid=req.user.id,previous=receipts.get(uid+':'+requestId);
     if(previous){if(previous.kind!==kind||previous.villageId!==villageId)return res.status(409).json({error:'같은 요청으로 다른 행동을 할 수 없어요.'});return res.json(previous.result);}
-    const pet=pets.get(uid),player=villageVisitors.get(villageId)?.get(uid);
+    const pet=[...pets.values()].find(p=>p.ownerId===uid&&p.villageId===villageId),player=villageVisitors.get(villageId)?.get(uid);
     if(!pet||!player||(pet.villageId||uid)!==villageId)return res.status(409).json({error:'펫과 같은 마을에서 시도해 주세요.'});
     if(kind==='pet'&&Math.hypot(pet.x-player.x,pet.z-player.z)>2.6)return res.status(409).json({error:'펫 가까이로 이동해 주세요.'});
     if(pet.interaction&&clock()<pet.interaction.until)return res.status(409).json({error:'펫이 반응하고 있어요. 잠시 기다려 주세요.'});

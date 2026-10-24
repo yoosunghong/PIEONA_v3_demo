@@ -39,7 +39,7 @@ export function createMotorcycle(color='#88b5d7'){
 }
 
 // Solve each two-bone limb in world space; the FBX exports use different local axes.
-export function createRidePose(avatar){
+export function createRidePose(avatar,{seat=[0,1.08,-.15],footY=.72,handY=1.4,spread=.34}={}){
   const bones=[];avatar.traverse(bone=>{if(bone.isBone)bones.push({bone,q:bone.quaternion.clone()});});
   const original=avatar.position.clone(),root=avatar.parent;
   const find=name=>bones.find(({bone})=>bone.name.toLowerCase().endsWith(name.toLowerCase()))?.bone;
@@ -65,11 +65,11 @@ export function createRidePose(avatar){
   const hips=find('Hips'),spine=find('Spine');
   if(hips&&spine){
     aim(hips,spine,position(hips).add(new THREE.Vector3(0,1,.16).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()))));
-    const pelvis=root.worldToLocal(position(hips));avatar.position.add(new THREE.Vector3(0,1.08,-.15).sub(pelvis));
+    const pelvis=root.worldToLocal(position(hips));avatar.position.add(new THREE.Vector3(...seat).sub(pelvis));
   }
   for(const [side,sign] of [['Left',1],['Right',-1]]){
-    limb(side+'UpLeg',side+'Leg',side+'Foot',[sign*.34,.72,.12],[sign*.75,.8,1.2]);
-    limb(side+'Arm',side+'ForeArm',side+'Hand',[sign*.34,1.4,.35],[sign*.95,1.1,.3]);
+    limb(side+'UpLeg',side+'Leg',side+'Foot',[sign*spread,footY,.12],[sign*.75,footY+.08,1.2]);
+    limb(side+'Arm',side+'ForeArm',side+'Hand',[sign*.34,handY,.35],[sign*.95,handY-.3,.3]);
     const foot=find(side+'Foot'),toe=find(side+'ToeBase');if(foot&&toe)aim(foot,toe,position(foot).add(new THREE.Vector3(0,-.08,.3).applyQuaternion(root.getWorldQuaternion(new THREE.Quaternion()))));
   }
   const seated=avatar.position.clone();bones.forEach(part=>{part.ride=part.bone.quaternion.clone();part.bone.quaternion.copy(part.q);});avatar.position.copy(original);

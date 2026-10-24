@@ -33,16 +33,16 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
   const chosen=items.find(item=>item.id===selected),active=isScenery(chosen?.id)?{id:chosen.id,name:chosen.name}:chosen?.id===GUESTBOOK_ID?{id:'villageGuestbook',name:'마을 방명록'}:chosen?.id===SIGN_ID?{id:'villageSign',name:'마을 팻말'}:decorations.find(item=>item.id===(chosen?.type||tool));
   const dirty=initial.current!==JSON.stringify(items);
   useEffect(()=>{if(!dirty)return;const warn=e=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
-  const catalog=filterVillageCatalog(villageCatalog(items),{category,query,sort,recent});
+  const catalog=filterVillageCatalog(villageCatalog(items,me.rewards),{category,query,sort,recent});
   useEffect(()=>{cardsRef.current?.scrollTo({top:0,left:0});},[category,query,sort]);
   useEffect(()=>{let alive=true;decorationThumbnails().then(result=>{if(alive)setImages(result);}).catch(()=>{if(alive)setError('소품 미리보기를 불러오지 못했어요. 새로고침 후 다시 시도해주세요.');});backRef.current?.focus();return()=>{alive=false;};},[]);
   function change(next){if(busyRef.current)return;setError('');dispatch({type:'change',items:next});}
   function select(id){if(busyRef.current)return;setSelected(id);setTool(null);}
   function cancel(){if(busyRef.current)return;setSelected(null);setTool(null);}
-  function pick(type){if(busyRef.current||remainingDecoration(items,type)===0)return;setTool(type);setSelected(null);setRotation(0);setExitPrompt(false);}
+  function pick(type){if(busyRef.current||remainingDecoration(items,type,me.rewards)===0)return;setTool(type);setSelected(null);setRotation(0);setExitPrompt(false);}
   function place(point,type=tool){
     if(busyRef.current||!decorations.some(item=>item.id===type))return;
-    if(remainingDecoration(items,type)===0)return setError('이 소품은 모두 배치했어요. 보관 후 다시 사용해 주세요.');
+    if(remainingDecoration(items,type,me.rewards)===0)return setError('이 소품은 모두 배치했어요. 보관 후 다시 사용해 주세요.');
     const x=snapPosition(point.x),z=snapPosition(point.z);
     if(items.filter(item=>!fixedItem(item.id)&&!item.hidden).length>=24)return setError('소품은 최대 24개까지 배치할 수 있어요. 기존 소품을 정리해 주세요.');
     if(!canPlaceDecoration(items,x,z))return setError('광장·산책로·기존 시설을 피해 빈 격자에 놓아주세요. 소품 사이에는 간격이 필요해요.');
@@ -50,7 +50,7 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
     if(!stored&&items.filter(item=>!fixedItem(item.id)).length>=256)return setError('보관함이 가득 찼어요. 보관 중인 소품을 다시 배치해주세요.');
     const item={id:stored?.id||crypto.randomUUID(),type,x,z,rotation};change(stored?items.map(entry=>entry.id===stored.id?item:entry):[...items,item]);setSelected(item.id);setTool(null);remember(type);
   }
-  const canDuplicate=!!chosen&&!fixedItem(chosen.id)&&remainingDecoration(items,chosen.type)>0&&items.filter(item=>!fixedItem(item.id)&&!item.hidden).length<24;
+  const canDuplicate=!!chosen&&!fixedItem(chosen.id)&&remainingDecoration(items,chosen.type,me.rewards)>0&&items.filter(item=>!fixedItem(item.id)&&!item.hidden).length<24;
   function duplicate(){if(busyRef.current||!canDuplicate)return;pick(chosen.type);setRotation(chosen.rotation);}
   function move(id,point){
     const x=snapPosition(point.x),z=snapPosition(point.z);
@@ -119,7 +119,7 @@ export default function VillageEditor({me,notify,onRefresh,onClose,onSceneChange
           const thumbnail=item.fixed?fixedImages[item.id]:images[item.id];
           return <button key={item.key} className={'studio-card '+((item.fixed?item.storedIds.includes(selected):(chosen?.type||tool)===item.id)?'selected':'')} aria-label={isLifeScenery(item.id)?item.name+' 위치 조정':item.name+' 배치 · 남은 수량 '+item.remaining+'개'} aria-pressed={isLifeScenery(item.id)?selected===item.id:!item.fixed&&tool===item.id} disabled={busy||item.remaining===0&&!isLifeScenery(item.id)} draggable={!item.fixed&&!busy&&item.remaining>0} onDragStart={e=>{e.dataTransfer.setData('application/pieona-decoration',item.id);e.dataTransfer.effectAllowed='copy';pick(item.id);}} onClick={()=>item.fixed?restore(item.storedIds[0]||item.id):pick(item.id)}>
             <span className="studio-card-art">{item.id===SIGN_ID?<SignThumbnail shape={villageSign(me.village).shape}/>:thumbnail?<img src={thumbnail} alt="" draggable={false}/>:item.id===GUESTBOOK_ID?<BookOpen size={32}/>:item.fixed?<Trees size={32}/>:<span className="studio-card-placeholder" style={{background:item.color}}/>}</span>
-            <strong>{item.name}</strong><small className="studio-card-stock">{isLifeScenery(item.id)?'선택하여 이동 · 회전':Number.isFinite(item.total)?`배치 가능 ${item.remaining} / ${item.total}`:'수량 제한 없음'}</small><span className="studio-card-count" aria-label={Number.isFinite(item.remaining)?'남은 수량 '+item.remaining+'개':'수량 제한 없음'}>{isLifeScenery(item.id)?'이동':Number.isFinite(item.remaining)?item.remaining:'∞'}</span><span className="studio-card-add"><Plus size={13}/></span>
+            <strong>{item.name}</strong><small className="studio-card-stock">{isLifeScenery(item.id)?'선택하여 이동 · 회전':Number.isFinite(item.total)?item.reward&&item.total===0?'설문 완료 시 지급':`배치 가능 ${item.remaining} / ${item.total}`:'수량 제한 없음'}</small><span className="studio-card-count" aria-label={Number.isFinite(item.remaining)?'남은 수량 '+item.remaining+'개':'수량 제한 없음'}>{isLifeScenery(item.id)?'이동':Number.isFinite(item.remaining)?item.remaining:'∞'}</span><span className="studio-card-add"><Plus size={13}/></span>
           </button>;
         }):<p className="studio-empty">{category==='recent'&&!query.trim()?'최근 사용한 소품이 없어요. 소품을 배치하면 여기에 표시돼요.':'검색한 소품이 없어요.'}<button onClick={()=>{setQuery('');setCategory('all');}}>전체 소품 보기</button></p>}</div>
       </div><button className="studio-sign-position" aria-label="마을 팻말 위치 조정" disabled={busy} onClick={()=>restore(SIGN_ID)}><SignThumbnail shape={villageSign(me.village).shape}/><span><strong>마을 팻말</strong><small>{items.find(item=>item.id===SIGN_ID)?.hidden?'보관 중 · 다시 배치':'선택하여 이동 · 회전'}</small></span></button><button className="studio-sign-position studio-guestbook-position" aria-label="마을 방명록 위치 조정" disabled={busy} onClick={()=>restore(GUESTBOOK_ID)}><BookOpen size={30}/><span><strong>마을 방명록</strong><small>{items.find(item=>item.id===GUESTBOOK_ID)?.hidden?'보관 중 · 다시 배치':'선택하여 이동 · 회전'}</small></span></button><div className="studio-scenery-note"><Trees size={15}/>생활 시설도 선택하여 이동 · 회전할 수 있어요</div><div className="studio-catalog-foot"><span><span className="studio-dot"/>{items.filter(item=>!fixedItem(item.id)&&!item.hidden).length} / 24 배치</span><button className="studio-clear-all" disabled={busy||!items.some(item=>!item.hidden&&!isLifeScenery(item.id))} title="모든 배치 소품을 인벤토리에 보관" onClick={()=>setClearPrompt(true)}><Trash2 size={12}/>전체 삭제</button></div>

@@ -1,0 +1,20 @@
+[Unit]
+Description=PIEONA Cloudflare Tunnel
+After=network-online.target pieona.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+LoadCredential=tunnel.json:/etc/pieona/tunnel-credentials.json
+ExecStart=/usr/bin/cloudflared --no-autoupdate --config /etc/pieona/tunnel.yml tunnel --credentials-file ${CREDENTIALS_DIRECTORY}/tunnel.json run
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+NoNewPrivileges=true
+ProtectHome=true
+ProtectSystem=strict
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

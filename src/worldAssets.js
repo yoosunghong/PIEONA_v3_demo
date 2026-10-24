@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import {defaultAppearance} from '../shared/world.mjs';
+import {createDragonNest} from './dragonModels.mjs';
 
 // Original low-poly models made specifically for PIEONA, in world-space meters.
 export function createDecoration(type){
+  if(type==='dragonNest')return createDragonNest();
   const root=new THREE.Group();
   const material=color=>new THREE.MeshStandardMaterial({color,roughness:.7});
   const wood=material('#b78c72'),cream=material('#fff1dc'),green=material('#9ebc94'),pink=material('#ecb2ce'),blue=material('#9ed7ec');

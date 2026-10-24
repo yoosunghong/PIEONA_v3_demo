@@ -1,4 +1,6 @@
 import {defaultPetAppearance} from '../shared/pets.mjs';
+import {dragonMounted,dragonMountColor} from '../shared/dragonMount.mjs';
+import {SURVEY_REWARD} from '../shared/surveyRewards.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -50,9 +52,12 @@ export function openStore(filename = './data/pieona.sqlite') {
     CREATE TABLE IF NOT EXISTS avatar_slots (id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), snapshot TEXT NOT NULL, created_at TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS survey_participation (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, completed INTEGER NOT NULL DEFAULT 0, deferred_until INTEGER NOT NULL DEFAULT 0);
     CREATE TABLE IF NOT EXISTS survey_responses (id TEXT PRIMARY KEY, version INTEGER NOT NULL, answers TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS account_rewards (user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, reward_id TEXT NOT NULL, PRIMARY KEY(user_id,reward_id));
   `);
   // Legacy participation is retained, but cannot count as completion of a new questionnaire.
   if(!db.prepare('PRAGMA table_info(survey_participation)').all().some(c=>c.name==='version'))db.exec('ALTER TABLE survey_participation ADD COLUMN version INTEGER NOT NULL DEFAULT 0');
+  // Existing participants receive the same permanent reward, without linking anonymous answers.
+  db.prepare('INSERT OR IGNORE INTO account_rewards(user_id,reward_id) SELECT user_id,? FROM survey_participation WHERE completed=1').run(SURVEY_REWARD);
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='active_slot'))db.exec("ALTER TABLE users ADD COLUMN active_slot TEXT NOT NULL DEFAULT ''");
   if(!db.prepare('PRAGMA table_info(users)').all().some(c=>c.name==='survey_role'))db.exec("ALTER TABLE users ADD COLUMN survey_role TEXT NOT NULL DEFAULT 'user' CHECK(survey_role IN ('user','manager','admin'))");
   // The requested existing account is pinned to its immutable ID, never a mutable nickname.
@@ -106,11 +111,13 @@ export function visibleMemories(store, targetId, viewerId) {
 }
 export function publicUser(store, user, viewerId, online = new Set()) {
   const own = user.id === viewerId;
+  const rewards=store.all('SELECT reward_id FROM account_rewards WHERE user_id=?',user.id).map(row=>row.reward_id);
   const s = settingsOf(user);
   const relation = store.one('SELECT status,close FROM friendships WHERE owner_id=? AND friend_id=?', viewerId, user.id);
   const incoming = store.one("SELECT status FROM friendships WHERE owner_id=? AND friend_id=? AND status='pending'", user.id, viewerId);
   const result = {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
+    ...(own?{rewards}:{}),
     avatarAppearance: {...defaultPetAppearance,hat:'none',accessory:'none',color:'#88b5d7',...(user.avatar_appearance==='{}'?JSON.parse(user.appearance):JSON.parse(user.avatar_appearance))},
     village: {items:[],theme:'default',...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
     stage: own || s.stageVisible ? stageOf(store, user) : null,
@@ -120,6 +127,8 @@ export function publicUser(store, user, viewerId, online = new Set()) {
     scene: s.scene, relation: relation?.status || null, close: !!relation?.close, incoming: !!incoming,
     createdAt: user.created_at
   };
+  if(dragonMounted(result.appearance))result.appearance.petColor=dragonMountColor(result.appearance,result.avatarAppearance);
+  if(result.avatarAppearance.petType==='babyDragon')result.avatarAppearance.petType='dog';
   if (own) Object.assign(result, { username: user.username, surveyRole: user.survey_role, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot, characterLooks:JSON.parse(user.character_looks), avatarCharacterLooks:JSON.parse(user.avatar_character_looks) });
   return result;
 }

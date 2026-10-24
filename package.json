@@ -9,6 +9,7 @@
     "dev:client": "vite --host 127.0.0.1",
     "dev:server": "node --watch server/index.mjs",
     "build": "vite build",
+    "package:oracle": "npm run build && node scripts/package-oracle.mjs",
     "start": "node server/index.mjs",
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "tunnel": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/tunnel.ps1",

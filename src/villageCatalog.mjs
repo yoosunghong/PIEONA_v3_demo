@@ -1,5 +1,5 @@
 import {isLifeScenery} from '../shared/lifeLayout.mjs';
-import {decorations,remainingDecoration} from '../shared/world.mjs';
+import {decorations,remainingDecoration,decorationQuantity} from '../shared/world.mjs';
 import {isScenery} from '../shared/scenery.mjs';
 import {SIGN_ID} from '../shared/sign.mjs';
 import {GUESTBOOK_ID} from '../shared/guestbook.mjs';
@@ -18,8 +18,8 @@ function sceneryCategory(item){
 }
 
 // Catalog membership and order never depend on storage state or usage history.
-export function villageCatalog(items){
-  const catalog=decorations.map(item=>({...item,key:item.id,total:item.quantity,remaining:remainingDecoration(items,item.id)}));
+export function villageCatalog(items,rewards=[]){
+  const catalog=decorations.map(item=>({...item,key:item.id,total:decorationQuantity(item,rewards),remaining:remainingDecoration(items,item.id,rewards)}));
   const groups=new Map();
   for(const item of items){
     if(!isScenery(item.id)&&item.id!==SIGN_ID&&item.id!==GUESTBOOK_ID)continue;
