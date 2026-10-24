@@ -11,6 +11,8 @@
 
 파일을 저장하는 것만으로 운영 서버가 바뀌지는 않는다. 커밋·푸시된 버전만 배포한다. 같은 main 커밋을 다시 배포하려면 **Actions → Oracle CI/CD → Run workflow → main**을 사용한다. PR은 검증만 실행하고 운영 서버에 접근하지 않는다.
 
+PC 개발은 `start-local.bat`을 사용한다. 최초 전환 후 이 PC의 Git 제외 파일 `data/cloudflare/production-on-oracle.json`이 공개 터널의 중복 실행을 막는다. 기존 start-server도 로컬 모드로 실행되며, npm run tunnel은 안내 후 종료한다. 다른 PC로 개발 환경을 복사할 때도 운영 터널 자격증명을 복사·실행하지 않는다. 로컬로 운영을 되돌릴 때는 먼저 클라우드 터널을 정지하고 최신 DB를 복원한 뒤 이 표식 파일을 이동해 로컬 터널을 재개한다.
+
 ## 자동으로 실행하는 작업
 
 - Ubuntu GitHub runner / Node 24에서 `npm ci`, 프런트엔드 빌드, 전체 테스트 및 배포 묶음 검사를 수행한다.

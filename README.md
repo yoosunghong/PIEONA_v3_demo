@@ -2,6 +2,8 @@
 
 클라우드 자동 배포: main에 커밋·푸시하면 GitHub Actions가 테스트·빌드 후 Oracle에 반영합니다. [CI/CD 사용법·자동 복원·운영 경로](docs/cicd.md).
 
+운영 주소는 클라우드에서 유지합니다. PC 개발은 `start-local.bat`을 사용하며, 클라우드 전환 표식이 있는 PC에서는 기존 실행기도 운영 터널을 중복 연결하지 않습니다.
+
 Oracle Cloud Ubuntu 배포 준비: [설치·데이터 이전·HTTPS·멀티플레이 확인·백업 안내](docs/oracle-deployment.md). PC에서 `npm run package:oracle`로 비밀값·DB를 제외한 배포 묶음을 만듭니다.
 
 ## 마을 조작과 생활 UI

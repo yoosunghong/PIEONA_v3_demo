@@ -1,5 +1,5 @@
 import {spawn} from 'node:child_process';
-import {createWriteStream,writeFileSync,readFileSync,unlinkSync,mkdirSync} from 'node:fs';
+import {createWriteStream,writeFileSync,readFileSync,unlinkSync,mkdirSync,existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,resolve} from 'node:path';
 import {setTimeout as delay} from 'node:timers/promises';
@@ -49,5 +49,6 @@ while(Date.now()<deadline&&!stopping){
 if(!ready){console.error('[launcher] Server startup failed or timed out.');stop(1);}
 else if(!stopping){
   console.log(`[launcher] Ready: ${url} | Action logs: logs/server.log`);
-  if(!process.argv.includes('--no-tunnel'))launch('tunnel');
+  if(existsSync('data/cloudflare/production-on-oracle.json'))console.log('[launcher] Public hosting is on Oracle. Running locally without the production tunnel.');
+  else if(!process.argv.includes('--no-tunnel'))launch('tunnel');
 }

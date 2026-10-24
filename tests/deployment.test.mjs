@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,readlinkSync,readdirSync,rmSync,symlinkSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,readlinkSync,readdirSync,rmSync,symlinkSync,statSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join,resolve} from 'node:path';
 import {execFileSync} from 'node:child_process';
@@ -36,7 +36,7 @@ function fixture(){
   return {directory,root,data,config,controls,source,release,calls:()=>({stopCalls,startCalls}),close(){rmSync(directory,{recursive:true,force:true});}};
 }
 test('a healthy release switches atomically and redeploy is idempotent',{skip:process.platform!=='linux'},async()=>{
-  const f=fixture();try{const archive=f.release(f.source(next));const result=await deployRelease(f.config,next,archive,f.controls);assert.equal(result.status,'deployed');assert.equal(readlinkSync(join(f.root,'current')),join(f.root,'releases',next));assert.equal(f.calls().stopCalls,1);await deployRelease(f.config,next,archive,f.controls);assert.equal(f.calls().stopCalls,1);}finally{f.close();}
+  const f=fixture();try{const archive=f.release(f.source(next));const result=await deployRelease(f.config,next,archive,f.controls);assert.equal(result.status,'deployed');assert.equal(readlinkSync(join(f.root,'current')),join(f.root,'releases',next));assert.equal(statSync(join(f.root,'releases',next)).mode&0o777,0o755,'separate app account can traverse release');assert.equal(f.calls().stopCalls,1);await deployRelease(f.config,next,archive,f.controls);assert.equal(f.calls().stopCalls,1);}finally{f.close();}
 });
 test('failed release restores previous code AND SQLite schema while preserving failed DB',{skip:process.platform!=='linux'},async()=>{
   const f=fixture();try{

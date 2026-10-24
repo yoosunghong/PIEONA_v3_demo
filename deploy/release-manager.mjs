@@ -1,4 +1,4 @@
-import {createWriteStream,existsSync,mkdirSync,mkdtempSync,readFileSync,readlinkSync,renameSync,rmSync,symlinkSync,appendFileSync,readdirSync,statSync,statfsSync,writeFileSync} from 'node:fs';
+import {createWriteStream,existsSync,mkdirSync,mkdtempSync,readFileSync,readlinkSync,renameSync,rmSync,symlinkSync,appendFileSync,readdirSync,statSync,statfsSync,writeFileSync,chmodSync} from 'node:fs';
 import {resolve,join,dirname,basename} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
@@ -45,12 +45,14 @@ export async function deployRelease(config,revision,archive,controls=productionC
   if(existsSync(destination)){manifest(destination,revision);if(!existsSync(join(destination,'.prepared')))throw Error('Incomplete existing release');}
   else{
     const staging=mkdtempSync(join(root,'.staging-'));
+    chmodSync(staging,0o755); // mkdtemp defaults to 0700; the separate app account needs traversal.
     try{
       execFileSync(config.python||'python3',[config.extractor||fileURLToPath(new URL('./extract-release.py',import.meta.url)),archive,staging],{stdio:'inherit'});
       manifest(staging,revision);controls.prepare(staging);
       writeFileSync(join(staging,'.prepared'),revision+'\n');renameSync(staging,destination);
     }catch(error){rmSync(staging,{recursive:true,force:true});throw error;}
   }
+  chmodSync(destination,0o755);
   const receipt={revision,previousRevision:previous?basename(previous):null,started:new Date().toISOString()};
   let token,stopped=false,activated=false;
   try{

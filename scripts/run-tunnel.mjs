@@ -5,6 +5,9 @@ import { existsSync } from 'node:fs';
 import dotenv from 'dotenv';
 process.chdir(resolve(dirname(fileURLToPath(import.meta.url)),'..'));
 dotenv.config();
+if(existsSync('data/cloudflare/production-on-oracle.json')){
+  console.error('Production tunnel is hosted on Oracle. Use start-local.bat for development; see docs/cicd.md before moving the tunnel back.');process.exit(1);
+}
 const token=process.env.CLOUDFLARE_TUNNEL_TOKEN;
 if(!token&&!existsSync('data/cloudflare/credentials.json')){
   console.error('Tunnel credentials missing. See README.md: Cloudflare setup.');process.exit(1);
