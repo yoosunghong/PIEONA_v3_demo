@@ -6,19 +6,22 @@ import tarfile
 archive, destination = sys.argv[1:]
 root = pathlib.Path(destination).resolve()
 allowed = {'package.json', 'package-lock.json', 'release.json', 'server', 'shared', 'dist', 'resource', 'deploy'}
-with tarfile.open(archive, 'r:gz') as source:
-    members = source.getmembers()
-    if len(members) > 20000 or sum(m.size for m in members) > 2 * 1024**3:
-        raise ValueError('Release exceeds extraction limits')
-    for member in members:
+count = total = 0
+with tarfile.open(archive, 'r|gz') as source:
+    for member in source:
+        count += 1
+        total += member.size
+        if count > 20000 or total > 2 * 1024**3:
+            raise ValueError('Release exceeds extraction limits')
         path = pathlib.PurePosixPath(member.name)
         if (not path.parts or path.is_absolute() or '..' in path.parts
                 or path.parts[0] not in allowed or '\\' in member.name
                 or not (member.isfile() or member.isdir())
                 or any(p in {'.env', 'node_modules', '.git'} for p in path.parts)):
             raise ValueError('Unsafe archive member: ' + member.name)
-    # Open every file ourselves after checking the complete archive; no link extraction.
-    for member in members:
+# Stream extraction after bounded preflight; do not cache an unbounded header list.
+with tarfile.open(archive, 'r|gz') as source:
+    for member in source:
         target = root.joinpath(*pathlib.PurePosixPath(member.name).parts)
         if member.isdir():
             target.mkdir(parents=True, exist_ok=True)
