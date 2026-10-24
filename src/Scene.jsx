@@ -215,12 +215,12 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
     function drop(e){const edit=callbacks.current.editor;if(!edit||edit.busy)return;e.preventDefault();const point=ground(e),type=e.dataTransfer.getData('application/pieona-decoration');if(point&&type)edit.onPlace(point,type);}
     const pointerEvents={pointerdown:down,pointermove:move,pointerup:click,pointercancel:cancel,pointerleave:leave,contextmenu:context,dragover,drop};
     for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.addEventListener(name,handler);
-    let focusedToken=callbacks.current.chatFocusToken,chatReturnPose=null,chatFocusUntil=0;
+    let focusedToken=callbacks.current.chatFocusToken;
     let previousMode=mode,previousSignPose='',cameraTransition=null,returnPose=null,gridOpacity=mode==='edit'?gridStyle.opacity:0;
     worldRef.current.cancelCameraTransition=()=>{cameraTransition=null;};
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     const initialView=isLifeFocus(mode)?lifeFocusView(mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village):mode==='guestbook'?guestbookCameraView(callbacks.current.guestbook):mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,petPreview,mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
-    controls.addEventListener('start',()=>{cameraTransition=null;chatReturnPose=null;chatFocusUntil=0;});
+    controls.addEventListener('start',()=>{cameraTransition=null;});
     state.current={mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended};
     function constrainCameraPan(){
       const entry=remoteCharacters.get(state.current?.viewerId),seat=entry?.seatId&&entry.seat;
@@ -342,7 +342,6 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
       const detail=s.mode==='sign'||s.mode==='guestbook'||lifeFocused;
       const localEntry=remoteCharacters.get(s.viewerId),standingView=localEntry?.seatId?seatedReturnPose:null;
       if(localEntry?.seatId&&!localEntry.seatId.startsWith('fishing:')&&(s.mode!=='village'||!callbacks.current.benches.some(bench=>bench.id===localEntry.seatId)))stand(localEntry,!modeChanged);
-      if(modeChanged||detail){chatReturnPose=null;chatFocusUntil=0;}
       if(modeChanged||detail&&signPose!==previousSignPose){
         const leavingDetail=previousMode==='edit'||previousMode==='sign'||previousMode==='guestbook'||isLifeFocus(previousMode);
         if(modeChanged&&(s.mode==='edit'||detail)&&!leavingDetail)returnPose=standingView||cameraPose(camera,controls);
@@ -356,13 +355,8 @@ export default function Scene({topicGuest=null,topicLine=null,captureRef,movemen
         focusedToken=callbacks.current.chatFocusToken;
         if(callbacks.current.chatActive&&!detail){
           const host=remoteCharacters.get(ownerId)?.root||avatarRoot;
-          chatReturnPose ||= cameraPose(camera,controls);
           cameraTransition=startCameraTransition(camera,controls,avatarChatView(host.position),reducedMotion.matches?0:.65);
-          chatFocusUntil=performance.now()+2600;
         }
-      }
-      if(chatReturnPose&&(!callbacks.current.chatActive||performance.now()>=chatFocusUntil)){
-        cameraTransition=startCameraTransition(camera,controls,chatReturnPose,reducedMotion.matches?0:.8);chatReturnPose=null;
       }
       const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&!detail&&!dragged&&!cameraTransition;controls.minDistance=detail?1:localEntry?.seatId||localEntry?.sitMotion.active?2.5:portrait?3:5;controls.maxDistance=editing?30:26;configureScenePanning(controls,s.mode,{portrait});
       if(cameraTransition&&lifeFocused){const view=lifeFocusView(s.mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village);cameraTransition.to.fromArray(view.position);cameraTransition.toTarget.fromArray(view.target);}
