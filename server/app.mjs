@@ -288,6 +288,12 @@ export function createApp(options = {}) {
     res.json({question});
   });
 
+  app.get('/api/me/conversation',auth,(req,res)=>{
+    const user=userById(req.user.id);
+    const conversation=store.one('SELECT id FROM conversations WHERE viewer_id=? AND target_id=? AND avatar_slot=? ORDER BY rowid DESC LIMIT 1',user.id,user.id,user.active_slot);
+    res.json({conversation:conversation?{id:conversation.id,messages:store.all('SELECT * FROM messages WHERE conversation_id=? ORDER BY created_at,rowid',conversation.id)}:null});
+  });
+
   app.post('/api/conversations',auth,(req,res)=>{
     const data=z.object({targetId:z.string().uuid(),share:z.boolean().default(false),anonymous:z.boolean().default(false),opening:z.enum(arrivalQuestions.map(question=>question.id)).optional(),scene:z.enum(['garden','cafe','campfire']).default('garden')}).parse(req.body);const target=checkTarget(req,data.targetId);
     if(data.opening&&target.id!==req.user.id)fail(400,'내 아바타에게만 시작 질문을 설정할 수 있어요.');
