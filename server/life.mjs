@@ -160,7 +160,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     });
     socket.on('life:stop',(data,ack)=>{try{const user=sessionUser(socket.request.headers);if(!user)fail(401,'로그인이 필요해요.');const kind=data?.actor||'PLAYER';if(kind!=='PLAYER')fail(400,'잘못된 중단 요청이에요.');stop(user.id,kind);if(typeof ack==='function')ack({ok:true,...snapshot(user.id)});}catch(e){if(typeof ack==='function')ack({ok:false,error:e.status?e.message:'낚시를 종료하지 못했어요.'});}});
   });
-  const petRuntime=createPetRuntime({app,auth,clock,villageVisitors,pets,ensurePet,emitVillage,dragonState:uid=>({available:!!store.one('SELECT 1 FROM account_rewards WHERE user_id=? AND reward_id=?',uid,SURVEY_REWARD),riding:JSON.parse(owner(uid).appearance).ride==='babyDragon'}),emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
+  const petRuntime=createPetRuntime({app,auth,clock,random,villageVisitors,pets,ensurePet,emitVillage,dragonState:uid=>({available:!!store.one('SELECT 1 FROM account_rewards WHERE user_id=? AND reward_id=?',uid,SURVEY_REWARD),riding:JSON.parse(owner(uid).appearance).ride==='babyDragon'}),emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
   const timer=setInterval(()=>{try{tick();}catch(e){console.error('[life] tick failed',e.message);}},100);timer.unref();
   return {arrive,switchAvatar,active,seatOccupied:(room,seatId,except)=>[...(villageVisitors.get(room)?.values()||[])].some(m=>m.userId!==except&&m.seatId===seatId),busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,petMembers,execute,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);}};
 }

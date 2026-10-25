@@ -8,6 +8,7 @@ import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
 import {dressAvatar,createDecoration} from './worldAssets';
 import {canTraverse,walkable,WALK_SPEED,distance} from '../shared/exploration.mjs';
+import {reconcileExplorationPosition,withinExplorationPrediction} from './explorationMovement.mjs';
 
 // A live 3D field with reference-matched tree cutouts. Gatherable objects, water,
 // foliage and companions animate and remain independently selectable.
@@ -123,7 +124,7 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onInteract
  // Loading the project's existing rig preserves the player's actual character.
  loadAsset(appearance.character||'pio').then(asset=>{if(dead)return;avatar=clone(asset);const bounds=new T.Box3().setFromObject(avatar),size=bounds.getSize(new T.Vector3());avatar.scale.setScalar(3.55/size.y);const b=new T.Box3().setFromObject(avatar),center=b.getCenter(new T.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);player.add(avatar);dressAvatar(avatar,{...appearance,hat:appearance.hat==='none'?'crown':appearance.hat||'crown'});motion=createRunMotion(avatar);onReady?.();}).catch(()=>{if(dead)return;avatar=sprout('#fff8eb');avatar.scale.setScalar(1.6);player.add(avatar);onReady?.();});
  const ringGeo=new T.TorusGeometry(.7,.022,6,64);geometries.push(ringGeo);const ring=mesh(ringGeo,mat('#ffefb9',{emissive:'#f6d98a',emissiveIntensity:.6}),scene);ring.rotation.x=-Math.PI/2;
- const keys=new Set(),raycaster=new T.Raycaster(),plane=new T.Plane(new T.Vector3(0,1,0),0),pointer=new T.Vector2();let joystick={x:0,z:0};const canWalk=(x,z)=>canTraverse(getState(),x,z);
+ const keys=new Set(),raycaster=new T.Raycaster(),plane=new T.Plane(new T.Vector3(0,1,0),0),pointer=new T.Vector2();let joystick={x:0,z:0};const canWalk=(x,z)=>canTraverse(getState(),x,z)&&withinExplorationPrediction({x,z},getState().position);
  function isTyping(e){return /INPUT|TEXTAREA|SELECT/.test(e.target?.tagName)||e.target?.isContentEditable;}
  function keyDown(e){if(isTyping(e)||getBlocked())return;if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight'].includes(e.code)){e.preventDefault();keys.add(e.code);goal=null;}}
  function keyUp(e){keys.delete(e.code);}const blur=()=>{keys.clear();joystick={x:0,z:0};};
@@ -146,7 +147,6 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onInteract
   const len=Math.hypot(dx,dz),moving=len>.01;if(moving){dx/=len;dz/=len;const nx=player.position.x+dx*WALK_SPEED*dt,nz=player.position.z+dz*WALK_SPEED*dt;if(canWalk(nx,nz)){player.position.x=nx;player.position.z=nz;}else{if(canWalk(nx,player.position.z))player.position.x=nx;if(canWalk(player.position.x,nz))player.position.z=nz;}const facing=Math.atan2(dx,dz);player.rotation.y+=Math.atan2(Math.sin(facing-player.rotation.y),Math.cos(facing-player.rotation.y))*.2;if(now-moveSent>460){onMove({x:player.position.x,z:player.position.z});moveSent=now;}}
   // The final resting position is also synchronized, not just movement frames.
   if(!moving&&now-moveSent>320&&distance(player.position,s.position)>.035){onMove({x:player.position.x,z:player.position.z});moveSent=now;}
-  if(distance(player.position,s.position)>1.8){player.position.x=s.position.x;player.position.z=s.position.z;goal=null;}
   if(motion&&avatar)avatar.position.y=motion.update(clock,moving);else if(avatar&&!reduced)avatar.position.y=Math.sin(clock*2)*.025;
   friend.visible=s.companion.enabled&&active;friend.position.x=T.MathUtils.damp(friend.position.x,s.companion.x,8,dt);friend.position.z=T.MathUtils.damp(friend.position.z,s.companion.z,8,dt);friend.userData.body.position.y=reduced?0:Math.abs(Math.sin(clock*3))*.06;
   for(const n of s.nodes){const g=roots.get(n.id);if(!g)continue;g.visible=n.hp>0;if(n.type==='slime'){g.position.set(n.x,0,n.z);g.userData.body.scale.y=reduced?1:1+Math.sin(clock*2.4)*.055;g.userData.body.position.y=reduced?0:Math.max(0,Math.sin(clock*2.4))*.09;}}
@@ -165,5 +165,5 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onInteract
   composer.render();
  }
  frame=requestAnimationFrame(animate);
- return {setTarget(id){selected=id;},setGoal(node){selected=node.id;goal={...node,nodeId:node.id};},setZoom(value){zoom=value;resize();},setJoystick(x,z){joystick={x,z};goal=null;},position:()=>({x:player.position.x,z:player.position.z}),dispose(){dead=true;cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',blur);renderer.domElement.removeEventListener('pointerdown',pointerDown);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());ao.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}};
+ return {reconcileMove(requested,confirmed){const corrected=reconcileExplorationPosition(player.position,requested,confirmed);player.position.x=corrected.x;player.position.z=corrected.z;},resetPosition(confirmed){player.position.x=confirmed.x;player.position.z=confirmed.z;goal=null;},setTarget(id){selected=id;},setGoal(node){selected=node.id;goal={...node,nodeId:node.id};},setZoom(value){zoom=value;resize();},setJoystick(x,z){joystick={x,z};goal=null;},position:()=>({x:player.position.x,z:player.position.z}),dispose(){dead=true;cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',blur);renderer.domElement.removeEventListener('pointerdown',pointerDown);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());ao.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}};
 }
