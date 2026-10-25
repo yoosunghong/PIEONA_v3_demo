@@ -1,0 +1,32 @@
+.app-shell .world-title.world-welcome {
+  position: relative; isolation: isolate; display: flex; flex-wrap: nowrap;
+  align-items: center; gap: 13px; width: fit-content; max-width: 100%;
+  padding: 14px 20px 14px 15px; overflow: hidden;
+  border: 1px solid #c7def2; border-left: 4px solid #a3c8e9; border-radius: 20px;
+  background: linear-gradient(115deg,#fbfdfff5,#e4f1fcf2);
+  box-shadow: 0 6px 20px #416b9114, inset 0 1px 0 #fff;
+}
+.world-welcome::after {
+  content: ''; position: absolute; z-index: -1; width: 90px; height: 90px;
+  right: -25px; top: -43px; border: 1px solid #b9d7f16b;
+  border-radius: 50%; box-shadow: 0 0 0 12px #d5e9fa55; pointer-events: none;
+}
+.world-welcome .welcome-sun {
+  display: grid; place-items: center; flex: 0 0 42px; height: 42px;
+  color: #729fc6; background: #e0effb; border: 1px solid #ffffffed;
+  border-radius: 15px; box-shadow: 0 2px 7px #749fc31a;
+}
+.world-welcome .welcome-copy { min-width: 0; }
+.world-welcome .welcome-eyebrow { display: block; margin-bottom: 4px; color: #6385a4; font-size: 11px; line-height: 1.5; letter-spacing: 1px; }
+.app-shell .world-title.world-welcome h1 { margin: 0; color: #365f83; font-size: clamp(20px,2vw,27px); line-height: 1.4; overflow-wrap: anywhere; word-break: keep-all; }
+@media (max-width: 800px), (min-width: 600px) and (max-width: 1100px) and (min-aspect-ratio: 4/5) and (max-aspect-ratio: 3/2), (max-height: 500px) and (pointer: coarse) {
+  .app-shell .world-title.world-welcome { gap: 9px; padding: 10px 12px 10px 10px; border-left-width: 3px; border-radius: 16px; }
+  .world-welcome .welcome-sun { flex-basis: 32px; height: 32px; border-radius: 11px; }
+  .world-welcome .welcome-sun svg { width: 19px; height: 19px; }
+  .world-welcome .welcome-eyebrow { font-size: 10px; letter-spacing: .5px; margin-bottom: 2px; }
+  .app-shell .world-title.world-welcome h1 { font-size: 19px; }
+}
+@media (max-width: 450px), (max-height: 500px) {
+  .world-welcome .welcome-eyebrow { display: none; }
+  .app-shell .world-title.world-welcome h1 { font-size: 17px; }
+}

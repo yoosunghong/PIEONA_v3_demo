@@ -1,0 +1,20 @@
+/* Reserve the right strip for tools, including while chat or the keyboard is open. */
+@media (max-width: 800px), (min-width: 600px) and (max-width: 1100px) and (min-aspect-ratio: 4/5) and (max-aspect-ratio: 3/2), (max-height: 500px) and (pointer: coarse) {
+  .app-shell .world-actions {
+    top: 64px; bottom: 12px; right: 12px; left: auto;
+    width: 44px; max-height: none; margin: 0; padding: 2px 0;
+    overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain;
+    touch-action: pan-y; scrollbar-width: none;
+    z-index: 5;
+  }
+  .app-shell .world-actions::-webkit-scrollbar { display: none; width: 0; }
+  .app-shell .world-actions button { flex: 0 0 44px; width: 44px; height: 44px; min-height: 44px; }
+  .app-shell .world-actions button:hover { transform: none; }
+  .app-shell .world-top > div { max-width: calc(100% - 100px); }
+  .app-shell .world-top .village-theme-button { height: 40px; min-height: 40px; white-space: nowrap; }
+  .app-shell .world-panel .chat-dock.chat-side,
+  .app-shell .world-panel .chat-dock.chat-side.is-collapsed {
+    left: 10px; right: 70px; width: auto; max-width: none; transform: none;
+  }
+  .app-shell .world-panel .chat-dock.chat-side.is-collapsed .chat-toggle { white-space: normal; text-align: left; }
+}

@@ -1,6 +1,6 @@
 // Resizing a WebGL drawing buffer clears its contents. Defer resize notifications
 // until the next draw so the browser can never present that cleared buffer.
-export function createSceneViewport(renderer,camera){
+export function createSceneViewport(renderer,camera,{getFieldOfView}={}){
   let pending=null,current=null;
   return{
     resize(width,height){
@@ -10,11 +10,15 @@ export function createSceneViewport(renderer,camera){
     },
     get needsDraw(){return pending!==null;},
     draw(render){
+      let projectionChanged=false;
       if(pending){
         current=pending;pending=null;
         renderer.setSize(current.width,current.height,false);
-        camera.aspect=current.width/current.height;camera.updateProjectionMatrix();
+        camera.aspect=current.width/current.height;projectionChanged=true;
       }
+      const fov=getFieldOfView?.();
+      if(Number.isFinite(fov)&&fov>0&&fov<180&&camera.fov!==fov){camera.fov=fov;projectionChanged=true;}
+      if(projectionChanged)camera.updateProjectionMatrix();
       render();
     }
   };

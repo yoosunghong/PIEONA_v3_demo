@@ -42,7 +42,8 @@ test('tutorial preferences create one independent card; invalid preferences are 
       const progress=createExploration();progress.level=level;
       h.runtime.store.run('INSERT INTO exploration_progress VALUES(?,?) ON CONFLICT(owner_id) DO UPDATE SET state=excluded.state',owner.id,JSON.stringify(progress));
       result=(await h.request('/avatar-cards',owner)).body;
-      assert.equal(result.card.level,level);assert.equal(result.card.tier,cardTier(level));
+      const characterLevel=Math.floor([0,50,130,250,410][level-1]/100)+1;
+      assert.equal(result.card.level,characterLevel);assert.equal(result.card.tier,cardTier(characterLevel));
     }
     assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',owner.id).n,1);
   }finally{await h.close();}

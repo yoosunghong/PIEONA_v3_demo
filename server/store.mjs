@@ -88,8 +88,22 @@ export function openStore(filename = './data/pieona.sqlite') {
   }
   // Persist awards independently of deletable conversation history.
   db.exec(`CREATE TABLE IF NOT EXISTS avatar_experience (message_id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), avatar_slot TEXT NOT NULL, amount INTEGER NOT NULL);
-    CREATE INDEX IF NOT EXISTS avatar_experience_owner ON avatar_experience(owner_id,avatar_slot);
-    INSERT OR IGNORE INTO avatar_experience SELECT m.id,c.target_id,c.avatar_slot,10 FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE m.role='assistant';`);
+    CREATE INDEX IF NOT EXISTS avatar_experience_owner ON avatar_experience(owner_id,avatar_slot);`);
+  // Freeze the pre-discovery awards once. Future chats and server restarts must
+  // not add new chat XP, and deleted conversations must not erase earned levels.
+  db.exec(`CREATE TABLE IF NOT EXISTS data_migrations (id TEXT PRIMARY KEY);
+    CREATE TABLE IF NOT EXISTS avatar_legacy_experience (
+      owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      avatar_slot TEXT NOT NULL, xp INTEGER NOT NULL, PRIMARY KEY(owner_id,avatar_slot));
+    BEGIN IMMEDIATE;
+    INSERT OR IGNORE INTO avatar_experience
+      SELECT m.id,c.target_id,c.avatar_slot,10 FROM messages m JOIN conversations c ON c.id=m.conversation_id
+      WHERE m.role='assistant' AND NOT EXISTS (SELECT 1 FROM data_migrations WHERE id='restore-avatar-levels-v1');
+    INSERT INTO avatar_legacy_experience
+      SELECT owner_id,avatar_slot,SUM(amount) FROM avatar_experience
+      WHERE NOT EXISTS (SELECT 1 FROM data_migrations WHERE id='restore-avatar-levels-v1') GROUP BY owner_id,avatar_slot;
+    INSERT OR IGNORE INTO data_migrations VALUES ('restore-avatar-levels-v1');
+    COMMIT;`);
   let transactionDepth=0,savepointId=0;
   return {
     db,
@@ -110,12 +124,14 @@ export function openStore(filename = './data/pieona.sqlite') {
 export const defaultSettings = { allowVisitors: true, receiveTranscripts: true, allowTopics: true, stageVisible: true, questionFrequency: 'daily', questionTopic: '일상', publicTags: [], speechStyle: '다정하고 편안하게', scene: 'garden' };
 export const settingsOf = user => ({ ...defaultSettings, ...JSON.parse(user.settings) });
 export function experienceOf(store,user) {
-  // Progress now comes from the player's own discoveries and crafting. Old
-  // conversation experience is retained as historical data, never as level XP.
+  // Keep the original 100-XP character levels, including earned historical XP.
+  // Forest levels are a separate progression; their cumulative XP adds to it.
   const exists=store.one("SELECT 1 FROM sqlite_master WHERE type='table' AND name='exploration_progress'");
   const row=exists&&store.one('SELECT state FROM exploration_progress WHERE owner_id=?',user.id);
   const progress=row?JSON.parse(row.state):{level:1,xp:0},limits=[50,80,120,160];
-  return {xp:limits.slice(0,progress.level-1).reduce((sum,n)=>sum+n,0)+progress.xp,level:progress.level,levelXp:progress.xp,nextLevelXp:limits[progress.level-1]||0};
+  const legacy=store.one('SELECT xp FROM avatar_legacy_experience WHERE owner_id=? AND avatar_slot=?',user.id,user.active_slot||'')?.xp||0;
+  const xp=legacy+limits.slice(0,progress.level-1).reduce((sum,n)=>sum+n,0)+progress.xp;
+  return {xp,level:Math.floor(xp/100)+1,levelXp:xp%100,nextLevelXp:100};
 }
 export function stageOf(store,user) { return experienceOf(store,user).level-1; }
 export function isBlocked(store, a, b) {

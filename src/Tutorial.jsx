@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {ArrowRight,ChevronLeft,Leaf,X} from 'lucide-react';
 
 const steps=[
-  {target:'world',title:'작은 마을에 오신 걸 환영해요!',text:'나는 정원 안내자 피오예요. 홈에서 WASD나 방향키로 걸어보세요. 스페이스로 폴짝 뛰어볼 수도 있어요.'},
+  {target:'world',title:'작은 마을에 오신 걸 환영해요!',text:'나는 정원 안내자 피오예요. 모바일에서는 지면을 터치하면 그곳으로 걸어가요. PC에서는 WASD나 방향키로 이동하고 스페이스로 폴짝 뛸 수 있어요.'},
   {target:'chat',title:'나의 아바타와 이야기해요',text:'아래 대화창에 일상과 취향을 들려주세요. 대화가 쌓일수록 아바타가 조금씩 나를 닮아가요. 새 대화와 세션으로 이야기를 이어갈 수 있어요.'},
   {target:'memory',title:'기억 정원을 가꿔요',text:'기억 정원에서 아바타가 배운 기억을 확인하고 수정해요. 이웃에게 나눌 기억의 공개 범위도 직접 정할 수 있어요.'},
   {target:'friends',title:'친구의 마을에 놀러 가요',text:'오른쪽 친구·이웃 목록에서 친구를 만나보세요. 목록 위 + 버튼으로 친구를 추가하고, 친구의 마을을 방문해 AI 아바타와 대화할 수 있어요.'},

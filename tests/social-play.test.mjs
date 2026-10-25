@@ -12,24 +12,25 @@ const gold=(h,user)=>h.runtime.store.one('SELECT gold FROM users WHERE id=?',use
 
 test('duel creation, joining and leaving refresh village participant availability',async()=>{
   const h=await harness();
-  const nextMembers=socket=>new Promise((resolve,reject)=>{
-    const update=data=>{clearTimeout(timer);resolve(data.members);};
+  const nextMembers=(socket,ready)=>new Promise((resolve,reject)=>{
+    const update=data=>{if(!ready(data.members))return;clearTimeout(timer);socket.off('village:members',update);resolve(data.members);};
     const timer=setTimeout(()=>{socket.off('village:members',update);reject(new Error('Missing village availability update'));},3000);
-    socket.once('village:members',update);
+    socket.on('village:members',update);
   });
   try{
     const a=await h.register('lobby_a'),b=await h.register('lobby_b');
     await h.connect(a);const socket=await h.connect(b,a.id);
     for(const kind of ['typing','wordchain']){
-      let updated=nextMembers(socket);
+      const bothBusy=value=>members=>members.filter(m=>[a.id,b.id].includes(m.userId)).length===2&&members.filter(m=>[a.id,b.id].includes(m.userId)).every(m=>m.runnerBusy===value);
+      let updated=nextMembers(socket,members=>members.find(m=>m.userId===a.id)?.runnerBusy===true&&members.find(m=>m.userId===b.id)?.runnerBusy===false);
       const created=await h.request(`/villages/${a.id}/duels`,a,{kind});assert.equal(created.status,201);
       let members=await updated;
       assert.equal(members.find(m=>m.userId===a.id).runnerBusy,true);
       assert.equal(members.find(m=>m.userId===b.id).runnerBusy,false);
-      updated=nextMembers(socket);
+      updated=nextMembers(socket,bothBusy(true));
       assert.equal((await h.request(`/duels/${created.body.room.id}/join`,b,{})).status,200);
       members=await updated;assert.ok(members.filter(m=>[a.id,b.id].includes(m.userId)).every(m=>m.runnerBusy));
-      updated=nextMembers(socket);
+      updated=nextMembers(socket,bothBusy(false));
       assert.equal((await h.request(`/duels/${created.body.room.id}/leave`,a,{})).status,200);
       members=await updated;assert.ok(members.filter(m=>[a.id,b.id].includes(m.userId)).every(m=>!m.runnerBusy));
     }
