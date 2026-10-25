@@ -4,7 +4,7 @@
 .bench-prompt button:hover{background:#e3f1fc}.bench-prompt kbd{display:grid;place-items:center;width:28px;height:28px;border:1px solid #abc5dc;border-bottom-width:3px;border-radius:7px;background:#fff;font:700 15px inherit}
 .bench-prompt small{padding:4px 10px;border-radius:12px;background:#f7fbffeb;color:#395c7b;font-size:12px}
 @media(max-width:700px){.bench-prompt{bottom:160px}.bench-prompt.is-seated{right:12px}.bench-prompt button{min-height:44px;padding:8px 16px}.bench-prompt small{font-size:11px}}
-.dragon-mount-prompt{position:absolute;right:24px;bottom:205px;z-index:6}
+.dragon-mount-prompt{position:absolute;right:24px;bottom:96px;z-index:6}
 .dragon-mount-prompt button{display:flex;align-items:center;gap:9px;min-height:44px;padding:10px 16px;border:1px solid #aec5ed;border-radius:24px;background:#f0f1ffed;color:#344d80;box-shadow:0 4px 20px #354d8029;font-weight:700}
 .dragon-mount-prompt kbd{padding:3px 7px;border:1px solid #b3c1dd;border-radius:5px;background:white}
-@media(max-width:700px){.dragon-mount-prompt{right:12px;bottom:220px}}
+@media(max-width:700px){.dragon-mount-prompt{right:12px;bottom:110px}}

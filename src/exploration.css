@@ -22,3 +22,5 @@
 .exp-village-preview{position:absolute;inset:0}.exp-village-preview>.scene-container,.exp-village-preview>div{width:100%;height:100%}.exp-village-preview canvas{display:block;width:100%;height:100%}
 
 .exp-companion-learning{margin:0 0 1.1em;padding:.8em 1em;border:1px solid #e2e9de;border-radius:14px;background:#f7faf2}.exp-companion-learning>span{font-size:.62em;color:#819479}.exp-companion-learning>div{display:flex;align-items:center;gap:1em;margin-top:.65em;font-size:.58em;color:#98a58f}.exp-companion-learning>div>span{width:9em}.exp-companion-learning>div>div{height:5px;background:#e2e9d9;flex:1;border-radius:8px;overflow:hidden}.exp-companion-learning i{display:block;height:100%;background:#a4b896;border-radius:8px}
+
+.expedition.exp-workshop-only{background:transparent;z-index:110}.exp-workshop-only .exp-modal-backdrop{background:#304f4140}
