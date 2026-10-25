@@ -40,7 +40,7 @@ test('facility layouts retain stable identities and transform interactions, work
 test('facility meshes, crops, all four docks and fishing equipment share each editable transform',()=>{
   const world=createLifeWorld(),village=layout(),life=villageLife(village);
   try{
-    for(const item of villageScenery(village).filter(i=>isLifeScenery(i.id))){const root=world.facilities.get(item.id);assert.ok(root);root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;}
+    for(const item of villageScenery(village).filter(i=>isLifeScenery(i.id)&&!['scenery:life-storage','scenery:life-kitchen'].includes(i.id))){const root=world.facilities.get(item.id);assert.ok(root);root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;}
     world.root.updateMatrixWorld(true);
     for(const anchor of life.anchors){
       let deck,rod;world.root.traverse(part=>{if(part.userData.action===anchor.id)deck=part;if(part.userData.lifeAction===anchor.id)rod=part;});

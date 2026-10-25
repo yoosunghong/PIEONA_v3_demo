@@ -62,7 +62,7 @@ test('drawing, placement, theme and furniture updates merge without discarding e
   await request('/me/world',owner,{village:{items:[],theme:'twilight'}});
   const sign=(await request('/me',owner)).body.user.village.sign;
   assert.deepEqual(sign,{x:-3,z:-3.5,rotation:2,shape:'arrow',strokes:art});
-  assert.equal((await request('/me/world',owner,{village:{sign:{x:0,z:0}}})).status,400);
+  assert.equal((await request('/me/world',owner,{village:{sign:{x:20,z:0}}})).status,400);
   const item={id:crypto.randomUUID(),type:'bench',x:-3,z:-3.5,rotation:0};
   assert.equal((await request('/me/world',owner,{village:{items:[item]}})).status,400);
   assert.deepEqual((await request('/me',owner)).body.user.village.sign,sign);

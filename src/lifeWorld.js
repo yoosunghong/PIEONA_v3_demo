@@ -42,6 +42,7 @@ export function createLifeWorld(){
   root.remove(chest,kitchen);
   const facilities=new Map();
   for(const def of lifeDefinitions){
+    if(['life-storage','life-kitchen'].includes(def.id))continue;
     const parts=root.children.filter(part=>{const action=part.userData.action||part.userData.lifeAction;return def.action==='fishing'?action?.startsWith('fishing:'):action===def.action;});
     const group=new THREE.Group();group.position.set(def.x,0,def.z);group.userData.itemId='scenery:'+def.id;root.add(group);root.updateMatrixWorld(true);parts.forEach(part=>group.attach(part));facilities.set(group.userData.itemId,group);
     if(typeof document==='undefined')continue;

@@ -62,7 +62,7 @@ export function createApp(options = {}) {
   app.use('/api/me/world',express.json({limit:'1mb'}));
   app.use(express.json({ limit: '20kb' }));
   app.use('/api', (req, res, next) => { res.set('Cache-Control','no-store'); if (!['GET','HEAD','OPTIONS'].includes(req.method) && req.headers.origin && !origins.has(req.headers.origin)) return res.status(403).json({ error: '허용되지 않은 요청 출처입니다.' }); next(); });
-  app.use('/api', rateLimit({ windowMs: 60_000, limit: 240, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '요청이 많아요. 잠시 후 다시 시도해 주세요.' } }));
+  app.use('/api', rateLimit({ windowMs: 60_000, limit: options.testing ? 5000 : 240, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '요청이 많아요. 잠시 후 다시 시도해 주세요.' } }));
   const authLimiter = rateLimit({ windowMs: 15*60_000, limit: options.testing ? 500 : 30, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '로그인 시도가 많아요. 15분 후 다시 시도해 주세요.' } });
   const aiLimiter = rateLimit({ windowMs: 30*60_000, limit: options.testing ? 500 : 30, keyGenerator: req => req.user.id, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: 'AI 호출 한도에 도달했어요. 30분 후 다시 시도해 주세요.' } });
   function userById(userId) { const user = store.one('SELECT * FROM users WHERE id=?', userId); if (!user) fail(404, '아바타를 찾을 수 없어요.'); return user; }

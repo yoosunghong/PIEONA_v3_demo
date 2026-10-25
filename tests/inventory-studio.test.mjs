@@ -25,11 +25,12 @@ test('inventory filtering and sorting use actual quantities and acquisition time
 test('the white silhouette selects the whole clicked facility, including each individual garden bed',()=>{
   const world=createLifeWorld();
   try{
-    for(const [action,id] of [['storage','life-storage'],['kitchen','life-kitchen'],['garden:0','life-garden-0'],['garden:2','life-garden-2']]){
+    for(const [action,id] of [['garden:0','life-garden-0'],['garden:2','life-garden-2']]){
       const root=selectedFacility(world.facilities,action);
       assert.equal(root,world.facilities.get('scenery:'+id));assert.ok(root.children.length);
       root.visible=false;assert.equal(selectedFacility(world.facilities,action),null);root.visible=true;
     }
+    for(const action of ['storage','kitchen'])assert.equal(selectedFacility(world.facilities,action),null);
     assert.equal(selectedFacility(world.facilities,null),null);
   }finally{disposeObject(world.root);}
 });

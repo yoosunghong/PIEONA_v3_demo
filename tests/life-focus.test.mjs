@@ -46,10 +46,11 @@ test('facilities have clickable geometry without permanent world-space UI and pr
       assert.equal(!!object.isSprite,false);
       if(object.userData.action)actions.set(object.userData.action,object);
     });
-    for(const object of [STORAGE,KITCHEN,...GARDEN_BEDS,...FISHING_ANCHORS]){
+    for(const object of [...GARDEN_BEDS,...FISHING_ANCHORS]){
       assert.ok(actions.has(object.id));
       assert.equal(nearestLifeInteraction(object).id,object.id);
     }
+    for(const object of [STORAGE,KITCHEN])assert.equal(actions.has(object.id),false);
     for(const point of [{x:0,z:0},{x:0,z:-4},{x:5,z:0}]){
       assert.ok([STORAGE,KITCHEN,...GARDEN_BEDS,...FISHING_ANCHORS].every(object=>Math.hypot(object.x-point.x,object.z-point.z)>INTERACTION_REACH));
       assert.equal(nearestLifeInteraction(point),null);

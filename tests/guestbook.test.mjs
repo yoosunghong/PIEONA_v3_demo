@@ -64,7 +64,7 @@ test('book placement is owner scoped, preserves other village fields and rejects
   assert.deepEqual(visible.guestbook,guestbook);
   await request('/me/world',owner,{village:{theme:'twilight',items:[]}},'PATCH');
   assert.deepEqual((await request('/me',owner)).body.user.village.guestbook,guestbook);
-  for(const invalid of [{x:0,z:0},{rotation:4},{rotation:.5},[guestbook,guestbook],{ownerId:visitor.id}])assert.equal((await request('/me/world',owner,{village:{guestbook:invalid}},'PATCH')).status,400);
+  for(const invalid of [{x:20,z:0},{rotation:4},{rotation:.5},[guestbook,guestbook],{ownerId:visitor.id}])assert.equal((await request('/me/world',owner,{village:{guestbook:invalid}},'PATCH')).status,400);
   assert.equal((await request('/me/world',owner,{village:{sign:{x:guestbook.x,z:guestbook.z}}},'PATCH')).status,400);
   assert.equal((await request('/me/world',owner,{village:{items:[{id:crypto.randomUUID(),type:'bench',...guestbook}]}},'PATCH')).status,400);
   assert.equal((await request('/me/world',visitor,{targetId:owner.id,village:{guestbook}},'PATCH')).status,400);

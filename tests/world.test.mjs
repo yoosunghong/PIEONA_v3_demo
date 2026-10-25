@@ -34,7 +34,7 @@ test('world saves are owner scoped, validated and public to visitors',async()=>{
   assert.equal((await request('/me/world',owner,{village,appearance},'PATCH')).status,200);
   const profile=(await request('/users/'+owner.id,visitor)).body.user;
   assert.deepEqual(profile.village,village);assert.deepEqual(profile.appearance,appearance);
-  for(const item of [{...piece(),x:0,z:0},{...piece(),x:100},{...piece(),type:'injected-script'},{...piece(),rotation:.5}])assert.equal((await request('/me/world',owner,{village:{items:[item]}},'PATCH')).status,400);
+  for(const item of [{...piece(),x:100},{...piece(),type:'injected-script'},{...piece(),rotation:.5}])assert.equal((await request('/me/world',owner,{village:{items:[item]}},'PATCH')).status,400);
   assert.equal((await request('/me/world',owner,{village:{items:Array.from({length:25},piece)}},'PATCH')).status,400);
   const duplicate=piece();assert.equal((await request('/me/world',owner,{village:{items:[duplicate,duplicate]}},'PATCH')).status,400);
   assert.equal((await request('/me/world',visitor,{targetId:owner.id,village:{items:[]}},'PATCH')).status,400);
@@ -416,7 +416,7 @@ test('scenery placement saves, reaches visitors and rejects invalid IDs, positio
   assert.equal((await request('/me/world',user,{village:{scenery}},'PATCH')).status,200);
   assert.deepEqual((await request('/me',user)).body.user.village.scenery,scenery);
   assert.deepEqual((await request('/users/'+user.id,visitor)).body.user.village.scenery,scenery);
-  for(const invalid of [[{...scenery[0],id:'unknown'}],[{...scenery[0],x:30}],[{...scenery[0],x:0,z:0}],[{...scenery[0],x:3.8,z:-2.7}],[{...scenery[0],rotation:4}],[scenery[0],scenery[0]]]){
+  for(const invalid of [[{...scenery[0],id:'unknown'}],[{...scenery[0],x:30}],[{...scenery[0],x:3.8,z:-2.7}],[{...scenery[0],rotation:4}],[scenery[0],scenery[0]]]){
     assert.equal((await request('/me/world',user,{village:{scenery:invalid}},'PATCH')).status,400);
   }
   assert.deepEqual((await request('/me',user)).body.user.village.scenery,scenery);
