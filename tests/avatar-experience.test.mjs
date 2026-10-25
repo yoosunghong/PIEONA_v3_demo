@@ -18,7 +18,7 @@ async function send(viewer,cid,text='안녕'){return request('/conversations/'+c
 before(async()=>{runtime=createApp({store:openStore(':memory:'),testing:true,generateAnswer:async(context,text,history)=>{packets.push({context,text,history});if(gate){gate.enter();await gate.wait;}return{reply:`${context.snapshot.nickname}: ${context.snapshot.memories.map(m=>m.content).join(' / ')||'허용된 기억이 없어요.'}`,emotion:'happy',memories:[{content:'서버가 검증하는 소유자 전용 새 기억',category:'경험'}],provider:'test'};}});await new Promise(r=>runtime.server.listen(0,'127.0.0.1',r));url=`http://127.0.0.1:${runtime.server.address().port}`;alice=await register('alice');bob=await register('bob');carol=await register('carol');});
 after(async()=>{await runtime.close();});
 
-test('conversation XP belongs to the target avatar, survives deletion and stays private when hidden',async()=>{
+test('chat never grants player XP and historical chat XP stays excluded across avatar slots',async()=>{
   const owner=await register('xp_owner'),visitor=await register('xp_visitor');
   const current=async u=>(await request('/me',{cookie:u.cookie})).body.user;
   assert.equal((await current(owner)).level,1);
@@ -26,19 +26,19 @@ test('conversation XP belongs to the target avatar, survives deletion and stays 
   assert.equal((await send(owner,ownChat)).status,200);
   const visitChat=await conversation(visitor,owner,false,true);
   assert.equal((await send(visitor,visitChat)).status,200);
-  assert.equal((await current(owner)).xp,20);
+  assert.equal((await current(owner)).xp,0);
   assert.equal((await current(visitor)).xp,0);
   assert.equal((await send(owner,ownChat,'')).status,400);
   await request('/conversations/'+ownChat,{method:'DELETE',cookie:owner.cookie});
-  assert.equal((await current(owner)).xp,20);
+  assert.equal((await current(owner)).xp,0);
   const original=(await request('/slots',{cookie:owner.cookie})).body.active;
   const slot=(await request('/slots',{method:'POST',cookie:owner.cookie,body:{nickname:'new avatar'}})).body.id;
   await request('/slots/'+slot+'/activate',{method:'POST',cookie:owner.cookie});
   assert.equal((await current(owner)).xp,0);
   await request('/slots/'+original+'/activate',{method:'POST',cookie:owner.cookie});
-  assert.equal((await current(owner)).xp,20);
+  assert.equal((await current(owner)).xp,0);
   runtime.store.run('INSERT INTO avatar_experience VALUES(?,?,?,?)','large-xp',owner.id,original,100000);
-  assert.equal((await current(owner)).level,1001);
+  assert.equal((await current(owner)).level,1);
   await request('/me',{method:'PATCH',cookie:owner.cookie,body:{settings:{stageVisible:false}}});
   const publicProfile=(await request('/users',{cookie:visitor.cookie})).body.users.find(u=>u.id===owner.id);
   assert.equal(publicProfile.level,null);assert.equal(publicProfile.xp,null);

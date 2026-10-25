@@ -8,6 +8,7 @@ import {WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
 import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance,suppressedScenery} from '../shared/scenery.mjs';
 import {villageBenches,BENCH_REACH} from '../shared/benches.mjs';
 import {installLife} from './life.mjs';
+import {installExploration} from './exploration.mjs';
 import {createActionLogger} from './actionLog.mjs';
 import {generateTopic} from './topic.mjs';
 import express from 'express';
@@ -426,7 +427,7 @@ export function createApp(options = {}) {
         store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',id(),c.id,'user',text,'calm',timestamp);
         const replyId=id();
         store.run('INSERT INTO messages VALUES(?,?,?,?,?,?)',replyId,c.id,'assistant',result.reply,result.emotion,now());
-        store.run('INSERT INTO avatar_experience VALUES(?,?,?,10)',replyId,target.id,c.avatar_slot);
+        // Chat creates memories; first-hand exploration creates level experience.
         if(context.own){for(const m of result.memories.slice(0,3)){if(store.one('SELECT 1 FROM memories WHERE owner_id=? AND content=?',req.user.id,m.content))continue;const mid=id();store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',mid,req.user.id,m.content,m.category,'public',1,'conversation',timestamp,timestamp);added.push({id:mid,...m});}if(added.length)store.run('UPDATE users SET revision=revision+1 WHERE id=?',req.user.id);}
         else {rewardVisit(target.id,req.user.id,!!c.anonymous);if(!history.length)activity(target.id,req.user.id,'conversation',c.share&&settingsOf(target).receiveTranscripts?'공유된 아바타 대화가 도착했어요':'아바타와 대화했어요 · 내용 비공개',!!c.anonymous);}
         // An owner request may add public memories itself; keep that turn's history current.
@@ -459,6 +460,7 @@ export function createApp(options = {}) {
   const volleys=installVolleyGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.volleyClock});
   const busy=(userId,exceptInvite)=>wordGames.busy(userId)||life.busy(userId)||crabs.busy(userId)||volleys.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started)||[...invites.values()].some(i=>i.id!==exceptInvite&&invitePlayers(i).some(p=>p.userId===userId));
   const life=installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction,clock:options.lifeClock,random:options.lifeRandom});
+  installExploration({app,store,auth,logAction,clock:options.explorationClock,random:options.explorationRandom});
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
   const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
   const polls=installVillagePolls({app,io,store,auth,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,clock:options.socialClock});

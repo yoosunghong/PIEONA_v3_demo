@@ -23,7 +23,7 @@
 @media(max-width:700px){.app-shell .world-panel .chat-dock.chat-side{left:50%;bottom:18px;width:calc(100% - 20px);max-height:48%;padding:12px}.app-shell .chat-dock.chat-side .chat-messages{max-height:150px}}
 .app-shell .chat-dock.chat-side.is-empty:not(.is-collapsed)>header>div:first-child{visibility:visible;display:flex}
 
-.app-shell .chat-dock.chat-side.is-collapsed .chat-toggle:after{content:"이야기하기";font-size:11px;font-weight:500;opacity:.85}
+.app-shell .chat-dock.chat-side.is-collapsed .chat-toggle:after{content:none;font-size:11px;font-weight:500;opacity:.85}
 .app-shell .chat-dock.chat-side.is-collapsed .chat-toggle svg{filter:drop-shadow(0 1px 1px #315abf44)}
 @media(max-width:700px){.app-shell .world-panel .chat-dock.chat-side.is-collapsed{left:50%;bottom:18px;width:190px;padding:10px 16px}}
 
@@ -56,7 +56,7 @@ body,.boot{background:#e3eff8}
 .app-shell .chat-dock.chat-side.is-collapsed .chat-actions{flex:1;min-width:0}
 .app-shell .chat-dock.chat-side.is-collapsed .chat-toggle{min-height:36px;background:transparent;border:0;color:#fff;font-size:16px;gap:12px}
 .app-shell .chat-dock.chat-side.is-collapsed .chat-toggle svg{width:28px;height:28px;stroke-width:2.5;flex-shrink:0;filter:none}
-.app-shell .chat-dock.chat-side.is-collapsed .chat-toggle:after{content:'이야기하기';font-size:13px;opacity:1;color:#e0efff}
+.app-shell .chat-dock.chat-side.is-collapsed .chat-toggle:after{content:none;font-size:13px;opacity:1;color:#e0efff}
 .app-shell .world-panel .chat-dock.chat-side.is-collapsed:has(.chat-toggle:hover){background:linear-gradient(135deg,#205da3,#193d82)}
 .village-speech{position:absolute;z-index:7;visibility:hidden;transform:translate(-50%,-100%);width:max-content;max-width:min(280px,42vw);padding:12px 15px;border:2px solid #568dbb;border-radius:18px;background:#fff;color:#183951;box-shadow:0 5px 20px #173c6330;pointer-events:auto}
 .village-speech:after{content:'';position:absolute;left:var(--speech-tail,50%);bottom:-10px;transform:translateX(-50%);border:10px solid transparent;border-bottom:0;border-top-color:#568dbb}
@@ -65,3 +65,27 @@ body,.boot{background:#e3eff8}
 .village-speech strong{display:block;color:#225b90;font-size:12px}
 .village-speech p{margin:6px 0 0;font-size:14px;line-height:1.65;white-space:pre-wrap;overflow-wrap:anywhere;max-height:min(220px,28dvh);overflow-y:auto;overscroll-behavior:contain;user-select:text}
 @media(max-width:700px){.app-shell .world-panel .chat-dock.chat-side.is-collapsed{width:224px;padding:10px 16px}.village-speech{padding:9px 11px;max-width:44vw}.village-speech p{font-size:13px;max-height:24dvh}.village-speech strong{font-size:11px}}
+
+.app-shell .world-actions .mobile-world-tool { display: none; }
+@media (max-width: 800px), (max-height: 500px) and (pointer: coarse) {
+  .app-shell .desktop-world-help,
+  .app-shell .rail-bottom,
+  .app-shell .pet-nearby-prompt,
+  .app-shell .dragon-mount-prompt { display: none; }
+  .app-shell .world-actions {
+    top: 112px; bottom: 76px; right: 12px; left: auto;
+    width: 44px; flex-direction: column; flex-wrap: nowrap;
+    gap: 6px; overflow-y: auto; scrollbar-width: none;
+  }
+  .app-shell .world-actions button { flex-shrink: 0; }
+  .app-shell .world-actions .mobile-world-tool { display: flex; }
+  .app-shell .world-actions .mobile-world-tool > svg { width: 22px; height: 22px; padding: 11px; }
+  .app-shell .world-panel .chat-dock.chat-side.is-collapsed {
+    width: max-content; max-width: calc(100% - 24px);
+    bottom: 12px; padding: 4px 12px; border-radius: 16px;
+  }
+  .app-shell .chat-dock.chat-side.is-collapsed .chat-toggle {
+    min-height: 36px; padding: 0; gap: 7px; font-size: 12px;
+  }
+  .app-shell .chat-dock.chat-side.is-collapsed .chat-toggle svg { width: 18px; height: 18px; }
+}

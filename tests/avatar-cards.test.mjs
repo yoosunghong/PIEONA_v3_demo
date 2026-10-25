@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {harness} from './runtimeHarness.mjs';
 import {balanceQuestions} from '../shared/onboarding.mjs';
 import {preferenceQuestions,cardTier} from '../shared/avatarCards.mjs';
+import {createExploration} from '../shared/exploration.mjs';
 const answers=balanceQuestions.map(q=>({id:q.id,choice:'a'}));
 const preferences=preferenceQuestions.map(q=>({id:q.id,value:q.options[0]}));
 const localAnswer=async()=>({reply:'같이 이야기하자!',emotion:'happy',memories:[],provider:'test'});
@@ -24,7 +25,7 @@ test('card portraits follow the AI character independently of theme and player c
   }finally{await h.close();}
 });
 
-test('tutorial preferences create one independent card; invalid preferences are atomic and tiers follow 3/5/7/10',async()=>{
+test('tutorial preferences create one independent card; invalid preferences are atomic and tiers follow discovery progress',async()=>{
   const h=await cardHarness({generateAnswer:localAnswer});
   try{
     const owner=await h.register('card_owner');
@@ -37,9 +38,9 @@ test('tutorial preferences create one independent card; invalid preferences are 
     assert.equal(before.length,8);assert.ok(before.every(m=>m.visibility==='private'));
     assert.equal((await h.request('/balance',owner,{answers,preferences:[preferences[0],preferences[0],preferences[0]]})).status,400);
     assert.deepEqual((await h.request('/memories',owner)).body.memories,before);
-    for(const level of [2,3,4,5,6,7,9,10,11]){
-      h.runtime.store.run('DELETE FROM avatar_experience WHERE owner_id=?',owner.id);
-      h.runtime.store.run('INSERT INTO avatar_experience VALUES(?,?,?,?)','tier-'+level,owner.id,result.card.id,(level-1)*100);
+    for(const level of [2,3,4,5]){
+      const progress=createExploration();progress.level=level;
+      h.runtime.store.run('INSERT INTO exploration_progress VALUES(?,?) ON CONFLICT(owner_id) DO UPDATE SET state=excluded.state',owner.id,JSON.stringify(progress));
       result=(await h.request('/avatar-cards',owner)).body;
       assert.equal(result.card.level,level);assert.equal(result.card.tier,cardTier(level));
     }

@@ -110,8 +110,12 @@ export function openStore(filename = './data/pieona.sqlite') {
 export const defaultSettings = { allowVisitors: true, receiveTranscripts: true, allowTopics: true, stageVisible: true, questionFrequency: 'daily', questionTopic: '일상', publicTags: [], speechStyle: '다정하고 편안하게', scene: 'garden' };
 export const settingsOf = user => ({ ...defaultSettings, ...JSON.parse(user.settings) });
 export function experienceOf(store,user) {
-  const xp=store.one('SELECT COALESCE(SUM(amount),0) xp FROM avatar_experience WHERE owner_id=? AND avatar_slot=?',user.id,user.active_slot || '').xp;
-  return {xp,level:Math.floor(xp/100)+1,levelXp:xp%100,nextLevelXp:100};
+  // Progress now comes from the player's own discoveries and crafting. Old
+  // conversation experience is retained as historical data, never as level XP.
+  const exists=store.one("SELECT 1 FROM sqlite_master WHERE type='table' AND name='exploration_progress'");
+  const row=exists&&store.one('SELECT state FROM exploration_progress WHERE owner_id=?',user.id);
+  const progress=row?JSON.parse(row.state):{level:1,xp:0},limits=[50,80,120,160];
+  return {xp:limits.slice(0,progress.level-1).reduce((sum,n)=>sum+n,0)+progress.xp,level:progress.level,levelXp:progress.xp,nextLevelXp:limits[progress.level-1]||0};
 }
 export function stageOf(store,user) { return experienceOf(store,user).level-1; }
 export function isBlocked(store, a, b) {

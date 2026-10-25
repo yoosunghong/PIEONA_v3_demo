@@ -81,9 +81,9 @@ test('privacy edits while AI is in flight discard the stale response before stor
   const result=await pending;gate=null;assert.equal(result.status,409);assert.equal(runtime.store.one('SELECT COUNT(*) n FROM messages WHERE conversation_id=?',cid).n,0);
 });
 
-test('five unique balance answers create private confirmed memories and stage progress',async()=>{
+test('five unique balance answers create private confirmed memories without granting activity XP',async()=>{
   const answers=questions.map(q=>({id:q.id,choice:'a'}));let r=await request('/balance',{method:'POST',cookie:alice.cookie,body:{answers:answers.map(()=>answers[0])}});assert.equal(r.status,400);
-  r=await request('/balance',{method:'POST',cookie:alice.cookie,body:{answers}});assert.equal(r.status,200);assert.ok(r.body.user.stage>=1);assert.equal(runtime.store.all("SELECT * FROM memories WHERE owner_id=? AND source='balance'",alice.id).length,5);
+  r=await request('/balance',{method:'POST',cookie:alice.cookie,body:{answers}});assert.equal(r.status,200);assert.equal(r.body.user.stage,0);assert.equal(runtime.store.all("SELECT * FROM memories WHERE owner_id=? AND source='balance'",alice.id).length,5);
   assert.ok(runtime.store.all("SELECT * FROM memories WHERE owner_id=? AND source='balance'",alice.id).every(m=>m.visibility==='private'&&m.confirmed===1));
 });
 
@@ -196,7 +196,7 @@ test('legacy conversation migration preserves messages and binds existing active
   legacy.close();let db=openStore(file);
   assert.equal(db.one('SELECT avatar_slot FROM conversations').avatar_slot,'original-slot');assert.equal(db.one('SELECT content FROM messages').content,'이전 버전의 이야기');
   db.run("INSERT INTO messages VALUES('legacy-reply','legacy-chat','assistant','reply','calm','2026-10-15')");db.close();db=openStore(file);
-  assert.equal(experienceOf(db,db.one('SELECT * FROM users')).xp,10);db.close();db=openStore(file);assert.equal(experienceOf(db,db.one('SELECT * FROM users')).xp,10);
+  assert.equal(experienceOf(db,db.one('SELECT * FROM users')).xp,0);db.close();db=openStore(file);assert.equal(experienceOf(db,db.one('SELECT * FROM users')).xp,0);
   db.run("UPDATE users SET active_slot='another-slot'");db.close();db=openStore(file);assert.equal(db.one('SELECT avatar_slot FROM conversations').avatar_slot,'original-slot');db.close();rmSync(dir,{recursive:true});
 });
 
