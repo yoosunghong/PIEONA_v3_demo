@@ -50,3 +50,5 @@
 .life-studio .storage-detail{display:grid;grid-template-columns:70px 1fr;column-gap:12px;background:#fffaf0;border:2px solid #ddc79f;border-radius:18px;padding:16px;box-shadow:0 4px 0 #bba77e25}
 .life-studio .storage-detail .detail-icon{grid-row:1/4;font-size:48px;margin:0;align-self:center}.life-studio .storage-detail>p,.life-studio .storage-detail>dl{grid-column:1/-1}.life-studio .storage-detail h3{margin:4px 0}.life-studio .storage-detail dl{display:grid;grid-template-columns:1fr 1fr;gap:8px}.life-studio .storage-detail dt,.life-studio .storage-detail dd{margin:0}
 @media(max-width:700px){.life-studio-heading{height:98px;padding:12px 16px}.life-studio-content{top:calc(42% + 98px)}.life-studio .life-facility-emblem{width:48px;height:55px}.life-studio .life-studio-heading h1{font-size:21px}.life-studio-summary{margin-top:12px}.life-studio-hint{right:auto}}
+
+.workshop-menu{display:grid;gap:16px}.workshop-menu>button{display:flex;align-items:center;gap:20px;padding:24px;text-align:left}.workshop-menu>button strong{font-size:20px;min-width:120px}.workshop-menu>button span{flex:1}.workshop-menu>p{color:#688199}

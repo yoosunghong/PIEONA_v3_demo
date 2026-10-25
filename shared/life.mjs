@@ -32,7 +32,7 @@ export function rollFish(random=Math.random){
 export function nearestLifeInteraction(position,members=[],viewerId,village={}){
   if(!position)return null;
   const {storage,beds,kitchen,anchors}=villageLife(village);
-  const candidates=[storage,...beds,kitchen,...anchors.filter(anchor=>!members.some(m=>m.userId!==viewerId&&m.seatId===anchor.id))];
+  const candidates=[...beds.filter(bed=>!bed.hidden),...anchors.filter(anchor=>!anchor.hidden&&!members.some(m=>m.userId!==viewerId&&m.seatId===anchor.id))];
   return candidates.map(item=>({...item,distance:Math.hypot(item.x-position.x,item.z-position.z)})).filter(item=>item.distance<=INTERACTION_REACH).sort((a,b)=>a.distance-b.distance)[0]||null;
 }
 export function lifeInteractionKey(event){

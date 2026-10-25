@@ -5,9 +5,9 @@ import {validPlacement} from '../shared/world.mjs';
 
 export const snapPosition=value=>Math.round(value*4)/4;
 export function canPlaceDecoration(items,x,z,selected=null){
-  const scenery=items.filter(item=>isScenery(item.id)).map(item=>({...item,id:item.id.slice(8)})),occupied=items.filter(item=>!item.hidden&&!suppressedScenery(item,{scenery}));
+  const scenery=items.filter(item=>isScenery(item.id)).map(item=>({...item,id:item.id.slice(8)})),occupied=items.filter(item=>!item.hidden&&!/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)&&!suppressedScenery(item,{scenery}));
   if(isLifeScenery(selected)){const proposed={scenery:scenery.map(item=>item.id===selected.slice(8)?{...item,x,z}:item)};if(!validLifePlacement(proposed,selected,occupied))return false;}
-  return (isScenery(selected)?validSceneryPlacement(x,z,{scenery},selected):validPlacement(x,z,items.some(item=>isScenery(item.id))?items.filter(item=>isScenery(item.id)).map(item=>({...item,id:item.id.slice(8)})):undefined))&&!occupied.some(item=>item.id!==selected&&Math.hypot(item.x-x,item.z-z)<Math.max(objectClearance(selected,item.id),isScenery(selected)?sceneryClearance(selected,item.id):.8));
+  return (isScenery(selected)?validSceneryPlacement(x,z,{scenery},selected):validPlacement(x,z,items.some(item=>isScenery(item.id))?items.filter(item=>isScenery(item.id)).map(item=>({...item,id:item.id.slice(8)})):undefined))&&!occupied.some(item=>item.id!==selected&&Math.hypot(item.x-x,item.z-z)<Math.max(objectClearance(selected,item.id),isScenery(selected)?sceneryClearance(selected,item.id):.4));
 }
 export function editorHistory(state,action){
   if(action.type==='undo')return state.past.length?{past:state.past.slice(0,-1),present:state.past.at(-1),future:[state.present,...state.future]}:state;

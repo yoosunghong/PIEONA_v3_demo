@@ -47,9 +47,7 @@ export const villageThemes=[
   {id:'sunset',name:'노을',description:'따뜻한 살구빛이 물드는 마을',sky:0xf4c9ba,light:0xffb075,intensity:2.5,ambient:1.5,ground:0xcbb8b1,swatch:'#efb09c'},
 ];
 export const defaultVillage={items:[],theme:'default'};
-// Keep the central host platform and the main path free of furniture.
-export function validPlacement(x,z,scenery){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,{scenery})&&Math.hypot(x,z)>=2.85&&Math.hypot(x,z)<=DECOR_RADIUS&&!(Math.abs(x)<.85&&z>0)&&![[-3.65,-.2,1.5],[3.35,1.2,1.65],[2.1,-3.5,.85]].some(([a,b,r],i)=>{const moved=scenery?.find(item=>item.id===['cafe','pond','campfire'][i]);return !moved?.hidden&&Math.hypot(x-(moved?.x??a),z-(moved?.z??b))<r;});}
-
+export function validPlacement(x,z,scenery){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,{scenery})&&Math.hypot(x,z)<=DECOR_RADIUS;}
 export const characters=[
   {id:'pio',name:'피오',folder:'Meshy_AI_biped',animation:'Joyful_Dance_with_Hand_Sway'},
   {id:'luna',name:'루나',folder:'Meshy_AI_Luna_biped',animation:'Idle_02'},

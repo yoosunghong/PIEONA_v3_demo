@@ -134,3 +134,41 @@ test('existing database gets designated admin by immutable ID, roles and answers
     assert.deepEqual({...store.one('SELECT completed,version FROM survey_participation WHERE user_id=?',imposter)},{completed:1,version:0});
   }finally{store?.close();rmSync(directory,{recursive:true,force:true});}
 });
+
+
+test('historical versions retain original options, totals and isolated comments',async()=>{
+  const manager=await register('manager');
+  const oldId=randomUUID(),newId=randomUUID();
+  runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',oldId,7,JSON.stringify({...answer(),q4:{selected:[6,7],other:'v7 other'},q10:'v7 comment'}));
+  runtime.store.run('INSERT INTO survey_responses VALUES(?,?,?)',newId,8,JSON.stringify({...answer(),q4:{selected:[6]},q10:'v8 comment'}));
+  try{
+    const old=(await request('/survey/statistics?version=7',manager)).body;
+    const current=(await request('/survey/statistics?version=8',manager)).body;
+    const merged=(await request('/survey/statistics?version=7-8',manager)).body;
+    assert.equal(merged.version,'7-8');assert.equal(merged.total,old.total+current.total);
+    const oldCounts=old.questions.find(q=>q.id==='q4').counts,newCounts=current.questions.find(q=>q.id==='q4').counts;
+    assert.deepEqual(merged.questions.find(q=>q.id==='q4').counts,newCounts.map((count,index)=>count+(index===6?0:oldCounts[index>6?index-1:index])));
+    assert.equal(merged.questions.find(q=>q.id==='q4').otherCount,old.questions.find(q=>q.id==='q4').otherCount+current.questions.find(q=>q.id==='q4').otherCount);
+    assert.equal(merged.questions.find(q=>q.id==='q2').answered,old.questions.find(q=>q.id==='q2').answered+current.questions.find(q=>q.id==='q2').answered);
+    const mergedComments=[];
+    let commentPage=1,commentPages=1;
+    do{const result=(await request(`/survey/statistics/comments?version=7-8&question=q10&page=${commentPage}`,manager)).body;mergedComments.push(...result.comments);commentPages=result.pages;commentPage++;}while(commentPage<=commentPages);
+    assert.ok(mergedComments.includes('v7 comment'));assert.ok(mergedComments.includes('v8 comment'));
+    assert.equal((await request('/survey/statistics/comments?version=7-8&question=q4',manager)).body.total,merged.questions.find(q=>q.id==='q4').otherCount);
+    assert.equal((await request('/survey/statistics?version=7-8')).status,401);
+    assert.equal(old.version,7);assert.equal(old.total,1);
+    assert.equal(old.allTotal,current.allTotal);
+    assert.equal(old.allTotal,old.versions.reduce((sum,v)=>sum+v.total,0));
+    assert.equal(old.versions.find(v=>v.version===7).total,1);
+    assert.equal(old.questionDefinitions.find(q=>q.id==='q4').options.length,8);
+    assert.equal(current.questionDefinitions.find(q=>q.id==='q4').options.length,9);
+    assert.deepEqual(old.questions.find(q=>q.id==='q4').counts,[0,0,0,0,0,0,1,1]);
+    assert.deepEqual((await request('/survey/statistics/comments?version=7&question=q10',manager)).body.comments,['v7 comment']);
+    assert.deepEqual((await request('/survey/statistics/comments?version=7&question=q4',manager)).body.comments,['v7 other']);
+    assert.ok(!(await request('/survey/statistics/comments?version=8&question=q10',manager)).body.comments.includes('v7 comment'));
+    assert.equal((await request('/survey/statistics?version=999',manager)).status,400);
+    assert.equal((await request('/survey/statistics?version=bad',manager)).status,400);
+    assert.equal((await request('/survey/statistics/comments?version=7&question=q2',manager)).status,400);
+    assert.equal((await request('/survey/statistics?version=7')).status,401);
+  }finally{runtime.store.run('DELETE FROM survey_responses WHERE id IN (?,?)',oldId,newId);}
+});

@@ -1,5 +1,5 @@
 import {GARDEN_BEDS,KITCHEN} from './garden.mjs';
-import {WALK_RADIUS} from './villageSize.mjs';
+import {WALK_RADIUS,SCENERY_RADIUS} from './villageSize.mjs';
 
 export const STORAGE={id:'storage',x:-1.75,z:4.65};
 export const FISHING_ANCHORS=[-1.35,-.45,.45,1.35].map((x,i)=>({id:`fishing:${i}`,x,z:6.3,height:.58,rotation:0}));
@@ -15,26 +15,26 @@ export function villageLife(village={}){
     const def=lifeDefinitions.find(def=>def.id===id),saved=village.scenery?.find(item=>item.id===id);
     const rotation=(saved?.rotation||0)*Math.PI/2,c=Math.cos(rotation),s=Math.sin(rotation);
     const point=p=>({x:(saved?.x??def.x)+(p.x-def.x)*c+(p.z-def.z)*s,z:(saved?.z??def.z)-(p.x-def.x)*s+(p.z-def.z)*c});
-    return {...object,...point(object),rotation:(object.rotation||0)+rotation,...(object.approach?{approach:point(object.approach)}:{})};
+    return {...object,...(saved?.hidden?{hidden:true}:{}),...point(object),rotation:(object.rotation||0)+rotation,...(object.approach?{approach:point(object.approach)}:{})};
   }
   return {storage:transform(STORAGE,'life-storage'),beds:GARDEN_BEDS.map((bed,i)=>transform(bed,`life-garden-${i}`)),kitchen:transform(KITCHEN,'life-kitchen'),anchors:FISHING_ANCHORS.map(anchor=>({...transform(anchor,'life-fishing'),approach:transform({...anchor,z:5.1},'life-fishing')}))};
 }
-export function lifeInteractionObjects(village={}){const {storage,beds,kitchen,anchors}=villageLife(village);return [storage,...beds,kitchen,...anchors];}
+export function lifeInteractionObjects(village={}){const {storage,beds,kitchen,anchors}=villageLife(village);return [...beds,...anchors].filter(item=>!item.hidden);}
 
 export function lifeFootprint(village={},id=null){
   const {storage,beds,kitchen,anchors}=villageLife(village);
   return [
-    [storage,'scenery:life-storage',.75],
-    [kitchen,'scenery:life-kitchen',.9],
-    ...beds.map((bed,i)=>[bed,`scenery:life-garden-${i}`,.8]),
-    ...anchors.map(anchor=>[anchor,'scenery:life-fishing',.6]),
-  ].filter(([,key])=>!id||key===id).flatMap(([point,key,radius])=>[
-    {...point,id:key,radius},...(point.approach?[{...point.approach,id:key,radius:.6}]:[]),
+
+
+    ...beds.map((bed,i)=>[bed,`scenery:life-garden-${i}`,.4]),
+    ...anchors.map(anchor=>[anchor,'scenery:life-fishing',.15]),
+  ].filter(([point,key])=>!point.hidden&&(!id||key===id)).flatMap(([point,key,radius])=>[
+    {...point,id:key,radius},...(point.approach?[{...point.approach,id:key,radius:.3}]:[]),
   ]);
 }
 export function validLifePlacement(village,id,objects=[]){
   return lifeFootprint(village,id).every(point=>{
     const distance=Math.hypot(point.x,point.z);
-    return distance<=WALK_RADIUS&&distance>=2.85&&!objects.some(other=>other.id!==id&&!other.hidden&&Math.hypot(other.x-point.x,other.z-point.z)<point.radius);
+    return distance<=(id==='scenery:life-fishing'?SCENERY_RADIUS:WALK_RADIUS)&&!objects.some(other=>other.id!==id&&!other.hidden&&Math.hypot(other.x-point.x,other.z-point.z)<point.radius);
   });
 }

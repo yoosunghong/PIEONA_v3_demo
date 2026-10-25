@@ -7,7 +7,7 @@ export const POLLBOX_ID='village-pollbox',CHALKBOARD_ID='village-chalkboard';
 export const communityDefinitions=[{id:POLLBOX_ID,key:'pollbox',name:'마을 투표함',x:2.6,z:3.3},{id:CHALKBOARD_ID,key:'chalkboard',name:'마을 칠판',x:4.5,z:-4.25}];
 export const isCommunityObject=id=>communityDefinitions.some(item=>item.id===id);
 // The wider board needs room at either side, including after a quarter turn.
-export const objectClearance=(a,b)=>a===CHALKBOARD_ID||b===CHALKBOARD_ID?1.6:.8;
+export const objectClearance=(a,b)=>[a,b].some(id=>/^scenery:(central-stage|stage-stone-|path-stone-)/.test(id))?0:a===CHALKBOARD_ID||b===CHALKBOARD_ID?.8:.4;
 export function communityPlacements(village={}){
   const occupied=[...(village.items||[]),villageSign(village),villageGuestbook(village),...villageScenery(village)];
   return communityDefinitions.map(def=>{

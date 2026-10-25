@@ -23,15 +23,15 @@ test('facility layouts retain stable identities and transform interactions, work
   assert.deepEqual(life.storage,{id:'storage',x:-5,z:0,rotation:Math.PI/2});
   assert.ok(Math.abs(life.beds[0].approach.x+4.35)<1e-8);assert.equal(life.beds[0].approach.z,-3.5);
   assert.ok(Math.abs(life.kitchen.approach.z+3.05)<1e-8);
-  for(const object of [life.storage,...life.beds,life.kitchen,...life.anchors])assert.equal(nearestLifeInteraction(object,[],'me',village).id,object.id);
+  for(const object of [...life.beds,...life.anchors])assert.equal(nearestLifeInteraction(object,[],'me',village).id,object.id);
   assert.equal(nearestLifeInteraction(FISHING_ANCHORS[0],[],'me',village),null);
-  assert.equal(inLifeArea(-5,0,village),true);assert.equal(inLifeArea(-1.75,4.65,village),false);
+  assert.equal(inLifeArea(-5,0,village),false);assert.equal(inLifeArea(-1.75,4.65,village),false);
   assert.deepEqual(lifeFocusView('storage',null,1,village).target,[-5,.55,0]);
   assert.deepEqual(lifeFocusView('garden','garden:0',1,village).target,[-3.5,.55,-3.5]);
   const items=villageScenery(village);
-  for(const def of lifeDefinitions)assert.equal(canPlaceDecoration(items,items.find(i=>i.id==='scenery:'+def.id).x,items.find(i=>i.id==='scenery:'+def.id).z,'scenery:'+def.id),true,def.id);
-  assert.equal(canPlaceDecoration(items,8,0,'scenery:life-kitchen'),false);
-  assert.equal(canPlaceDecoration(items,-5,0,'scenery:life-garden-0'),false);
+  for(const def of lifeDefinitions.filter(def=>!['life-storage','life-kitchen'].includes(def.id)))assert.equal(canPlaceDecoration(items,items.find(i=>i.id==='scenery:'+def.id).x,items.find(i=>i.id==='scenery:'+def.id).z,'scenery:'+def.id),true,def.id);
+  assert.equal(canPlaceDecoration(items,9,0,'scenery:life-kitchen'),false);
+  assert.equal(canPlaceDecoration(items,-5,0,'scenery:life-garden-0'),true);
   const state={past:[],present:villageScenery({}),future:[]},changed=editorHistory(state,{type:'change',items});
   assert.deepEqual(editorHistory(changed,{type:'undo'}).present,state.present);
   assert.deepEqual(editorHistory(editorHistory(changed,{type:'undo'}),{type:'redo'}).present,items);
@@ -85,8 +85,8 @@ test('saved facilities reach visitors and server fishing, planting and cooking u
     plan=JSON.parse(runtime.store.one("SELECT plan FROM life_operations WHERE owner_id=? AND status='pending'",user.id).plan);assert.deepEqual(plan.target,life.kitchen.approach);
     time+=15000;runtime.life.tick();
     assert.equal((await save(changed)).status,200);
-    assert.equal((await save({scenery:[{id:'life-storage',x:0,z:0,rotation:0}]})).status,400);
-    assert.equal((await save({scenery:[{id:'life-storage',x:-5,z:0,rotation:0,hidden:true}]})).status,400);
+    assert.equal((await save({scenery:changed.scenery.map(item=>item.id==='life-storage'?{...item,x:0,z:0,hidden:true}:item)})).status,200);
+    assert.equal((await save({scenery:changed.scenery.map(item=>item.id==='life-storage'?{...item,x:-5,z:0,hidden:true}:item)})).status,200);
   }finally{socket?.disconnect();await runtime.close();}
 });
 

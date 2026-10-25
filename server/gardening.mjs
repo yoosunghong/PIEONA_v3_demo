@@ -32,19 +32,20 @@ export function createGardening(store,clock,{recover=true}={}){
   }
   function plan(uid,action){
     if(action.intent==='COOK_FOOD')return recipePlan(uid,action);
-    const all=plots(uid);
+    const visible=villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).beds.filter(b=>!b.hidden);
+    const all=plots(uid).filter(plot=>visible.some(b=>b.id===plot.id));
     if(action.intent==='PLANT_SEED'){
       const crop=CROPS.find(c=>c.id===action.crop);if(!crop)fail('허브, 토마토, 꽃 중 심을 씨앗을 알려 줘. 씨앗은 무료야.');
       const plot=action.plot?all.find(p=>p.id===action.plot):all.find(p=>p.state==='Empty'&&!p.reserved);
       if(!plot||plot.state!=='Empty'||plot.reserved)fail('비어 있는 텃밭이 없어. 수확하거나 진행 중인 작업을 마친 뒤 심어 줘.');
-      return {cropId:crop.id,plots:[{id:plot.id,plantingId:null}],inputs:[],outputs:[],target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).beds.find(b=>b.id===plot.id).approach};
+      return {cropId:crop.id,plots:[{id:plot.id,plantingId:null}],inputs:[],outputs:[],target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).beds.find(b=>b.id===plot.id&&!b.hidden)?.approach};
     }
     if(action.intent!=='HARVEST_CROP')fail('지원하지 않는 텃밭 작업이야.');
     const selected=all.filter(p=>(!action.plot||p.id===action.plot)&&(!action.crop||p.cropId===action.crop)&&p.state==='Ready'&&!p.reserved);
     if(!selected.length)fail('지금 수확할 수 있는 작물이 없어. 아직 자라는 중이거나 다른 작업이 진행 중이야.');
     if(action.plantingId&&selected[0].plantingId!==action.plantingId)fail('작물이 바뀌었어. 텃밭을 새로 확인해 줘.');
     const sums=new Map();for(const p of selected)sums.set(p.cropId,(sums.get(p.cropId)||0)+1);
-    return {plots:selected.map(p=>({id:p.id,plantingId:p.plantingId})),inputs:[],outputs:[...sums].map(([itemId,quantity])=>({itemId,quantity})),target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).beds.find(b=>b.id===selected[0].id).approach};
+    return {plots:selected.map(p=>({id:p.id,plantingId:p.plantingId})),inputs:[],outputs:[...sums].map(([itemId,quantity])=>({itemId,quantity})),target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).beds.find(b=>b.id===selected[0].id&&!b.hidden)?.approach};
   }
   function find(uid,key){return store.one('SELECT * FROM life_operations WHERE owner_id=? AND request_id=?',uid,key);}
   function existing(uid,key,action,actor){const op=find(uid,key);if(op&&(op.input!==JSON.stringify(action)||op.actor!==actor))fail('같은 요청 번호로 다른 작업을 실행할 수 없어.');return op;}

@@ -30,6 +30,7 @@ import {crabSeconds} from '../shared/crab.mjs';
 import {installVolleyGames} from './volleyGames.mjs';
 import {MAX_PARTY_PLAYERS,maxGamePlayers} from '../shared/multiplayer.mjs';
 import {surveyQuestions,surveyVersion} from '../shared/survey.mjs';
+import {surveyDefinitions,combinedSurveyVersion,statisticsQuestions} from '../shared/surveyHistory.mjs';
 import {canReadSurvey,surveyStatistics,surveyComments} from './surveyStatistics.mjs';
 import {villageSign,isSignColor,MAX_CUSTOM_SIGN_COLORS,signShapes,MAX_SIGN_STROKES,MAX_SIGN_POINTS,signPointCount} from '../shared/sign.mjs';
 import {villageGuestbook,GUESTBOOK_PAGE_SIZE,GUESTBOOK_MAX_LENGTH,guestbookLength} from '../shared/guestbook.mjs';
@@ -175,7 +176,7 @@ export function createApp(options = {}) {
   });
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({hidden:z.boolean().optional(),id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
-    const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=SCENERY_RADIUS,'마을 안에 놓아주세요.').refine(item=>!isLifeScenery(item.id)||!item.hidden,'생활 시설은 이동과 회전만 할 수 있어요.');
+    const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=SCENERY_RADIUS,'마을 안에 놓아주세요.');
     const lookSchema=z.object({petType:z.enum(petTypes.map(p=>p.id)).optional(),petColor:z.enum(petColors.map(p=>p.id)).optional(),character:z.enum(characters.map(c=>c.id)).optional(),ride:z.enum(rides.map(r=>r.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.string().max(9).refine(isSignColor),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
@@ -192,19 +193,19 @@ export function createApp(options = {}) {
     if(nests.length>1)fail(400,'아기용 전용 둥지는 한 개만 보유할 수 있어요.');
     // Keep legacy/default placements, including overlaps, until an object is moved or restored.
     // Browser and Node trigonometry can differ by a few ULPs for default scenery.
-    const placementChanged=(before,after)=>!before||before.hidden||Math.abs(before.x-after.x)>1e-6||Math.abs(before.z-after.z)>1e-6;
-    const sceneryMoved=(before,after)=>placementChanged(before,after)||isLifeScenery(after.id)&&after.id!=='scenery:life-storage'&&before.rotation!==after.rotation;
+    const placementChanged=(before,after)=>!before||before.hidden&&!after.hidden||Math.abs(before.x-after.x)>1e-6||Math.abs(before.z-after.z)>1e-6;
+    const sceneryMoved=(before,after)=>placementChanged(before,after)||!!before?.hidden!==!!after.hidden||isLifeScenery(after.id)&&after.id!=='scenery:life-storage'&&before.rotation!==after.rotation;
     const itemMoved=item=>placementChanged(oldVillage.items?.find(old=>old.id===item.id),item);
-    if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>Number.isFinite(entry.quantity)&&items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>itemMoved(i)&&!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&(itemMoved(a)||itemMoved(b))&&Math.hypot(a.x-b.x,a.z-b.z)<.8)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
+    if(data.village?.items){const savedItems=data.village.items,items=savedItems.filter(item=>!item.hidden);if(decorations.some(entry=>Number.isFinite(entry.quantity)&&items.filter(item=>item.type===entry.id).length>entry.quantity))fail(400,'소품별 보유 수량을 초과해 배치할 수 없어요.');if(new Set(savedItems.map(i=>i.id)).size!==savedItems.length||items.some(i=>itemMoved(i)&&!validPlacement(i.x,i.z,nextVillage.scenery))||items.some((a,i)=>items.some((b,j)=>j>i&&(itemMoved(a)||itemMoved(b))&&Math.hypot(a.x-b.x,a.z-b.z)<.4)))fail(400,'소품은 중앙 광장과 산책로를 피해 서로 간격을 두고 배치해주세요.');}
     if(data.village?.sign)nextVillage.sign={...villageSign(oldVillage),...data.village.sign};
     if(data.village?.guestbook)nextVillage.guestbook={...villageGuestbook(oldVillage),...data.village.guestbook};
     if(data.village?.sign||data.village?.items||data.village?.guestbook){
       const sign=villageSign(nextVillage);
       const signMoved=placementChanged(villageSign(oldVillage),sign);
-      if(!sign.hidden&&((signMoved&&!validPlacement(sign.x,sign.z,nextVillage.scenery))||(nextVillage.items||[]).some(item=>!item.hidden&&(signMoved||itemMoved(item))&&Math.hypot(item.x-sign.x,item.z-sign.z)<.8)))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
+      if(!sign.hidden&&((signMoved&&!validPlacement(sign.x,sign.z,nextVillage.scenery))||(nextVillage.items||[]).some(item=>!item.hidden&&(signMoved||itemMoved(item))&&Math.hypot(item.x-sign.x,item.z-sign.z)<.4)))fail(400,'팻말은 광장·시설·다른 소품을 피해 배치해주세요.');
       const book=villageGuestbook(nextVillage);
       const bookMoved=placementChanged(villageGuestbook(oldVillage),book);
-      if(!book.hidden&&((bookMoved&&!validPlacement(book.x,book.z,nextVillage.scenery))||(nextVillage.items||[]).some(item=>!item.hidden&&(bookMoved||itemMoved(item))&&Math.hypot(item.x-book.x,item.z-book.z)<.8)||(!sign.hidden&&(bookMoved||signMoved)&&Math.hypot(sign.x-book.x,sign.z-book.z)<.8)))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
+      if(!book.hidden&&((bookMoved&&!validPlacement(book.x,book.z,nextVillage.scenery))||(nextVillage.items||[]).some(item=>!item.hidden&&(bookMoved||itemMoved(item))&&Math.hypot(item.x-book.x,item.z-book.z)<.4)||(!sign.hidden&&(bookMoved||signMoved)&&Math.hypot(sign.x-book.x,sign.z-book.z)<.4)))fail(400,'방명록은 광장·시설·팻말·다른 소품을 피해 배치해주세요.');
     }
     if(data.village){
       const before=communityPlacements(oldVillage);
@@ -232,7 +233,7 @@ export function createApp(options = {}) {
       for(const object of after){
         const old=before.find(item=>item.id===object.id);
         if(object.hidden||!sceneryMoved(old,object))continue;
-        if(isLifeScenery(object.id)&&!validLifePlacement(nextVillage,object.id,objects.filter(item=>!suppressedScenery(item,oldVillage))))fail(400,'시설과 작업 자리는 광장·다른 소품을 피해 걸어갈 수 있는 마을 안에 배치해주세요.');
+        if(isLifeScenery(object.id)&&!validLifePlacement(nextVillage,object.id,objects.filter(item=>!/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)&&!suppressedScenery(item,oldVillage))))fail(400,'시설과 작업 자리는 광장·다른 소품을 피해 걸어갈 수 있는 마을 안에 배치해주세요.');
         if(!validSceneryPlacement(object.x,object.z,nextVillage,object.id)||objects.some(other=>other!==object&&!(isLifeScenery(object.id)&&suppressedScenery(other,oldVillage))&&Math.hypot(other.x-object.x,other.z-object.z)<sceneryClearance(object.id,other.id)))fail(400,'광장·산책로·다른 오브젝트를 피해 배치해주세요.');
       }
     }
@@ -576,10 +577,18 @@ export function createApp(options = {}) {
   });
   function surveyReader(req,res,next){if(!canReadSurvey(req.user))return res.status(403).json({error:'설문 통계를 볼 권한이 없어요.'});next();}
   function surveyAdmin(req,res,next){if(req.user.survey_role!=='admin')return res.status(403).json({error:'관리자만 매니저 권한을 변경할 수 있어요.'});next();}
-  app.get('/api/survey/statistics',auth,surveyReader,(req,res)=>res.json(surveyStatistics(store)));
+  function statisticsVersion(query){
+    if(query.version===combinedSurveyVersion)return combinedSurveyVersion;
+    const version=z.coerce.number().int().min(1).default(surveyVersion).parse(query.version);
+    if(!surveyDefinitions[version]&&!store.one('SELECT 1 FROM survey_responses WHERE version=?',version))fail(400,'존재하지 않는 설문 버전이에요.');
+    return version;
+  }
+  app.get('/api/survey/statistics',auth,surveyReader,(req,res)=>res.json(surveyStatistics(store,statisticsVersion(req.query))));
   app.get('/api/survey/statistics/comments',auth,surveyReader,(req,res)=>{
-    const {question,page}=z.object({question:z.enum(surveyQuestions.filter(q=>q.type!=='rating').map(q=>q.id)),page:z.coerce.number().int().min(1).max(1000000).default(1)}).parse(req.query);
-    res.json(surveyComments(store,question,page));
+    const version=statisticsVersion(req.query);
+    const definitions=statisticsQuestions(version);
+    const {question,page}=z.object({question:z.string().refine(id=>definitions.some(q=>q.id===id&&q.type!=='rating')),page:z.coerce.number().int().min(1).max(1000000).default(1)}).parse(req.query);
+    res.json(surveyComments(store,question,page,10,version));
   });
   app.get('/api/survey/managers',auth,surveyAdmin,(req,res)=>{
     const {q,page}=z.object({q:z.string().trim().max(64).default(''),page:z.coerce.number().int().min(1).max(1000000).default(1)}).parse(req.query);

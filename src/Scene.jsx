@@ -84,11 +84,14 @@ export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,vill
     function cyl(rt,rb,h,m,x,y,z,parent){return mesh(new THREE.CylinderGeometry(rt,rb,h,64),m,x,y,z,parent);}
     cyl(VILLAGE_RADIUS,6.5*VILLAGE_SCALE,.7,earth,0,-.5,0);cyl(6.95*VILLAGE_SCALE,VILLAGE_RADIUS,.22,stone,0,-.12,0);cyl(6.78*VILLAGE_SCALE,6.87*VILLAGE_SCALE,.22,green,0,.03,0);
     const underRing=mesh(new THREE.TorusGeometry(6.45*VILLAGE_SCALE,.035,8,120),mat(0x8cceb8,{emissive:0x5aaf9d,emissiveIntensity:2}),0,-.5,0);underRing.rotation.x=Math.PI/2;
+    const centralStart=world.children.length,centralParts=[];
     // Circular stone stage and illuminated perimeter.
     cyl(2.1,2.2,.22,stone,0,.23,0);cyl(1.95,1.95,.03,mat(0xf2f7fc),0,.36,0);
     const stageRing=mesh(new THREE.TorusGeometry(2.05,.025,8,100),mat(0xc9e3ae,{emissive:0xa9d988,emissiveIntensity:.65}),0,.38,0);stageRing.rotation.x=Math.PI/2;
-    for(let i=0;i<12;i++){const a=i*Math.PI/6;const tile=box(.55,.08,.48,stone,Math.sin(a)*2.5,.18,Math.cos(a)*2.5);tile.rotation.y=a;}
-    for(let i=0;i<6;i++){const x=-.25+Math.sin(i)*.13;box(.88,.08,.48,stone,x,.17,2.9+i*.5);}
+    centralParts.push(...world.children.slice(centralStart));
+    const stoneParts=[];
+    for(let i=0;i<12;i++){const a=i*Math.PI/6;const tile=box(.55,.08,.48,stone,Math.sin(a)*2.5,.18,Math.cos(a)*2.5);tile.rotation.y=a;stoneParts.push([`stage-stone-${i}`,tile,tile.position.x,tile.position.z]);}
+    for(let i=0;i<6;i++){const x=-.25+Math.sin(i)*.13;const tile=box(.88,.08,.48,stone,x,.17,2.9+i*.5);stoneParts.push([`path-stone-${i}`,tile,x,2.9+i*.5]);}
     const pollBox=new THREE.Group();pollBox.position.set(2.6,.16,3.3);pollBox.userData.action='poll';pollBox.userData.itemId=POLLBOX_ID;world.add(pollBox);
     const pollLabel=createFacilityLabel('투표함');pollLabel.position.y=1.5;pollBox.add(pollLabel);
     box(.8,.85,.7,mat(0xe9c5aa),0,.48,0,pollBox);box(.91,.1,.81,mat(0xc49476),0,.95,0,pollBox);box(.42,.02,.065,mat(0x6e5350),0,1.015,0,pollBox);
@@ -102,6 +105,8 @@ export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,vill
     const lifeWorld=createLifeWorld();world.add(lifeWorld.root);
     const facilityOutline=createFacilityOutline(renderer,world,camera);for(const [id,root] of lifeWorld.facilities)sceneryRoots.set(id,root);
     const registerScenery=(id,objects,x,z)=>registerSceneryObject(world,sceneryRoots,id,objects,x,z);
+    registerScenery('central-stage',centralParts,0,0);
+    stoneParts.forEach(([id,tile,x,z])=>registerScenery(id,[tile],x,z));
     function tree(x,z,size=1,blossom=false){
       const g=new THREE.Group();g.position.set(x,.12,z);world.add(g);
       cyl(.12,.2,1.8,bark,0,.9,0,g);const branch=cyl(.06,.09,.9,bark,.25,1.55,0,g);branch.rotation.z=-.5;
@@ -182,8 +187,8 @@ export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,vill
     const previewRoot=new THREE.Group();world.add(previewRoot);
     const gridPoints=[];
     for(let i=-16;i<=16;i++){
-      const axis=i*.5,edge=Math.sqrt(SCENERY_RADIUS**2-axis**2),inner=Math.abs(axis)<2.22?Math.sqrt(2.22**2-axis**2):0;
-      for(const [a,b] of inner?[[-edge,-inner],[inner,edge]]:[[-edge,edge]])gridPoints.push(axis,0,a,axis,0,b,a,0,axis,b,0,axis);
+      const axis=i*.5,edge=Math.sqrt(SCENERY_RADIUS**2-axis**2);
+      gridPoints.push(axis,0,-edge,axis,0,edge,-edge,0,axis,edge,0,axis);
     }
     const gridStyle=editorGridStyle(mood);
     const grid=new THREE.LineSegments(new THREE.BufferGeometry().setAttribute('position',new THREE.Float32BufferAttribute(gridPoints,3)),new THREE.LineDashedMaterial({color:gridStyle.color,transparent:true,opacity:0,dashSize:.075,gapSize:.04,depthWrite:false,toneMapped:false,fog:false}));grid.computeLineDistances();grid.position.y=.165;grid.visible=!!editor;world.add(grid);
@@ -565,7 +570,7 @@ export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,vill
     const scene=worldRef.current;if(!scene)return;
     for(const item of villageScenery(village)){
       const root=scene.sceneryRoots.get(item.id);if(!root)continue;
-      root.visible=!item.hidden&&(isLifeScenery(item.id)||!inLifeArea(item.x,item.z,village));root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;
+      root.visible=!item.hidden&&(isLifeScenery(item.id)||/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)||!inLifeArea(item.x,item.z,village));root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;
     }
   },[JSON.stringify(village.scenery),village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
@@ -592,7 +597,7 @@ export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,vill
     const preview=new THREE.Group();preview.position.set(chosen?.x||0,.17,chosen?.z||0);preview.visible=!!chosen;
     const sample=isScenery(chosen?.id)?new THREE.Mesh(new THREE.BoxGeometry(1.4,.1,1.4),new THREE.MeshBasicMaterial()):type==='chalkboard'?createChalkboard({x:0,z:0,rotation:0}):type==='pollbox'?new THREE.Mesh(new THREE.BoxGeometry(.91,1.3,.81),new THREE.MeshBasicMaterial()):type==='villageGuestbook'?createVillageGuestbook({x:0,z:0,rotation:0}):type==='villageSign'?createVillageSign({...villageSign(village),x:0,z:0,rotation:0}):createDecoration(type);sample.rotation.y=(chosen?.rotation??editor.rotation??0)*Math.PI/2;
     const bounds=new THREE.Box3().setFromObject(isScenery(chosen?.id)?scene.sceneryRoots.get(chosen.id):sample),size=bounds.getSize(new THREE.Vector3());
-    const w=Math.max(.85,size.x+.15),d=Math.max(.85,size.z+.15);
+    const w=Math.max(.425,(size.x+.15)*.5),d=Math.max(.425,(size.z+.15)*.5);
     if(!chosen){sample.traverse(o=>{if(o.isMesh){o.material.transparent=true;o.material.opacity=.55;o.castShadow=false;}});preview.add(sample);}else disposeObject(sample);
     const color=0x72f0aa,lineMat=new THREE.LineBasicMaterial({color,depthTest:false,transparent:true,opacity:.95});
     const outline=new THREE.BoxGeometry(w,.07,d),edges=new THREE.LineSegments(new THREE.EdgesGeometry(outline),lineMat);outline.dispose();edges.position.y=.06;edges.renderOrder=20;preview.add(edges);

@@ -39,6 +39,7 @@ export function createLifeWorld(){
   box(1.4,.12,.8,trim,0,.7,0,kitchen);for(const x of [-.55,.55])box(.12,.7,.6,wood,x,.3,0,kitchen);
   const pot=new THREE.Mesh(new THREE.CylinderGeometry(.25,.2,.24,16),metal);pot.position.set(-.3,.88,0);kitchen.add(pot);
   box(.38,.04,.4,wood,.4,.79,0,kitchen);
+  root.remove(chest,kitchen);
   const facilities=new Map();
   for(const def of lifeDefinitions){
     const parts=root.children.filter(part=>{const action=part.userData.action||part.userData.lifeAction;return def.action==='fishing'?action?.startsWith('fishing:'):action===def.action;});

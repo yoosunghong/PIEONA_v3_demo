@@ -111,7 +111,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     try{
       if(active(uid,kind))stop(uid,kind,false);
       const member=player;
-      const start={x:member.x,z:member.z},distance=Math.hypot(plan.target.x-start.x,plan.target.z-start.z),arrived=clock()+Math.ceil(distance/2.4*1000);
+      const start={x:member.x,z:member.z};if(action.intent==='COOK_FOOD')plan.target={...start};const distance=Math.hypot(plan.target.x-start.x,plan.target.z-start.z),arrived=clock()+Math.ceil(distance/2.4*1000);
       const label=action.intent==='COOK_FOOD'?'요리':action.intent==='PLANT_SEED'?'씨앗 심기':'작물 수확';
       jobs.set(jobKey(uid,kind),{op,plan,start,started:clock(),arrived,ends:arrived+(plan.durationMs||2000),label});
       logAction(uid,'life_work_start',{actor:kind,intent:action.intent,operationId:op.id});

@@ -23,15 +23,15 @@ test('poll box and board placement persist, rotate, store and reject invalid/col
     const placements={};
     for(const [key,object,rotation] of [['pollbox',poll,2],['chalkboard',board,1]]){
       let next;
-      for(const dx of [.25,-.25,.5,-.5])if(canPlaceDecoration(objects,object.x+dx,object.z,object.id)){next={x:object.x+dx,z:object.z,rotation};break;}
+      for(const dx of [.25,-.25,.5,-.5,1,-1,1.5,-1.5,2,-2])if(canPlaceDecoration(objects,object.x+dx,object.z,object.id)){next={x:object.x+dx,z:object.z,rotation};break;}
       assert.ok(next,'a movable nearby cell exists for '+key);
       placements[key]=next;objects=objects.map(item=>item.id===object.id?{...item,...next}:item);
     }
     let result=await h.request('/me/world',owner,{village:placements},'PATCH');assert.equal(result.status,200,JSON.stringify(result.body));
     assert.equal(result.body.user.village.pollbox.rotation,2);assert.equal(result.body.user.village.chalkboard.rotation,1);
     assert.equal(result.body.user.village.pollbox.x,placements.pollbox.x);assert.equal(result.body.user.village.chalkboard.x,placements.chalkboard.x);
-    for(const key of ['pollbox','chalkboard'])assert.equal((await h.request('/me/world',owner,{village:{[key]:{x:0,z:0}}},'PATCH')).status,400);
-    assert.equal((await h.request('/me/world',owner,{village:{pollbox:{x:board.x,z:board.z}}},'PATCH')).status,400);
+    for(const key of ['pollbox','chalkboard'])assert.equal((await h.request('/me/world',owner,{village:{[key]:{x:20,z:0}}},'PATCH')).status,400);
+    assert.equal((await h.request('/me/world',owner,{village:{pollbox:{x:placements.chalkboard.x,z:placements.chalkboard.z}}},'PATCH')).status,400);
     result=await h.request('/me/world',owner,{village:{pollbox:{hidden:true},chalkboard:{hidden:true}}},'PATCH');assert.equal(result.status,200);assert.equal(result.body.user.village.pollbox.hidden,true);
     assert.deepEqual(communityPlacements(result.body.user.village).map(i=>i.id),[POLLBOX_ID,CHALKBOARD_ID]);
   }finally{await h.close();}

@@ -18,21 +18,25 @@ export const sceneryDefinitions = [
   ...[[-1.4,3.4],[1.4,3.4],[-5,-2],[4,-1.3]].map(([x,z],i)=>({id:`lamp-${i}`,name:'정원 가로등',x,z})),
   ...perimeterRocks,
   ...perimeterRocks.filter((_,i)=>i%3===0).map((item,i)=>({id:`edge-bush-${i*3}`,name:'작은 초록나무',x:item.x*.93,z:item.z*.93})),
+  {id:'central-stage',name:'중앙 원형 광장',x:0,z:0},
+  ...Array.from({length:12},(_,i)=>({id:`stage-stone-${i}`,name:'광장 돌계단',x:Math.sin(i*Math.PI/6)*2.5,z:Math.cos(i*Math.PI/6)*2.5})),
+  ...Array.from({length:6},(_,i)=>({id:`path-stone-${i}`,name:'산책로 돌계단',x:-.25+Math.sin(i)*.13,z:2.9+i*.5})),
   ...lifeDefinitions,
   ...perimeterTrees.map(([x,z],i)=>({id:`edge-tree-${i}`,name:'가장자리 벚꽃나무',x,z})),
 ];
 export const isScenery=id=>typeof id==='string'&&id.startsWith('scenery:');
-export const suppressedScenery=(item,village={})=>isScenery(item.id)&&!isLifeScenery(item.id)&&inLifeArea(item.x,item.z,village);
+export const suppressedScenery=(item,village={})=>isScenery(item.id)&&!/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)&&!isLifeScenery(item.id)&&inLifeArea(item.x,item.z,village);
 export function villageScenery(village={}){
   return sceneryDefinitions.map(def=>{
     const saved=village.scenery?.find(item=>item.id===def.id);
     const point=def.id==='campfire'&&village.theme==='campfire'?{x:1.2,z:.8}:def;
-    return {type:'scenery',name:def.name,x:point.x,z:point.z,rotation:0,...saved,id:'scenery:'+def.id};
+    return {type:'scenery',name:def.name,x:point.x,z:point.z,rotation:0,...saved,...(['life-storage','life-kitchen'].includes(def.id)?{hidden:true}:{}),id:'scenery:'+def.id};
   });
 }
-export function validSceneryPlacement(x,z,village={},selected=null){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,village,selected)&&Math.hypot(x,z)<=SCENERY_RADIUS&&Math.hypot(x,z)>=2.85&&!(Math.abs(x)<.85&&z>0&&z<5.8);}
+export function validSceneryPlacement(x,z,village={},selected=null){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,village,selected)&&Math.hypot(x,z)<=SCENERY_RADIUS;}
 
 export function sceneryClearance(id,otherId){
-  if(isScenery(otherId))return .8;
-  return ({"scenery:cafe":1.5,"scenery:pond":1.65,"scenery:campfire":.85})[id]??.8;
+  if([id,otherId].some(key=>/^scenery:(central-stage|stage-stone-|path-stone-)/.test(key)))return 0;
+  if(isScenery(otherId))return .4;
+  return ({"scenery:cafe":.75,"scenery:pond":.825,"scenery:campfire":.425})[id]??.4;
 }

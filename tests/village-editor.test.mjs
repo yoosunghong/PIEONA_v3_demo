@@ -14,15 +14,15 @@ test('every catalog entry has a finite, visible 3D model and a category',()=>{
     disposeObject(model);
   }
 });
-test('placement protects the plaza, scenery, perimeter and other items while allowing moving itself',()=>{
+test('placement permits central placement and protects perimeter and other items while allowing moving itself',()=>{
   const items=[{id:'bench',type:'bench',x:-3,z:-3.5,rotation:0}];
-  assert.equal(canPlaceDecoration(items,0,0),false);
-  assert.equal(canPlaceDecoration(items,0,4),false);
-  assert.equal(canPlaceDecoration(items,3.35,1.2),false);
+  assert.equal(canPlaceDecoration(items,0,0),true);
+  assert.equal(canPlaceDecoration(items,0,4),true);
+  assert.equal(canPlaceDecoration(items,3.35,1.2),true);
   assert.equal(canPlaceDecoration(items,10,10),false);
   assert.equal(canPlaceDecoration(items,-3,-3.5),false);
   assert.equal(canPlaceDecoration(items,-3,-3.5,'bench'),true);
-  assert.equal(canPlaceDecoration(items,-3.75,-3.5),false);
+  assert.equal(canPlaceDecoration(items,-3.75,-3.5),true);
   assert.equal(canPlaceDecoration(items,-4,-3.5),true);
   assert.equal(canPlaceDecoration(items,NaN,3),false);
   assert.equal(snapPosition(3.14),3.25);
@@ -55,8 +55,8 @@ test('existing scenery has stable IDs and saved placements survive without chang
 
 test('scenery movement protects stage, paths and neighbors and participates in undo/redo',()=>{
   const items=villageScenery({}),id='scenery:tree-0';
-  assert.equal(canPlaceDecoration(items,0,0,id),false);
-  assert.equal(canPlaceDecoration(items,0,4,id),false);
+  assert.equal(canPlaceDecoration(items,0,0,id),true);
+  assert.equal(canPlaceDecoration(items,0,4,id),true);
   assert.equal(canPlaceDecoration(items,9,0,id),false);
   assert.equal(canPlaceDecoration(items,3.8,-2.7,id),false);
   assert.equal(canPlaceDecoration(items,-5,0,id),true);
