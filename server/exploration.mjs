@@ -1,6 +1,7 @@
 import {randomInt,randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {validPlacement} from '../shared/world.mjs';
+import {DECOR_RADIUS} from '../shared/villageSize.mjs';
 import {villageScenery} from '../shared/scenery.mjs';
 import {communityPlacements,objectClearance} from '../shared/communityObjects.mjs';
 import {EXPLORATION_COMPANION_AVAILABLE,createExploration,upgradeExploration,tickExploration,moveExploration,interactExploration,commandExploration,parseLocalCommand,craftExploration,returnExploration,enterExploration,RECIPES} from '../shared/exploration.mjs';
@@ -44,6 +45,12 @@ export function installExploration({app,store,auth,clock=Date.now,random=()=>ran
   if(village.items.length>=60)fail('마을의 소품을 정리한 뒤 배치해 주세요.');
   const occupied=[...village.items,...villageScenery(village),...communityPlacements(village)].filter(item=>!item.hidden);let position=null;
   for(let i=0;i<240;i++){const angle=i*2.399963,radius=3.1+(i%9)*.4,x=Math.round(Math.cos(angle)*radius*4)/4,z=Math.round(Math.sin(angle)*radius*4)/4;if(validPlacement(x,z,village.scenery)&&!occupied.some(o=>Math.hypot(o.x-x,o.z-z)<Math.max(1.05,objectClearance(r.id,o.id)))){position={x,z};break;}}
+  // Dense scenery can leave usable gaps between the spiral samples.
+  for(let x=-DECOR_RADIUS;!position&&x<=DECOR_RADIUS;x+=.25){
+   for(let z=-DECOR_RADIUS;z<=DECOR_RADIUS;z+=.25){
+    if(validPlacement(x,z,village.scenery)&&!occupied.some(o=>Math.hypot(o.x-x,o.z-z)<Math.max(1.05,objectClearance(r.id,o.id)))){position={x,z};break;}
+   }
+  }
   if(!position)fail('빈 공간이 부족해요. 마을 소품을 정리한 뒤 배치해 주세요.');
   village.items.push({id:randomUUID(),type:r.id,...position,rotation:0});store.run('UPDATE users SET village=?,revision=revision+1 WHERE id=?',JSON.stringify(village),req.user.id);s.crafted[r.id]--;s.placed.push(r.id);
  }));
