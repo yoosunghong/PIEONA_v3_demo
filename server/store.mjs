@@ -1,4 +1,4 @@
-import {defaultPetAppearance} from '../shared/pets.mjs';
+import {defaultPetAppearance,petAppearance} from '../shared/pets.mjs';
 import {dragonMounted,dragonMountColor} from '../shared/dragonMount.mjs';
 import {SURVEY_REWARD} from '../shared/surveyRewards.mjs';
 import { DatabaseSync } from 'node:sqlite';
@@ -167,6 +167,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
   };
   if(dragonMounted(result.appearance))result.appearance.petColor=dragonMountColor(result.appearance,result.avatarAppearance);
   if(result.avatarAppearance.petType==='babyDragon')result.avatarAppearance.petType='dog';
+  Object.assign(result.avatarAppearance,petAppearance(result.avatarAppearance));
   if (own) Object.assign(result, { username: user.username, surveyRole: user.survey_role, gold: user.gold, settings: s, balance: JSON.parse(user.balance), revision: user.revision, activeSlot:user.active_slot, characterLooks:JSON.parse(user.character_looks), avatarCharacterLooks:JSON.parse(user.avatar_character_looks) });
   return result;
 }

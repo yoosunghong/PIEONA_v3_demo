@@ -13,7 +13,7 @@ test('each player sits on the dragon, keeps a fixed flight height, and restores 
   const load=TextureLoader.prototype.load,previousWindow=globalThis.window;
   globalThis.window={URL};TextureLoader.prototype.load=()=>new Texture();
   try{for(const character of characters){
-    const buffer=readFileSync(`resource/${character.folder}/${character.folder}_Animation_${character.animation}_withSkin.fbx`);
+    const buffer=readFileSync(`resource/${character.folder}/${character.model}`);
     const avatar=new FBXLoader().parse(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength),'');
     avatar.children.filter(child=>child.name==='Icosphere').forEach(child=>child.removeFromParent());
     avatar.scale.setScalar(2.65/new Box3().setFromObject(avatar).getSize(new Vector3()).y);
@@ -24,9 +24,9 @@ test('each player sits on the dragon, keeps a fixed flight height, and restores 
     const ride=createDragonRide(avatar);
     for(let i=0;i<120;i++)ride.update(1/60,true,true,true);
     root.updateMatrixWorld(true);
-    assert.ok(root.worldToLocal(hips.getWorldPosition(new Vector3())).distanceTo(new Vector3(0,1.42,-.12))<1e-5,character.id+' saddle');
+    assert.ok(root.worldToLocal(hips.getWorldPosition(new Vector3())).distanceTo(new Vector3(...ride.dragon.mountSeat))<1e-5,character.id+' saddle');
     assert.equal(root.position.y,.39+DRAGON_FLIGHT_HEIGHT);
-    assert.equal(ride.dragon.root.userData.source,'Meshy_AI_Crystalwing_Wyrmling_1024102253_texture.fbx');
+    assert.equal(ride.dragon.root.userData.source,'Meshy_AI_Character_output.glb');
     ride.update(.1,false,false);assert.equal(ride.dragon.root.visible,false);assert.ok(avatar.position.distanceTo(original)<1e-6);
     for(const [bone,q] of rest)assert.ok(bone.quaternion.angleTo(q)<1e-6,character.id+' restored '+bone.name);
   }}finally{TextureLoader.prototype.load=load;globalThis.window=previousWindow;}

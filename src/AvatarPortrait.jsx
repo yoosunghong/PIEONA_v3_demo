@@ -8,8 +8,8 @@ import {AvatarBadge} from './Panels';
 // Render each look once; list rows display images instead of running more scenes.
 const portraits=new Map();
 let queue=Promise.resolve();
-function portraitFor(appearance,headshot=false){
-  const key=JSON.stringify({appearance:appearance||{},headshot});
+function portraitFor(appearance,headshot=false,resolution=128){
+  const key=JSON.stringify({appearance:appearance||{},headshot,resolution});
   if(portraits.has(key))return portraits.get(key);
   const result=queue.then(async()=>{
     const renderer=new THREE.WebGLRenderer({alpha:true,antialias:true});
@@ -17,7 +17,7 @@ function portraitFor(appearance,headshot=false){
     if(headshot)avatar.scale.multiplyScalar(2.65/new THREE.Box3().setFromObject(avatar).getSize(new THREE.Vector3()).y);
     dressAvatar(avatar,appearance||{});
     try{
-      renderer.setSize(128,128);renderer.setPixelRatio(1);
+      renderer.setSize(resolution,resolution);renderer.setPixelRatio(1);
       renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;
       const size=new THREE.Box3().setFromObject(avatar).getSize(new THREE.Vector3());
       if(!headshot)avatar.scale.multiplyScalar(1.5/size.y);
@@ -38,8 +38,8 @@ function portraitFor(appearance,headshot=false){
   return result;
 }
 
-export default function AvatarPortrait({user,headshot=false}){
+export default function AvatarPortrait({user,headshot=false,resolution=128}){
   const [src,setSrc]=useState(null),look=JSON.stringify(user.appearance||{});
-  useEffect(()=>{let active=true;setSrc(null);portraitFor(user.appearance,headshot).then(value=>{if(active)setSrc(value);}).catch(()=>{});return()=>{active=false;};},[look,headshot]);
+  useEffect(()=>{let active=true;setSrc(null);portraitFor(user.appearance,headshot,resolution).then(value=>{if(active)setSrc(value);}).catch(()=>{});return()=>{active=false;};},[look,headshot,resolution]);
   return src?<span className="avatar-badge avatar-portrait"><img src={src} alt=""/></span>:<AvatarBadge user={user}/>;
 }

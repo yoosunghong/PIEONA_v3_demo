@@ -272,7 +272,7 @@ test('runner completion rewards derive from server progress and obey shared caps
   runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-RUN_DURATION-1000,JSON.stringify(notes),gid);
   const progress=await request(`/games/${gid}/state`,visitor);assert.equal(progress.body.state.collectedSeeds,1);
   const result=await request(`/games/${gid}/finish`,visitor,{score:999999});assert.equal(result.status,200);assert.equal(result.body.hits,20);assert.equal(result.body.total,20);assert.equal(result.body.collectedSeeds,1);assert.equal(result.body.score,runScore({...newRun(),elapsed:RUN_DURATION,dodged:20,collectedSeeds:1}));assert.ok(result.body.gold>0&&result.body.gold<100);assert.notEqual(result.body.score,999999);
-  const a=await request('/games',visitor,{targetId:owner.id,kind:'rhythm'});assert.equal(a.status,201);assert.equal((await request('/games',visitor,{targetId:owner.id,kind:'runner'})).status,409);
+  const a=await request('/games',visitor,{targetId:owner.id,kind:'runner'});assert.equal(a.status,201);assert.equal((await request('/games',visitor,{targetId:owner.id,kind:'runner'})).status,409);
   assert.equal((await request(`/games/${a.body.id}/abandon`,third,{})).status,200);assert.equal((await request('/games',visitor,{targetId:owner.id,kind:'runner'})).status,409);
   await request(`/games/${a.body.id}/abandon`,visitor,{});const b=await request('/games',visitor,{targetId:owner.id,kind:'runner'});assert.equal(b.status,201);await request(`/games/${b.body.id}/abandon`,visitor,{});
   assert.equal((await request(`/villages/${owner.id}/records?kind=runner`,owner)).body.records.length,2);

@@ -14,7 +14,7 @@ function horn(parent,material,x,y,z,sign=1,size=1){
   for(let i=0;i<pos.count;i++){const t=Math.floor(i/13)/20,center=curve.getPointAt(t),v=new THREE.Vector3().fromBufferAttribute(pos,i).sub(center).multiplyScalar(1-t*.94).add(center);pos.setXYZ(i,v.x,v.y,v.z);}
   geo.computeVertexNormals();mesh(parent,'curved ivory horn',geo,material);
 }
-export {createCrystalwingDragon as createBabyDragon} from './crystalwingDragon.mjs';
+export {createImportedBabyDragon as createBabyDragon} from './importedPet.mjs';
 
 export function createDragonNest(){
   const root=new THREE.Group();root.name='Crystal cradle nest';root.userData.generated=true;

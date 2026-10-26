@@ -1,7 +1,6 @@
 import React,{useEffect,useState} from 'react';
-import {Music2,Footprints,Trophy,ArrowLeft,Check,Users,UserRound,Search,House,ChevronDown,PartyPopper,Sparkles,Clock3,Gamepad2,Keyboard,MessagesSquare,Shell,Volleyball as VolleyIcon} from 'lucide-react';
+import {Footprints,Trophy,ArrowLeft,Check,Users,UserRound,Search,House,ChevronDown,PartyPopper,Sparkles,Clock3,Gamepad2,Keyboard,MessagesSquare,Shell,Volleyball as VolleyIcon} from 'lucide-react';
 import {api,dateLabel} from './api';
-import Rhythm from './Rhythm';
 import WordGames from './WordGames';
 import Runner from './Runner';
 import CrabChase from './CrabChase';
@@ -14,17 +13,16 @@ import './game-hub.css';
 export function Records({target,notify,revision=0,socket}){
   const[liveRevision,setLiveRevision]=useState(0);
   useEffect(()=>{const update=data=>{if(data.villageId===target.id)setLiveRevision(r=>r+1);};socket?.on('games:changed',update);return()=>socket?.off('games:changed',update);},[socket,target.id]);
-  const[kind,setKind]=useState('rhythm'),[records,setRecords]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
+  const[kind,setKind]=useState('runner'),[records,setRecords]=useState([]),[loading,setLoading]=useState(true),[error,setError]=useState('');
   useEffect(()=>{let active=true;setLoading(true);setError('');api(`/villages/${target.id}/records?kind=${kind}`).then(r=>{if(active)setRecords(r.records);}).catch(e=>{if(active)setError(e.message);}).finally(()=>{if(active)setLoading(false);});return()=>{active=false;};},[target.id,kind,revision,liveRevision]);
-  return <div className="village-records"><h3><Trophy size={19}/>{target.nickname}의 마을 기록</h3><p className="tiny">이 마을에서 완료한 플레이의 상위 30개 기록이에요. 보상 여부와 관계없이 남아요.</p><div className="tab-row"><button className={kind==='rhythm'?'active':''} onClick={()=>setKind('rhythm')}>별빛 리듬</button><button className={kind==='runner'?'active':''} onClick={()=>setKind('runner')}>구름 달리기</button><button className={kind==='volley'?'active':''} onClick={()=>setKind('volley')}>몽글 배구</button><button className={kind==='crab'?'active':''} onClick={()=>setKind('crab')}>게 게 게</button></div>{loading?<p role="status">기록을 불러오는 중…</p>:error?<p role="alert">{error}</p>:records.length?<ol className="record-list">{records.map((r,i)=><li key={i} className={r.isMe?'my-record':''}><span className="record-rank">{r.rank}</span><div><strong>{r.nickname}{r.isMe?' · 나':''}</strong><small>{dateLabel(r.playedAt)}{kind==='crab'&&Number.isFinite(r.seconds)?` · ${r.seconds.toFixed(1)}초 생존`:''}</small></div><b>{r.score.toLocaleString()}<small> 점</small></b></li>)}</ol>:<div className="empty"><Trophy/><p>아직 기록이 없어요.<br/>이 마을의 첫 기록을 남겨보세요!</p></div>}</div>;
+  return <div className="village-records"><h3><Trophy size={19}/>{target.nickname}의 마을 기록</h3><p className="tiny">이 마을에서 완료한 플레이의 상위 30개 기록이에요. 보상 여부와 관계없이 남아요.</p><div className="tab-row"><button className={kind==='runner'?'active':''} onClick={()=>setKind('runner')}>구름 달리기</button><button className={kind==='volley'?'active':''} onClick={()=>setKind('volley')}>몽글 배구</button><button className={kind==='crab'?'active':''} onClick={()=>setKind('crab')}>게 게 게</button></div>{loading?<p role="status">기록을 불러오는 중…</p>:error?<p role="alert">{error}</p>:records.length?<ol className="record-list">{records.map((r,i)=><li key={i} className={r.isMe?'my-record':''}><span className="record-rank">{r.rank}</span><div><strong>{r.nickname}{r.isMe?' · 나':''}</strong><small>{dateLabel(r.playedAt)}{kind==='crab'&&Number.isFinite(r.seconds)?` · ${r.seconds.toFixed(1)}초 생존`:''}</small></div><b>{r.score.toLocaleString()}<small> 점</small></b></li>)}</ol>:<div className="empty"><Trophy/><p>아직 기록이 없어요.<br/>이 마을의 첫 기록을 남겨보세요!</p></div>}</div>;
 }
 const GAMES = [
   {id:'volley',title:'몽글 배구',description:'점프와 스파이크로 즐기는 해변 배구!',cardDescription:<>작은 점프, 짜릿한 한 방!<br/>AI 또는 친구와 해변 한 판.</>,image:'/images/minigames/mongle-volley.svg',alt:'해변에서 네트를 사이에 두고 배구하는 노란 새싹과 보라색 새싹',category:'스포츠',players:'1–2명',detail:'7점 선승 · 이동 / 점프 / 스파이크',Icon:VolleyIcon},
   {id:'crab',title:'게 게 게',description:'해변의 게 행렬을 피해 오래 살아남으세요!',cardDescription:<>뒤를 조심해요! 끝없이<br/>길어지는 게들의 추격전.</>,image:'/images/minigames/crab-paradise.webp',alt:'햇살 가득한 해변에서 줄지어 달려오는 귀여운 게들',category:'생존',players:`1–${maxGamePlayers('crab')}명`,detail:'탑뷰 해변 · WASD / 방향키 / 터치',Icon:Shell},
   {id:'runner',title:'구름 달리기',description:'하늘을 달리며 결승선을 향해 달려요!',cardDescription:<>하늘을 달리며 결승선을<br/>향해 달려요!</>,image:'/images/minigames/cloud-run-card.webp',alt:'구름 위 정원에서 함께 달리는 두 친구',category:'달리기',players:`1–${maxGamePlayers('runner')}명`,detail:`${RUN_DISTANCE.toLocaleString()}m 하늘섬 레이스`,Icon:Footprints},
-  {id:'rhythm',title:'별빛 리듬',description:'음표에 맞춰 리듬을 타봐요!',cardDescription:<>음표에 맞춰 리듬을<br/>타봐요!</>,image:'/images/minigames/starlight-rhythm-card.webp',alt:'별빛 아래에서 반짝이는 건반을 연주하는 소녀',category:'리듬',players:'1명',detail:'D · F · J · K / 터치 · 30초',Icon:Music2},
-  {id:'typing',title:'두근두근 타자 대결',cardDescription:<>같은 문장을 60초 동안<br/>정확하게 입력해요!</>,category:'말놀이',players:'2명',Icon:Keyboard},
-  {id:'wordchain',title:'도란도란 끝말잇기',cardDescription:<>15초 안에 이어가는<br/>친구와의 우리말 놀이.</>,category:'말놀이',players:'2명',Icon:MessagesSquare},
+  {id:'typing',title:'타자입력 게임',cardDescription:<>단어마다 반짝이는 별!<br/>다 같이 5라운드 타자 도전.</>,category:'말놀이',players:'다수 · 인원 제한 없음',Icon:Keyboard},
+  {id:'wordchain',title:'끝말잇기 게임',cardDescription:<>동그랗게 모여 이어가는<br/>친구와의 우리말 놀이.</>,category:'말놀이',players:'다수 · 인원 제한 없음',Icon:MessagesSquare},
 ];
 
 export default function GameHub({target,me,notify,onReward,anonymous,socket,members=[],race,onLeaveRace}){
@@ -54,7 +52,7 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
   useEffect(()=>{setSelectedFriends(current=>{const next=current.filter(id=>neighbors.some(p=>p.userId===id&&!p.runnerBusy)).slice(0,friendLimit);return next.length===current.length?current:next;});},[members,friendLimit,me.id]);
 
   function cancelInvite(){if(pending)socket?.emit('runner:cancel-invite',{id:pending});setPending(null);}
-  function selectGame(id){cancelInvite();if(id==='typing'||id==='wordchain'){setWordKind(id);return;}setSelected(id);setSelectedFriends(current=>current.slice(0,maxGamePlayers(id)-1));setMultiplayer(id!=='rhythm');}
+  function selectGame(id){cancelInvite();if(id==='typing'||id==='wordchain'){setWordKind(id);return;}setSelected(id);setSelectedFriends(current=>current.slice(0,maxGamePlayers(id)-1));setMultiplayer(true);}
   function changeMode(together){cancelInvite();setMultiplayer(together);}
   function createRoom(){
     if(!selectedGame)return;
@@ -72,12 +70,12 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
   const reward=()=>{onReward();setRevision(value=>value+1);};
   const gameKey=race?.id||soloReplay?.key||'solo',replayProps={autoStart:!race&&!!soloReplay,onSoloReplay:replaySolo};
   if(wordKind)return <WordGames initialKind={wordKind} target={target} me={me} socket={socket} members={members} notify={notify} onBack={()=>{setWordKind(null);setSelected(null);setCategory('all');}} onReward={reward}/>;
-  if(game||race)return <><div className="game-back"><button className="text-button" onClick={back}><ArrowLeft size={16}/>게임 목록으로</button></div>{game==='rhythm'?<Rhythm target={target} notify={notify} onReward={reward} anonymous={hideName}/>:(game==='volley'||race?.kind==='volley')?<Volleyball key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>: (game==='crab'||race?.kind==='crab')?<CrabChase key={gameKey} {...replayProps} onHome={back} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>:<Runner key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>}</>;
+  if(game||race)return <><div className="game-back"><button className="text-button" onClick={back}><ArrowLeft size={16}/>게임 목록으로</button></div>{(game==='volley'||race?.kind==='volley')?<Volleyball key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>: (game==='crab'||race?.kind==='crab')?<CrabChase key={gameKey} {...replayProps} onHome={back} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>:<Runner key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>}</>;
 
   return <div className="panel-body game-hub">
     <section className="playground-catalog" aria-label="미니게임 선택">
       <nav className="playground-categories" aria-label="게임 종류">
-        {[['all','전체',Gamepad2],['runner','달리기',Footprints],['rhythm','리듬',Music2],['crab','생존',Shell],['volley','스포츠',VolleyIcon],['words','말놀이',MessagesSquare]].map(([id,label,Icon])=><button key={id} aria-pressed={category===id} className={category===id?'active':''} disabled={sending||!!pending} onClick={()=>setCategory(id)}>{id!=='all'&&<Icon size={22}/>}<span>{label}</span></button>)}
+        {[['all','전체',Gamepad2],['runner','달리기',Footprints],['crab','생존',Shell],['volley','스포츠',VolleyIcon],['words','말놀이',MessagesSquare]].map(([id,label,Icon])=><button key={id} aria-pressed={category===id} className={category===id?'active':''} disabled={sending||!!pending} onClick={()=>setCategory(id)}>{id!=='all'&&<Icon size={22}/>}<span>{label}</span></button>)}
         <span className="playground-game-count">{GAMES.length}개의 작은 즐거움</span>
       </nav>
       <div className="playground-cards">
@@ -97,7 +95,7 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
       <div className="playground-selected-game"><img src={selectedGame.image} alt=""/><div><h3>{selectedGame.title}</h3><p>{selectedGame.description}</p><div className="playground-tags"><span><GameIcon size={19}/>{selectedGame.category}</span><span><UserRound size={17}/>{selectedGame.players}</span></div></div></div>
       <div className="playground-invite-heading"><h3 className="playground-step"><span>2</span>초대할 친구 선택</h3><small><House size={15}/>같은 마을에 있는 친구만 초대할 수 있어요!</small></div>
       <div className="playground-modes">
-        <button className={multiplayer?'selected':''} aria-pressed={multiplayer} disabled={selected==='rhythm'||sending||!!pending} onClick={()=>changeMode(true)}><span className="playground-mode-icon"><Users size={28}/></span><span><strong>친구와 함께 플레이</strong><small>{selected==='rhythm'?'리듬은 혼자 즐기는 게임이에요':'마을 친구를 초대해요!'}</small></span>{multiplayer&&<span className="playground-check"><Check size={17}/></span>}</button>
+        <button className={multiplayer?'selected':''} aria-pressed={multiplayer} disabled={sending||!!pending} onClick={()=>changeMode(true)}><span className="playground-mode-icon"><Users size={28}/></span><span><strong>친구와 함께 플레이</strong><small>마을 친구를 초대해요!</small></span>{multiplayer&&<span className="playground-check"><Check size={17}/></span>}</button>
         <button className={!multiplayer?'selected':''} aria-pressed={!multiplayer} disabled={sending||!!pending} onClick={()=>changeMode(false)}><span className="playground-mode-icon"><UserRound size={27}/></span><span><strong>혼자 플레이</strong><small>{selected==='volley'?'몽글 AI와 대결해요!':'솔로로 즐길게요!'}</small></span>{!multiplayer&&<span className="playground-check"><Check size={17}/></span>}</button>
       </div>
       <div className="playground-friends-area">
@@ -106,7 +104,7 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
           <div className="playground-friend-list" aria-label="초대할 마을 친구">
             {!connected?<div className="playground-empty" role="status"><House size={28}/><strong>마을에 다시 연결하고 있어요</strong><p>연결되면 함께할 친구를 보여드릴게요.</p></div>:visibleFriends.length?visibleFriends.map(member=><label key={member.userId} className={'playground-friend '+(selectedFriends.includes(member.userId)?'selected':'')+(member.runnerBusy?' busy':'')}><input type="checkbox" aria-label={`${member.nickname||'새싹'} 초대 선택`} checked={selectedFriends.includes(member.userId)} disabled={member.runnerBusy||sending||!!pending||(!selectedFriends.includes(member.userId)&&chosenFriends.length>=friendLimit)} onChange={event=>setSelectedFriends(current=>event.target.checked?(friendLimit===1?[member.userId]:[...current,member.userId].slice(0,friendLimit)):current.filter(id=>id!==member.userId))}/><AvatarPortrait user={member}/><strong>{member.nickname||'새싹'}</strong><span className="playground-presence"><i/>{member.runnerBusy?'게임 중':'접속 중'}</span><span className="playground-friend-message">{member.runnerBusy?'다음 판에 함께해요!':selected==='volley'?'배구 한 판 할까요?':selected==='crab'?'같이 도망쳐볼까요?':'같이 달려볼까요?'}<Footprints size={14}/></span></label>):<div className="playground-empty" role="status"><Users size={30}/><strong>{query?'검색한 친구가 없어요':'함께할 친구를 기다리고 있어요'}</strong><p>{query?'다른 이름으로 검색해 보세요.':'이 마을에 친구가 방문하면 여기에서 초대할 수 있어요.'}</p>{!query&&<button onClick={()=>changeMode(false)}>먼저 혼자 놀아볼까요? →</button>}</div>}
           </div>
-        </>:<div className="playground-solo"><span><selectedGame.Icon size={34}/></span><strong>나만의 작은 도전, 준비됐나요?</strong><p>{selected==='volley'?'공의 움직임을 따라오는 몽글 AI와 7점 선승 배구를 즐겨요.':selected==='rhythm'?'반짝이는 음표를 따라 나만의 리듬을 연주해요.':selected==='crab'?'순찰하는 게와 내 뒤의 행렬을 피해 생존 기록에 도전해요.':'구름 위 트랙을 달리며 반짝이는 씨앗을 모아요.'}</p><small><Clock3 size={15}/>{selectedGame.detail}</small></div>}
+        </>:<div className="playground-solo"><span><selectedGame.Icon size={34}/></span><strong>나만의 작은 도전, 준비됐나요?</strong><p>{selected==='volley'?'공의 움직임을 따라오는 몽글 AI와 7점 선승 배구를 즐겨요.':selected==='crab'?'순찰하는 게와 내 뒤의 행렬을 피해 생존 기록에 도전해요.':'구름 위 트랙을 달리며 반짝이는 씨앗을 모아요.'}</p><small><Clock3 size={15}/>{selectedGame.detail}</small></div>}
       </div>
       <div className="playground-room-footer">
         <label className="playground-anonymous"><input type="checkbox" checked={hideName} disabled={sending||!!pending} onChange={event=>setHideName(event.target.checked)}/>게임 기록에 내 이름 대신 익명으로 표시</label>

@@ -96,16 +96,9 @@ test('avatar topic uses only public snapshots for both speakers and never grows 
   assert.deepEqual(before,runtime.store.all('SELECT id,revision FROM users ORDER BY id'));
 });
 
-test('rhythm timing and rewards are server-authoritative and idempotent',async()=>{
-  const start=await request('/games',{method:'POST',cookie:bob.cookie,body:{targetId:alice.id}});assert.equal(start.status,201);const gid=start.body.id;
-  assert.equal((await request('/games/'+gid+'/finish',{method:'POST',cookie:bob.cookie,body:{score:99999}})).status,400);
-  assert.equal((await request('/games/'+gid+'/hit',{method:'POST',cookie:carol.cookie,body:{lane:0}})).status,404);
-  assert.equal((await request('/games/'+gid+'/hit',{method:'POST',cookie:bob.cookie,body:{lane:start.body.notes[0].lane}})).body.rating,'miss');
-  // Advance the server-owned start timestamp to exercise timing without a 30s test wait.
-  for(let i=0;i<9;i++){const note=start.body.notes[i];runtime.store.run('UPDATE games SET started=? WHERE id=?',Date.now()-note.time,gid);const hit=await request('/games/'+gid+'/hit',{method:'POST',cookie:bob.cookie,body:{lane:note.lane}});assert.equal(hit.body.rating,'perfect');}
-  runtime.store.run('UPDATE games SET started=? WHERE id=?',Date.now()-31000,gid);
-  const finish=await request('/games/'+gid+'/finish',{method:'POST',cookie:bob.cookie});assert.equal(finish.status,200);assert.equal(finish.body.score,900);assert.equal(finish.body.gold,39);
-  assert.equal((await request('/games/'+gid+'/finish',{method:'POST',cookie:bob.cookie})).status,409);
+test('removed rhythm games cannot be created or listed in records',async()=>{
+  assert.equal((await request('/games',{method:'POST',cookie:bob.cookie,body:{targetId:alice.id,kind:'rhythm'}})).status,400);
+  assert.equal((await request(`/villages/${alice.id}/records?kind=rhythm`,{cookie:bob.cookie})).status,400);
 });
 
 test('blocking revokes profile, chat and topic access on the server',async()=>{

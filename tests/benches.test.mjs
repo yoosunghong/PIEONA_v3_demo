@@ -42,7 +42,7 @@ test('all four actual character rigs bend thighs forward and knees down, align h
   const load=TextureLoader.prototype.load,previousWindow=globalThis.window;
   globalThis.window={URL};TextureLoader.prototype.load=()=>new Texture();
   try{for(const character of characters){
-    const file=`resource/${character.folder}/${character.folder}_Animation_${character.animation}_withSkin.fbx`,buffer=readFileSync(file);
+    const file=`resource/${character.folder}/${character.model}`,buffer=readFileSync(file);
     const avatar=new FBXLoader().parse(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength),'');
     avatar.children.filter(child=>child.name==='Icosphere').forEach(child=>child.removeFromParent());
     const size=new Box3().setFromObject(avatar).getSize(new Vector3());avatar.scale.setScalar(2.65/size.y);

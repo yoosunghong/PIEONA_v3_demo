@@ -34,3 +34,13 @@ test('finishing and leaving games restores availability and removes old join but
   assert.equal(lobby.waitingRooms.length,0);
   assert.equal(wordGameLobby([],[],'me','wordchain').available,0);
 });
+
+test('word-game rooms remain joinable with more than two players',()=>{
+  for(const kind of ['typing','wordchain']){
+    const room={id:'party',kind,status:'waiting',players:[{id:'a'},{id:'b'},{id:'c'}]};
+    const members=room.players.map(p=>({userId:p.id,runnerBusy:true}));
+    const lobby=wordGameLobby(members,[room],'me',kind);
+    assert.equal(lobby.waitingRooms.length,1);assert.equal(lobby.available,3);
+    assert.ok(lobby.friends.every(friend=>friend.joinable.id==='party'));
+  }
+});

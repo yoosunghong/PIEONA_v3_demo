@@ -1,5 +1,26 @@
-// Shared procedural run cycle used by Cloud Run and village characters.
-export function createRunMotion(avatar){
+import {AnimationMixer} from 'three';
+
+// The village walks; running games use the supplied running cycle.
+export function createRunMotion(avatar,{clip='Running',idle=true}={}){
+  const movement=avatar.animations?.find(action=>action.name===clip);
+  if(movement){
+    const mixer=new AnimationMixer(avatar),move=mixer.clipAction(movement);
+    const rest=idle&&avatar.animations.find(action=>action.name==='Mirror_Viewing');
+    const wait=rest?mixer.clipAction(rest):null;
+    let current=null,started=0,lastTime=0;
+    return {update(time,moving,reducedMotion=false){
+      const next=moving?move:wait;
+      if(next!==current){mixer.stopAllAction();current=next;started=time;current?.reset().play();}
+      // Callers pass elapsed time rather than dt. A zero-time idle call also
+      // releases all tracks before sitting/riding or an external idle mixer.
+      if(!moving&&time===0){mixer.stopAllAction();current=null;return 0;}
+      if(time<lastTime)started=time;
+      lastTime=time;
+      if(current)mixer.setTime(reducedMotion?0:Math.max(0,time-started));
+      return 0;
+    }};
+  }
+  // Small generated stand-ins may not have authored animation clips.
   const legs=[],arms=[];
   avatar.traverse(bone=>{
     if(!bone.isBone)return;

@@ -49,10 +49,10 @@ export const villageThemes=[
 export const defaultVillage={items:[],theme:'default'};
 export function validPlacement(x,z,scenery){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,{scenery})&&Math.hypot(x,z)<=DECOR_RADIUS;}
 export const characters=[
-  {id:'pio',name:'피오',folder:'Meshy_AI_biped',animation:'Joyful_Dance_with_Hand_Sway'},
-  {id:'luna',name:'루나',folder:'Meshy_AI_Luna_biped',animation:'Idle_02'},
-  {id:'moa',name:'모아',folder:'Meshy_AI_Moa_biped',animation:'Idle_02'},
-  {id:'tori',name:'토리',folder:'Meshy_AI_Tori_biped',animation:'Idle_02'}
+  {id:'pio',name:'피오',folder:'Meshy_AI_Pieona_biped',model:'Meshy_AI_Pieona_biped_Meshy_Merged_Animations.fbx'},
+  {id:'luna',name:'루나',folder:'Meshy_AI_Luna_biped',model:'Meshy_AI_Luna_biped_Meshy_Merged_Animations.fbx'},
+  {id:'moa',name:'모아',folder:'Meshy_AI_Moa_biped',model:'Meshy_AI_Moa_biped_Meshy_Merged_Animations.fbx'},
+  {id:'tori',name:'토리',folder:'Meshy_AI_Tori_biped',model:'Meshy_AI_Tori_biped_Meshy_Merged_Animations.fbx'}
 ];
 export function characterLooks(appearance={},saved={}){
   const looks=Object.fromEntries(characters.map(c=>[c.id,{...defaultAppearance,...saved[c.id],character:c.id}]));

@@ -5,7 +5,7 @@ import {DRAGON_FLIGHT_HEIGHT,DRAGON_SPEED,dragonMounted} from '../shared/dragonM
 export function createDragonRide(avatar,color='#e8efff'){
   const dragon=createBabyDragon(color),root=avatar.parent;
   root.add(dragon.root);
-  const pose=createRidePose(avatar,{seat:[0,1.42,-.12],footY:.87,handY:1.7,spread:.44});
+  const pose=createRidePose(avatar,{seat:dragon.mountSeat,footY:.31,handY:1.14,spread:.44});
   let time=0;
   return {dragon,flight:true,speed:DRAGON_SPEED,height:DRAGON_FLIGHT_HEIGHT,update(dt,moving,riding=true,reduced=false){
     time+=dt;dragon.root.visible=riding;pose.update(riding);

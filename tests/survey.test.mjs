@@ -19,10 +19,10 @@ after(async()=>runtime.close());
 test('survey status requires auth, completed games count once and abandoned games do not count',async()=>{
   assert.equal((await request('/survey/status')).status,401);assert.equal((await request('/feedback',null,{version:surveyVersion,answers:answer()})).status,401);
   const user=await register();assert.deepEqual(await status(user),{completed:false,deferred:false,eligible:false});
-  const abandoned=await request('/games',user,{targetId:user.id,kind:'rhythm'});assert.equal(abandoned.status,201);
+  const abandoned=await request('/games',user,{targetId:user.id,kind:'runner'});assert.equal(abandoned.status,201);
   await request(`/games/${abandoned.body.id}/abandon`,user,{});assert.equal((await status(user)).eligible,false);
-  const game=await request('/games',user,{targetId:user.id,kind:'rhythm'});assert.equal(game.status,201);
-  runtime.store.run('UPDATE games SET started=? WHERE id=?',Date.now()-31000,game.body.id);
+  const game=await request('/games',user,{targetId:user.id,kind:'runner'});assert.equal(game.status,201);
+  runtime.store.run('UPDATE games SET started=?,notes=? WHERE id=?',Date.now()-10000,JSON.stringify([5000,7000,9000].map(time=>({time,lane:-1,height:1}))),game.body.id);
   assert.equal((await request(`/games/${game.body.id}/finish`,user,{})).status,200);assert.equal((await status(user)).eligible,true);
   assert.equal((await request(`/games/${game.body.id}/finish`,user,{})).status,409);
 });

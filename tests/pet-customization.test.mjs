@@ -25,7 +25,10 @@ test('pet species and colors persist independently of the player and reach visit
     assert.equal(publicLook.petType,type.id);assert.equal(publicLook.petColor,color.id);
   }
   const valid=(await request('/me',user)).body.user.avatarAppearance;
-  for(const invalid of [{petType:'dragon'},{petColor:'#ffffff'}])assert.equal((await request('/me/pet/appearance',user,{petType:valid.petType,petColor:valid.petColor,...invalid},'PATCH')).status,400);
+  for(const invalid of [{petType:'dragon'},{petType:'rabbit'},{petColor:'#ffffff'}])assert.equal((await request('/me/pet/appearance',user,{petType:valid.petType,petColor:valid.petColor,...invalid},'PATCH')).status,400);
   assert.deepEqual((await request('/me',user)).body.user.avatarAppearance,valid);
+  runtime.store.run('UPDATE users SET avatar_appearance=? WHERE id=?',JSON.stringify({...valid,petType:'rabbit'}),user.id);
+  assert.equal((await request('/me',user)).body.user.avatarAppearance.petType,'dog');
+  assert.equal((await request('/users/'+user.id,visitor)).body.user.avatarAppearance.petType,'dog');
   }finally{await runtime.close();}
 });

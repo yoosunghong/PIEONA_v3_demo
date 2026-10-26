@@ -11,7 +11,7 @@ test('all four FBX riders reach the grips and pegs, sit on the saddle, and resto
   const load=TextureLoader.prototype.load,previousWindow=globalThis.window;
   globalThis.window={URL};TextureLoader.prototype.load=()=>new Texture();
   try{for(const character of characters){
-    const buffer=readFileSync(`resource/${character.folder}/${character.folder}_Animation_${character.animation}_withSkin.fbx`);
+    const buffer=readFileSync(`resource/${character.folder}/${character.model}`);
     const avatar=new FBXLoader().parse(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength),'');
     avatar.children.filter(child=>child.name==='Icosphere').forEach(child=>child.removeFromParent());
     avatar.scale.setScalar(2.65/new Box3().setFromObject(avatar).getSize(new Vector3()).y);

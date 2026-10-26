@@ -22,6 +22,7 @@ try{
  await page.goto('http://127.0.0.1:5186/');
  const registered=await page.evaluate(async()=>{const r=await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'crystal_visual',password:'local-preview-password'})});return r.json();});
  const uid=registered.user.id;
+ await page.evaluate(id=>localStorage.setItem('pieona.tutorial.v1.'+id,'seen'),uid);
  runtime.store.run('UPDATE users SET nickname=?,balance=? WHERE id=?','비행 테스트','[1,2,3,4,5,6]',uid);
  runtime.store.run('INSERT INTO account_rewards(user_id,reward_id) VALUES(?,?)',uid,SURVEY_REWARD);
  runtime.store.run('INSERT OR REPLACE INTO survey_participation(user_id,completed,version) VALUES(?,?,?)',uid,1,surveyVersion);

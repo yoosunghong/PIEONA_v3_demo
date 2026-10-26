@@ -463,7 +463,7 @@ export function createApp(options = {}) {
   const life=installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction,clock:options.lifeClock,random:options.lifeRandom});
   installExploration({app,store,auth,logAction,clock:options.explorationClock,random:options.explorationRandom});
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
-  const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
+  const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance:user=>profile(user,user.id).appearance,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
   const polls=installVillagePolls({app,io,store,auth,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,clock:options.socialClock});
   function raceEmit(r,name,data){for(const player of r.players)io.to(player.socketId).emit(name,data);}
   const invitePlayers=invite=>[{userId:invite.from,socketId:invite.fromSocket,anonymous:invite.anonymous},...invite.guests];
@@ -513,10 +513,10 @@ export function createApp(options = {}) {
     raceEmit(race,'runner:snapshot',{id:race.id,round:race.round,elapsed,players});
   }
   app.post('/api/games',auth,(req,res)=>{
-    const {targetId,anonymous,kind}=z.object({targetId:z.string().uuid(),anonymous:z.boolean().default(false),kind:z.enum(['rhythm','runner']).default('rhythm')}).parse(req.body);checkTarget(req,targetId);
+    const {targetId,anonymous,kind}=z.object({targetId:z.string().uuid(),anonymous:z.boolean().default(false),kind:z.literal('runner').default('runner')}).parse(req.body);checkTarget(req,targetId);
     const unfinished=busy(req.user.id);if(unfinished)fail(409,'진행 중인 미니게임이 있어요. 게임을 마치거나 나간 뒤 다시 시작해주세요.');
-    const notes=kind==='rhythm'?Array.from({length:40},(_,i)=>({time:2500+i*650,lane:randomBytes(1)[0]%4})):runnerNotes();
-    const gid=id();const started=Date.now();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous,kind) VALUES(?,?,?,?,?,?,0,?,?)',gid,req.user.id,targetId,JSON.stringify(notes),JSON.stringify(kind==='runner'?newRun():[]),started,Number(anonymous),kind);event(req.user.id,'game_started',{kind});for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.status(201).json({id:gid,kind,notes,duration:kind==='runner'?RUN_DURATION:30000,serverTime:started});
+    const notes=runnerNotes();
+    const gid=id();const started=Date.now();store.run('INSERT INTO games(id,user_id,target_id,notes,hits,started,finished,anonymous,kind) VALUES(?,?,?,?,?,?,0,?,?)',gid,req.user.id,targetId,JSON.stringify(notes),JSON.stringify(newRun()),started,Number(anonymous),kind);event(req.user.id,'game_started',{kind});for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.status(201).json({id:gid,kind,notes,duration:RUN_DURATION,serverTime:started});
   });
   function running(req){const g=store.one("SELECT * FROM games WHERE id=? AND user_id=? AND kind='runner' AND finished=0",req.params.id,req.user.id);if(!g)fail(404,'진행 중인 달리기가 아니에요.');checkTarget(req,g.target_id);if(Date.now()-g.started>RUN_EXPIRY)fail(400,'게임 시간이 만료됐어요.');return g;}
   const runnerInput=z.object({action:z.enum(['left','right','jump']),seq:z.number().int().positive().max(10000).optional()}).strict();
@@ -532,27 +532,22 @@ export function createApp(options = {}) {
   app.post('/api/games/:id/action',auth,(req,res)=>{const g=running(req);res.json(actOnRun(g,req.body));const race=races.get(raceByGame.get(g.id));if(race)publishRace(race);});
   app.get('/api/games/:id/state',auth,(req,res)=>{const g=running(req);const state=advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started);store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(state),g.id);res.json({state,elapsed:Date.now()-g.started});});
   app.post('/api/games/:id/abandon',auth,(req,res)=>{crabs.abandon(req.params.id,req.user.id);volleys.abandon(req.params.id,req.user.id);store.run('UPDATE games SET finished=2 WHERE id=? AND user_id=? AND finished=0',req.params.id,req.user.id);for(const villageId of villageVisitors.keys())if(villageVisitors.get(villageId).has(req.user.id))emitVillage(villageId);res.json({ok:true});});
-  app.post('/api/games/:id/hit',auth,(req,res)=>{
-    const {lane}=z.object({lane:z.number().int().min(0).max(3)}).parse(req.body);const g=store.one("SELECT * FROM games WHERE id=? AND user_id=? AND finished=0 AND kind='rhythm'",req.params.id,req.user.id);if(!g)fail(404,'진행 중인 게임이 아니에요.');
-    const elapsed=Date.now()-g.started;const hits=JSON.parse(g.hits);const notes=JSON.parse(g.notes);const index=notes.findIndex((n,i)=>n.lane===lane&&!hits.some(h=>h.index===i)&&Math.abs(n.time-elapsed)<=300);
-    let rating='miss';if(index>=0){rating=Math.abs(notes[index].time-elapsed)<130?'perfect':'good';hits.push({index,rating});store.run('UPDATE games SET hits=? WHERE id=?',JSON.stringify(hits),g.id);}res.json({rating,combo:hits.length});
-  });
   app.post('/api/games/:id/finish',auth,(req,res)=>{
-    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(['crab','volley'].includes(g.kind))fail(400,'해당 게임 화면에서 기록을 저장해주세요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>(g.kind==='runner'?RUN_EXPIRY:120000))fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
-    const state=g.kind==='runner'?advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started):null;
-    if(state?state.lives>0&&state.elapsed<RUN_DURATION:Date.now()-g.started<30000)fail(400,'게임이 끝나면 정산할 수 있어요.');
-    const hits=state?state.dodged:JSON.parse(g.hits).length;const score=state?runScore(state):JSON.parse(g.hits).reduce((n,h)=>n+(h.rating==='perfect'?100:65),0);let gold=0;
+    const g=store.one('SELECT * FROM games WHERE id=? AND user_id=?',req.params.id,req.user.id);if(!g)fail(404,'게임을 찾을 수 없어요.');if(g.kind!=='runner')fail(400,'해당 게임 화면에서 기록을 저장해주세요.');if(g.finished)fail(409,'이미 정산된 게임이에요.');if(Date.now()-g.started>RUN_EXPIRY)fail(400,'게임 시간이 만료됐어요.');checkTarget(req,g.target_id);
+    const state=advanceRun(JSON.parse(g.hits),JSON.parse(g.notes),Date.now()-g.started);
+    if(state.lives>0&&state.elapsed<RUN_DURATION)fail(400,'게임이 끝나면 정산할 수 있어요.');
+    const hits=state.dodged;const score=runScore(state);let gold=0;
     store.transaction(()=>{
-      store.run('UPDATE games SET finished=1,score=?,hits=? WHERE id=?',score,state?JSON.stringify(state):g.hits,g.id);
+      store.run('UPDATE games SET finished=1,score=?,hits=? WHERE id=?',score,JSON.stringify(state),g.id);
       const total=store.one("SELECT COALESCE(SUM(amount),0) n FROM rewards WHERE user_id=? AND type='game' AND day=?",req.user.id,day()).n;
       const place=store.one("SELECT COUNT(*) n FROM rewards WHERE user_id=? AND actor_id LIKE ? AND type='game' AND day=?",req.user.id,`${g.target_id}:%`,day()).n;
       if(hits>=8&&total<300&&place<3){gold=Math.min(300-total,30+Math.floor(score/100));store.run("INSERT INTO rewards VALUES(?,?,'game',?,?)",req.user.id,`${g.target_id}:${g.id}`,day(),gold);store.run('UPDATE users SET gold=gold+? WHERE id=?',gold,req.user.id);rewardVisit(g.target_id,req.user.id,!!g.anonymous);}
-      activity(g.target_id,req.user.id,'minigame',`${g.kind==='runner'?'구름 달리기':'별빛 리듬'} ${score}점`,!!g.anonymous);
+      activity(g.target_id,req.user.id,'minigame',`구름 달리기 ${score}점`,!!g.anonymous);
       event(req.user.id,'game_finished',{kind:g.kind,score,gold});
-    });emitUpdate(req.user.id);emitVillage(g.target_id);io.to([`village:${g.target_id}`,`user:${g.target_id}`]).emit('games:changed',{villageId:g.target_id});res.json({score,gold,hits,total:g.kind==='runner'?JSON.parse(g.notes).filter(n=>n.kind!=='seed').length:40,lives:state?.lives,collectedSeeds:state?.collectedSeeds||0});
+    });emitUpdate(req.user.id);emitVillage(g.target_id);io.to([`village:${g.target_id}`,`user:${g.target_id}`]).emit('games:changed',{villageId:g.target_id});res.json({score,gold,hits,total:JSON.parse(g.notes).filter(n=>n.kind!=='seed').length,lives:state?.lives,collectedSeeds:state?.collectedSeeds||0});
   });
   app.get('/api/villages/:id/records',auth,(req,res)=>{
-    checkTarget(req,req.params.id);const kind=z.enum(['rhythm','runner','crab','volley']).parse(req.query.kind||'rhythm');
+    checkTarget(req,req.params.id);const kind=z.enum(['runner','crab','volley']).parse(req.query.kind||'runner');
     // Filter before ranking/limiting; anonymous records never expose a user or game ID.
     const records=store.all(`SELECT g.user_id,g.anonymous,g.score,g.started,g.hits,u.nickname FROM games g JOIN users u ON u.id=g.user_id WHERE g.target_id=? AND g.kind=? AND g.finished=1 AND NOT EXISTS(SELECT 1 FROM blocks b WHERE (b.owner_id=? AND b.blocked_id=g.user_id) OR (b.blocked_id=? AND b.owner_id=g.user_id)) ORDER BY g.score DESC,g.started DESC LIMIT 30`,req.params.id,kind,req.user.id,req.user.id);
     res.json({records:records.map((r,i)=>({rank:i+1,nickname:r.anonymous?'익명의 이웃':r.nickname||'새싹',score:r.score,playedAt:new Date(r.started).toISOString(),isMe:r.user_id===req.user.id,...(kind==='crab'?{seconds:crabSeconds({elapsed:JSON.parse(r.hits).survived||0})}:{})}))});

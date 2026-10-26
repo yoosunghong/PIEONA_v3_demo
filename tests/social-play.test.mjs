@@ -1,3 +1,4 @@
+import {validateChain} from '../server/chainDictionary.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {harness} from './runtimeHarness.mjs';
@@ -6,9 +7,20 @@ import {randomUUID} from 'node:crypto';
 import {mkdirSync,unlinkSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {balanceQuestions} from '../shared/onboarding.mjs';
-import {TYPING_PHRASES,validateChain,chainStarts} from '../shared/wordGames.mjs';
+import {TYPING_WORDS,TYPING_ROUNDS,TYPING_ROUND_MS,chainStarts} from '../shared/wordGames.mjs';
 const answers=balanceQuestions.map(q=>({id:q.id,choice:'a'}));
 const gold=(h,user)=>h.runtime.store.one('SELECT gold FROM users WHERE id=?',user.id).gold;
+
+test('word chain accepts dictionary nouns beyond the village list and rejects invented words',()=>{
+  for(const word of ['컴퓨터','학교','도서관','해바라기','국어사전','대한민국'])assert.equal(validateChain(word,[]),null,word);
+  assert.equal(validateChain('  해바라기  ',[]),null);
+  assert.equal(validateChain('해바라기'.normalize('NFD'),[]),null);
+  for(const word of ['가','abc','학교123','가나다라마바사아자차카타파하','달리다','사과 나무'])assert.ok(validateChain(word,[]),word);
+  assert.equal(validateChain('해바라기',['해바라기']),'이미 사용한 단어예요.');
+  assert.equal(validateChain('학교',['음악']), '“악”로 시작해주세요.');
+  assert.equal(validateChain('역사',['능력']),null);
+  assert.equal(validateChain('여자',['소녀']),null);
+});
 
 test('duel creation, joining and leaving refresh village participant availability',async()=>{
   const h=await harness();
@@ -32,48 +44,81 @@ test('duel creation, joining and leaving refresh village participant availabilit
       members=await updated;assert.ok(members.filter(m=>[a.id,b.id].includes(m.userId)).every(m=>m.runnerBusy));
       updated=nextMembers(socket,bothBusy(false));
       assert.equal((await h.request(`/duels/${created.body.room.id}/leave`,a,{})).status,200);
+      assert.equal((await h.request(`/duels/${created.body.room.id}/leave`,b,{})).status,200);
       members=await updated;assert.ok(members.filter(m=>[a.id,b.id].includes(m.userId)).every(m=>!m.runnerBusy));
     }
   }finally{await h.close();}
 });
 
-test('two-player typing uses server time, exact phrases, membership and idempotent completion',async()=>{
+test('multiplayer typing supports eight players, host start, actual appearances and five authoritative rounds',async()=>{
   let time=Date.now();const h=await harness({socialClock:()=>time});
   try{
-    const a=await h.register('typing_a'),b=await h.register('typing_b'),c=await h.register('typing_c');
+    const users=[];for(let i=0;i<8;i++){const user=await h.register('typing_'+i);h.runtime.store.run('UPDATE users SET nickname=?,appearance=? WHERE id=?','Player '+i,JSON.stringify({character:i%2?'luna':'moa',color:i%2?'#ffaabb':'#bbddaa',hat:'none',accessory:'none'}),user.id);users.push(user);}
+    const [a,b]=users,outsider=await h.register('typing_outside');
     assert.equal((await h.request(`/villages/${a.id}/duels`,a,{kind:'typing'})).status,409);
-    await h.connect(a);await h.connect(b,a.id);await h.connect(c,a.id);
+    for(const user of [...users,outsider])await h.connect(user,a.id);
     const room=(await h.request(`/villages/${a.id}/duels`,a,{kind:'typing'})).body.room;
+    assert.equal((await h.request(`/duels/${room.id}/start`,a,{})).status,409);
     assert.equal((await h.request(`/duels/${room.id}/join`,a,{})).status,409);
-    assert.equal((await h.request(`/duels/${room.id}/join`,b,{})).status,200);
-    assert.equal((await h.request(`/duels/${room.id}/join`,c,{})).status,409);
-    assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:TYPING_PHRASES[0],index:0})).status,409);
+    for(const user of users.slice(1))assert.equal((await h.request(`/duels/${room.id}/join`,user,{})).status,200);
+    assert.equal((await h.request(`/duels/${room.id}/start`,b,{})).status,403);
+    const started=await h.request(`/duels/${room.id}/start`,a,{});assert.equal(started.status,200);
+    assert.equal(started.body.room.players.length,8);assert.equal(started.body.room.status,'playing');
+    assert.equal(started.body.room.deadline-started.body.room.startedAt,TYPING_ROUNDS*TYPING_ROUND_MS);
+    assert.equal(started.body.room.players[0].nickname,'Player 0');assert.ok(started.body.room.players.every(p=>p.appearance?.character));assert.equal(started.body.room.players[0].appearance.character,'moa');assert.equal(started.body.room.players[1].appearance.color,'#ffaabb');
+    assert.ok(room.words.every(w=>TYPING_WORDS.includes(w)));
+    assert.equal((await h.request(`/duels/${room.id}/join`,outsider,{})).status,409);
+    assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:room.words[0],index:0})).status,409);
     time+=6000;
-    const wrong=await h.request(`/duels/${room.id}/action`,a,{text:'틀린 문장',index:0});assert.ok(wrong.body.error);assert.equal(wrong.body.room.players[0].correct,0);
-    time+=3000;
-    const correct=await h.request(`/duels/${room.id}/action`,a,{text:TYPING_PHRASES[0],index:0});assert.equal(correct.body.room.players[0].correct,TYPING_PHRASES[0].length);
-    assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:TYPING_PHRASES[0],index:0})).status,409);
-    assert.equal((await h.request(`/duels/${room.id}/action`,c,{text:TYPING_PHRASES[0],index:0})).status,403);
-    time+=60000;h.runtime.wordGames.tick();
+    const wrong=await h.request(`/duels/${room.id}/action`,a,{text:'틀린단어',index:0});assert.ok(wrong.body.error);assert.equal(wrong.body.room.players[0].score,0);
+    time+=1000;
+    const correct=await h.request(`/duels/${room.id}/action`,a,{text:room.words[0],index:0});assert.equal(correct.body.room.players[0].score,10);assert.equal(correct.body.room.players[0].correct,room.words[0].length);
+    assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:room.words[0],index:0})).status,409);
+    assert.equal((await h.request(`/duels/${room.id}/action`,outsider,{text:room.words[0],index:0})).status,403);
+    // A third player wins: winner calculation must consider the entire roster.
+    for(let index=0;index<2;index++){time+=1000;assert.equal((await h.request(`/duels/${room.id}/action`,users[2],{text:room.words[index],index})).status,200);}
+    time=started.body.room.startedAt+TYPING_ROUND_MS;
+    assert.equal((await h.request(`/villages/${a.id}/duels`,a)).body.rooms[0].round,2);
+    time=started.body.room.deadline;h.runtime.wordGames.tick();
     const finished=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);
-    assert.equal(finished.status,'finished');assert.equal(finished.winner,a.id);assert.equal(gold(h,a),20);assert.equal(gold(h,b),10);
-    h.runtime.wordGames.tick();await h.request(`/duels/${room.id}/leave`,a,{});assert.equal(gold(h,a),20);
-    assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM social_game_records WHERE id=?',room.id).n,2);
+    assert.equal(finished.status,'finished');assert.equal(finished.winner,users[2].id);assert.equal(gold(h,users[2]),20);assert.equal(gold(h,a),10);
+    h.runtime.wordGames.tick();await h.request(`/duels/${room.id}/leave`,a,{});assert.equal(gold(h,users[2]),20);
+    assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM social_game_records WHERE id=?',room.id).n,8);
   }finally{await h.close();}
 });
 
-test('word chain enforces vocabulary, duplicate words, turn ownership and timeout forfeits',async()=>{
+test('typing transfers the waiting host and one departure does not terminate the multiplayer game',async()=>{
+  let time=Date.now();const h=await harness({socialClock:()=>time});
+  try{
+    const users=[];for(let i=0;i<4;i++){const user=await h.register('depart_'+i);users.push(user);await h.connect(user,users[0].id);}
+    const [a,b,c,d]=users,room=(await h.request(`/villages/${a.id}/duels`,a,{kind:'typing'})).body.room;
+    for(const user of [b,c,d])await h.request(`/duels/${room.id}/join`,user,{});
+    await h.request(`/duels/${room.id}/leave`,a,{});assert.equal(h.runtime.wordGames.busy(a.id),false);
+    const waiting=(await h.request(`/villages/${a.id}/duels`,b)).body.rooms[0];assert.equal(waiting.hostId,b.id);assert.equal(waiting.players.length,3);
+    assert.equal((await h.request(`/duels/${room.id}/start`,b,{})).status,200);time+=5000;
+    await h.request(`/duels/${room.id}/leave`,c,{});assert.equal(h.runtime.wordGames.busy(c.id),false);
+    const state=(await h.request(`/villages/${a.id}/duels`,b)).body.rooms[0];assert.equal(state.status,'playing');assert.equal(state.players.find(p=>p.id===c.id).left,true);
+    assert.equal((await h.request(`/duels/${room.id}/action`,c,{text:room.words[0],index:0})).status,403);
+    const score=await h.request(`/duels/${room.id}/action`,d,{text:room.words[0],index:0});assert.equal(score.body.room.players.find(p=>p.id===d.id).score,10);
+    time=state.deadline;h.runtime.wordGames.tick();assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM social_game_records WHERE id=?',room.id).n,2);assert.equal(gold(h,c),0);
+  }finally{await h.close();}
+});
+
+test('word chain enforces vocabulary, duplicate words, turn ownership and timeout skips',async()=>{
   let time=Date.now();const h=await harness({socialClock:()=>time});
   try{
     const a=await h.register('chain_a'),b=await h.register('chain_b');await h.connect(a);await h.connect(b,a.id);
-    const room=(await h.request(`/villages/${a.id}/duels`,a,{kind:'wordchain'})).body.room;await h.request(`/duels/${room.id}/join`,b,{});time+=3500;
+    const room=(await h.request(`/villages/${a.id}/duels`,a,{kind:'wordchain'})).body.room;await h.request(`/duels/${room.id}/join`,b,{});await h.request(`/duels/${room.id}/start`,a,{});time+=3500;
     assert.equal((await h.request(`/duels/${room.id}/action`,b,{text:'사과'})).status,409);
+    assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:'가나다라마바사아자차카타파하'})).status,400);
     assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:'사과'})).status,200);
     assert.equal((await h.request(`/duels/${room.id}/action`,b,{text:'나무'})).status,400);
     assert.equal((await h.request(`/duels/${room.id}/action`,b,{text:'과일'})).status,200);
     assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:'사과'})).status,400);
     assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:'일기'})).status,200);
     time+=16000;h.runtime.wordGames.tick();
+    const skipped=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);assert.equal(skipped.status,'playing');assert.equal(skipped.turn,0);assert.equal(skipped.lastEvent.type,'timeout');
+    for(let i=0;i<10;i++){time+=16000;h.runtime.wordGames.tick();}
     const ended=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);assert.equal(ended.winner,a.id);
     assert.equal(validateChain('사과',['사과']), '이미 사용한 단어예요.');assert.ok(chainStarts('녀').includes('여'));assert.ok(chainStarts('림').includes('임'));
   }finally{await h.close();}

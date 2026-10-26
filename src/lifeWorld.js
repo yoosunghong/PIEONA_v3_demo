@@ -52,7 +52,10 @@ export function createLifeWorld(){
     const now=(garden?.serverTime||Date.now())+Math.max(0,Date.now()-(garden?.receivedAt||Date.now()));
     for(const {bed,plant} of beds){const plot=garden?.plots?.find(p=>p.id===bed.id);plant.visible=!!plot?.cropId;if(!plant.visible)continue;const ready=cropState(plot,now)==='Ready';plant.scale.y=ready?1:.35+.55*Math.min(1,(now-plot.plantedAt)/(plot.readyAt-plot.plantedAt));for(const child of plant.children)if(child.userData.fruit){child.visible=ready;child.material.color.setHex(plot.cropId==='TOMATO'?0xe87556:plot.cropId==='FLOWER'?0xf6c45a:0x75a65c);}}
     for(const entry of rods){
-      const fisher=members.find(m=>m.seatId===entry.anchor.id),active=!!fisher;
+      const fisher=members.find(m=>m.seatId===entry.anchor.id);
+      // Humanoid avatars carry their own animated rod (fishingMotion).
+      // Only companions need the facility-mounted rod.
+      const active=!!fisher&&['PET','MOUNT'].includes(fisher.actorKind);
       if(fisher?.fishingCatch&&entry.lastCatch!==fisher.fishingCatch.id){entry.lastCatch=fisher.fishingCatch.id;entry.catchStarted=time;}
       if(active&&!entry.rod.visible)entry.since=time;
       entry.rod.visible=active;if(!active)continue;
