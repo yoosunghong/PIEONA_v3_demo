@@ -8,7 +8,9 @@ export function localBallot(user,poll,memories,signals){
   const groups=[['캠핑','텐트','모닥불','야외','산책','숲'],['게임','콘솔','타자','끝말','놀이터'],['집','휴식','조용','차분','포근'],['모험','여행','새로운','탐험'],['매운','매콤','떡볶이'],['디저트','달콤','케이크'],['음악','노래','공연'],['독서','책','도서관']];
   const score=option=>groups.reduce((sum,words)=>sum+(words.some(w=>preference.includes(w))&&words.some(w=>option.includes(w))?3:0),0)+[...new Set(option.match(/[가-힣]{2,}/g)||[])].filter(word=>preference.includes(word)).length;
   const a=score(poll.option_a),b=score(poll.option_b),tie=createHash('sha256').update(user.active_slot+poll.id).digest()[0]%2;
-  return {choice:a===b?(tie?'b':'a'):a>b?'a':'b',reason:a===b?'새로운 취향을 알아가고 싶어서 골랐어요.':'내 취향과 마을에서 즐긴 활동에 더 가까워요.',provider:'local'};
+  const choice=a===b?(tie?'b':'a'):a>b?'a':'b',option=choice==='a'?poll.option_a:poll.option_b;
+  const interests=groups.filter(words=>words.some(w=>preference.includes(w))&&words.some(w=>option.includes(w))).map(words=>words[0]);
+  return {choice,reason:a===b?`아직 뚜렷한 취향이 없어 이번에는 ‘${option}’을 경험해 보고 싶어요.`:`‘${option}’을 골랐어요. ${interests.length?interests.join('·')+'에 대한 관심이 반영된 선택이에요.':'내가 쌓은 취향과 마을 활동에 더 가까워요.'}`,provider:'local'};
 }
 export function installVillagePolls({app,io,store,auth,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,clock=Date.now}){
   const rowFor=pid=>{const p=store.one('SELECT * FROM village_polls WHERE id=?',pid);if(!p)fail(404,'투표를 찾을 수 없어요.');return p;};
@@ -38,10 +40,21 @@ export function installVillagePolls({app,io,store,auth,checkTarget,userById,ensu
   app.get('/api/villages/:id/polls',auth,(req,res)=>{checkTarget(req,req.params.id);tick();res.json({polls:store.all('SELECT * FROM village_polls WHERE owner_id=? ORDER BY created_at DESC,rowid DESC LIMIT 10',req.params.id).map(p=>view(p,req.user.id))});});
   app.post('/api/villages/:id/polls',auth,(req,res)=>{
     if(req.params.id!==req.user.id)fail(403,'마을 주인만 투표를 열 수 있어요.');tick();
-    const data=z.object({question:z.string().trim().min(2).max(100),a:z.string().trim().min(1).max(80),b:z.string().trim().min(1).max(80),stake:z.number().int().min(0).max(10000).default(0),maxVotes:z.number().int().min(2).max(50),minutes:z.number().int().min(1).max(1440)}).strict().parse(req.body);
+    const data=z.object({question:z.string().trim().min(2).max(100),a:z.string().trim().min(1).max(80),b:z.string().trim().min(1).max(80),stake:z.number().int().min(0).max(10000).default(0),maxVotes:z.number().int().min(2).max(50),minutes:z.number().int().min(1).max(4320)}).strict().parse(req.body);
     if(data.a===data.b)fail(400,'서로 다른 두 선택지를 적어주세요.');
     if(store.one("SELECT id FROM village_polls WHERE owner_id=? AND status='open'",req.user.id))fail(409,'진행 중인 투표를 먼저 마쳐주세요.');
     const pid=id();store.run('INSERT INTO village_polls(id,owner_id,question,option_a,option_b,stake,max_votes,deadline,created_at) VALUES(?,?,?,?,?,?,?,?,?)',pid,req.user.id,data.question,data.a,data.b,data.stake,data.maxVotes,clock()+data.minutes*60000,now());notify(req.user.id);res.status(201).json({poll:view(rowFor(pid),req.user.id)});
+  });
+  app.post('/api/polls/:id/edit',auth,(req,res)=>{
+    const poll=rowFor(req.params.id);if(poll.owner_id!==req.user.id)fail(403,'마을 주인만 수정할 수 있어요.');
+    tick();if(rowFor(poll.id).status!=='open')fail(409,'종료된 투표는 수정할 수 없어요.');
+    const data=z.object({question:z.string().trim().min(2).max(100),a:z.string().trim().min(1).max(80),b:z.string().trim().min(1).max(80),stake:z.number().int().min(0).max(10000),maxVotes:z.number().int().min(2).max(50),minutes:z.number().int().min(1).max(4320)}).strict().parse(req.body);
+    if(data.a===data.b)fail(400,'서로 다른 두 선택지를 적어주세요.');
+    const count=ballots(poll.id).length;
+    if(count&&(data.question!==poll.question||data.a!==poll.option_a||data.b!==poll.option_b||data.stake!==poll.stake))fail(409,'참여 후에는 질문, 선택지와 참가비를 변경할 수 없어요.');
+    if(data.maxVotes<=count)fail(400,'최대 투표 수는 현재 참여 수보다 커야 해요.');
+    store.run('UPDATE village_polls SET question=?,option_a=?,option_b=?,stake=?,max_votes=?,deadline=? WHERE id=?',data.question,data.a,data.b,data.stake,data.maxVotes,clock()+data.minutes*60000,poll.id);
+    notify(poll.owner_id);res.json({poll:view(rowFor(poll.id),req.user.id)});
   });
   app.post('/api/polls/:id/attend',auth,(req,res)=>{
     tick();const poll=rowFor(req.params.id);checkTarget(req,poll.owner_id);

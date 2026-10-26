@@ -5,7 +5,7 @@ import {createFacilityOutline,selectedFacility} from './facilityOutline.mjs';
 import {facilityStep,isClickFacility} from './lifeNavigation.mjs';
 import {createVillageTapGesture,villageTapDestination,villageTapStep} from './villageTapMovement.mjs';
 import {VILLAGE_SCALE,VILLAGE_RADIUS,WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
-import {villageScenery,isScenery} from '../shared/scenery.mjs';
+import {villageScenery,isScenery,isPinkPebble,pinkPebbles} from '../shared/scenery.mjs';
 import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import {loadAsset} from './avatar';
@@ -158,7 +158,9 @@ export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,vill
     for(const [x,z] of [[-1.4,3.4],[1.4,3.4],[-5,-2],[4,-1.3]]){const lampStart=world.children.length;cyl(.035,.06,1.65,bark,x,.95,z);box(.22,.34,.22,glow,x,1.9,z);box(.32,.06,.32,roof,x,2.1,z);const l=new THREE.PointLight(0xffd79d,1.5,4);l.position.set(x,1.8,z);world.add(l);registerScenery('lamp-'+([[-1.4,3.4],[1.4,3.4],[-5,-2],[4,-1.3]].findIndex(p=>p[0]===x&&p[1]===z)),world.children.slice(lampStart),x,z);}
     // Seeded planting keeps the island stable between views.
     let seed=42;const rand=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
-    const flowerGeo=new THREE.IcosahedronGeometry(.045,0);geometries.push(flowerGeo);const flowers=new THREE.InstancedMesh(flowerGeo,petal,230);const dummy=new THREE.Object3D();let n=0;for(let i=0;i<600&&n<230;i++){const x=(rand()-.5)*12,z=(rand()-.5)*12;if(x*x+z*z>40||x*x+z*z<8||Math.abs(x)<.8&&z>0||x<-2&&z<1||x>2&&z<3)continue;dummy.position.set(x,.2+rand()*.16,z);dummy.scale.setScalar(.7+rand());dummy.updateMatrix();flowers.setMatrixAt(n++,dummy.matrix);}flowers.count=n;world.add(flowers);
+    const flowerGeo=new THREE.IcosahedronGeometry(.045,0);geometries.push(flowerGeo);
+    for(const pebble of pinkPebbles){const part=new THREE.Mesh(flowerGeo,petal);part.position.set(pebble.x,pebble.y,pebble.z);part.scale.setScalar(pebble.scale);world.add(part);registerScenery(pebble.id,[part],pebble.x,pebble.z);}
+
     const particleGeo=new THREE.BufferGeometry();const positions=new Float32Array(90*3);for(let i=0;i<90;i++){positions[i*3]=(rand()-.5)*20;positions[i*3+1]=rand()*8;positions[i*3+2]=(rand()-.5)*18;}particleGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));geometries.push(particleGeo);const particleMat=new THREE.PointsMaterial({color:0xf8e7ba,size:.045,transparent:true,opacity:.65,depthWrite:false});materials.push(particleMat);const particles=new THREE.Points(particleGeo,particleMat);world.add(particles);
     if(portrait){world.background=new THREE.Color(0xeaf5ff);world.fog=null;const pedestal=cyl(1.8,1.9,.12,mat(0xd6e9f9),0,.30,0);pedestal.userData.previewStage=true;}
     const avatarRoot=new THREE.Group();avatarRoot.position.set(0,.39,0);avatarRoot.userData.action='avatar';world.add(avatarRoot);let mixer,action,characterAsset,hostTag,hostRide,hostPet;const remoteCharacters=new Map(),characterAssets=new Map(),pendingCharacters=new Set();
@@ -570,7 +572,7 @@ export default function Scene({chalkStrokes=[],pollActive=false,onPollClick,vill
     const scene=worldRef.current;if(!scene)return;
     for(const item of villageScenery(village)){
       const root=scene.sceneryRoots.get(item.id);if(!root)continue;
-      root.visible=!item.hidden&&(isLifeScenery(item.id)||/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)||!inLifeArea(item.x,item.z,village));root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;
+      root.visible=!item.hidden&&(isLifeScenery(item.id)||isPinkPebble(item.id)||/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)||!inLifeArea(item.x,item.z,village));root.position.set(item.x,0,item.z);root.rotation.y=item.rotation*Math.PI/2;
     }
   },[JSON.stringify(village.scenery),village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{

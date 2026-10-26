@@ -35,6 +35,6 @@ export function lifeFootprint(village={},id=null){
 export function validLifePlacement(village,id,objects=[]){
   return lifeFootprint(village,id).every(point=>{
     const distance=Math.hypot(point.x,point.z);
-    return distance<=(id==='scenery:life-fishing'?SCENERY_RADIUS:WALK_RADIUS)&&!objects.some(other=>other.id!==id&&!other.hidden&&Math.hypot(other.x-point.x,other.z-point.z)<point.radius);
+    return distance<=(id==='scenery:life-fishing'?SCENERY_RADIUS:WALK_RADIUS)&&!objects.some(other=>other.id!==id&&!other.hidden&&!/^scenery:pink-pebble-/.test(other.id)&&Math.hypot(other.x-point.x,other.z-point.z)<point.radius);
   });
 }

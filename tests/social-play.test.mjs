@@ -136,3 +136,27 @@ test('a poll cannot debit an underfunded avatar and cannot accept more than its 
     assert.equal((await h.request(`/polls/${poll.id}/attend`,a,{})).status,400);assert.equal(gold(h,a),0);assert.equal(h.runtime.store.one('SELECT COUNT(*) n FROM village_ballots WHERE poll_id=?',poll.id).n,0);
   }finally{await h.close();}
 });
+
+test('poll edits enforce ownership, three-day limits and preserve existing ballots and stakes',async()=>{
+  let time=Date.now();const h=await harness({socialClock:()=>time});
+  try{
+    const a=await h.register('edit_owner'),b=await h.register('edit_guest');
+    const setup={question:'어떤 하루?',a:'캠핑',b:'게임',stake:0,maxVotes:5,minutes:4320};
+    assert.equal((await h.request(`/villages/${a.id}/polls`,a,{...setup,minutes:4321})).status,400);
+    const created=await h.request(`/villages/${a.id}/polls`,a,setup);assert.equal(created.status,201);const p=created.body.poll;
+    assert.equal(p.deadline,time+3*86400000);
+    assert.equal((await h.request(`/polls/${p.id}/edit`,b,setup)).status,403);
+    assert.equal((await h.request(`/polls/${p.id}/edit`,a,{...setup,minutes:4321})).status,400);
+    const updated={...setup,question:'주말에는?',a:'독서',b:'산책'};
+    assert.equal((await h.request(`/polls/${p.id}/edit`,a,updated)).body.poll.question,updated.question);
+    await h.request('/balance',a,{answers});await h.connect(a);
+    const attended=await h.request(`/polls/${p.id}/attend`,a,{});assert.equal(attended.status,200);
+    const ballot=attended.body.poll.ballots[0];assert.ok(ballot.reason.includes(attended.body.poll.options[ballot.choice]));
+    assert.equal((await h.request(`/polls/${p.id}/edit`,a,{...updated,a:'다른 선택'})).status,409);
+    assert.equal((await h.request(`/polls/${p.id}/edit`,a,{...updated,stake:10})).status,409);
+    time+=60000;const edited=await h.request(`/polls/${p.id}/edit`,a,{...updated,minutes:4320,maxVotes:8});
+    assert.equal(edited.status,200);assert.equal(edited.body.poll.deadline,time+3*86400000);assert.deepEqual(edited.body.poll.ballots[0],ballot);
+    await h.request(`/polls/${p.id}/close`,a,{});
+    assert.equal((await h.request(`/polls/${p.id}/edit`,a,updated)).status,409);
+  }finally{await h.close();}
+});

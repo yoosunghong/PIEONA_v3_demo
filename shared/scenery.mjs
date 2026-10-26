@@ -7,6 +7,17 @@ export const perimeterRocks=Array.from({length:42},(_,i)=>{
   return{id:`edge-rock-${i}`,name:'가장자리 돌',x:Math.cos(angle)*radius,z:Math.sin(angle)*radius};
 });
 export const perimeterTrees=[[-4.6,3.7,1.05],[3.6,4.8,1.1],[-5.6,-1.9,.85],[4.1,-4.2,.8]];
+// The original scattered pink pebbles keep stable positions and inventory IDs.
+export const isPinkPebble=id=>typeof id==='string'&&/^(scenery:)?pink-pebble-/.test(id);
+export const pinkPebbles=(()=>{
+  let seed=42;const rand=()=>{seed=seed*16807%2147483647;return(seed-1)/2147483646;},items=[];
+  for(let i=0;i<600&&items.length<230;i++){
+    const x=(rand()-.5)*12,z=(rand()-.5)*12;
+    if(x*x+z*z>40||x*x+z*z<8||Math.abs(x)<.8&&z>0||x<-2&&z<1||x>2&&z<3)continue;
+    items.push({id:`pink-pebble-${items.length}`,name:'분홍 자갈',x,z,y:.2+rand()*.16,scale:.7+rand()});
+  }
+  return items;
+})();
 export const sceneryDefinitions = [
   ...[[-3.7,-2.4],[3.8,-2.7],[-5,1.5],[4.8,1.3],[1,-5.1],[-2,-5.2]].map(([x,z],i)=>({id:`tree-${i}`,name:[0,3].includes(i)?'벚꽃나무':'정원 나무',x,z})),
   ...Array.from({length:17},(_,i)=>i).filter(i=>i%5!==0).map(i=>({id:`bush-${i}`,name:'정원 덤불',x:Math.cos(i*2.39996)*(4.6+Math.sin(i*4)*.8),z:Math.sin(i*2.39996)*(4.6+Math.sin(i*4)*.8)})),
@@ -23,9 +34,10 @@ export const sceneryDefinitions = [
   ...Array.from({length:6},(_,i)=>({id:`path-stone-${i}`,name:'산책로 돌계단',x:-.25+Math.sin(i)*.13,z:2.9+i*.5})),
   ...lifeDefinitions,
   ...perimeterTrees.map(([x,z],i)=>({id:`edge-tree-${i}`,name:'가장자리 벚꽃나무',x,z})),
+  ...pinkPebbles,
 ];
 export const isScenery=id=>typeof id==='string'&&id.startsWith('scenery:');
-export const suppressedScenery=(item,village={})=>isScenery(item.id)&&!/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)&&!isLifeScenery(item.id)&&inLifeArea(item.x,item.z,village);
+export const suppressedScenery=(item,village={})=>isScenery(item.id)&&!isPinkPebble(item.id)&&!/^scenery:(central-stage|stage-stone-|path-stone-)/.test(item.id)&&!isLifeScenery(item.id)&&inLifeArea(item.x,item.z,village);
 export function villageScenery(village={}){
   return sceneryDefinitions.map(def=>{
     const saved=village.scenery?.find(item=>item.id===def.id);
@@ -33,9 +45,10 @@ export function villageScenery(village={}){
     return {type:'scenery',name:def.name,x:point.x,z:point.z,rotation:0,...saved,...(['life-storage','life-kitchen'].includes(def.id)?{hidden:true}:{}),id:'scenery:'+def.id};
   });
 }
-export function validSceneryPlacement(x,z,village={},selected=null){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,village,selected)&&Math.hypot(x,z)<=SCENERY_RADIUS;}
+export function validSceneryPlacement(x,z,village={},selected=null){return Number.isFinite(x)&&Number.isFinite(z)&&(isPinkPebble(selected)||!inLifeArea(x,z,village,selected))&&Math.hypot(x,z)<=SCENERY_RADIUS;}
 
 export function sceneryClearance(id,otherId){
+  if([id,otherId].some(isPinkPebble))return 0;
   if([id,otherId].some(key=>/^scenery:(central-stage|stage-stone-|path-stone-)/.test(key)))return 0;
   if(isScenery(otherId))return .4;
   return ({"scenery:cafe":.75,"scenery:pond":.825,"scenery:campfire":.425})[id]??.4;
