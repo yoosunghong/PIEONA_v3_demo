@@ -93,7 +93,7 @@ export function createApp(options = {}) {
     const members=villageVisitors.get(current.villageId),member=members?.get(current.userId);
     member?.sockets.delete(socket.id);
     if(member)member.moving=false;
-    if(member&&!member.sockets.size){if(current.userId===current.villageId)life.leave(current.userId);else if(life.active(current.userId)?.village_id===current.villageId)life.stop(current.userId);members.delete(current.userId);wordGames.leave(current.userId,current.villageId);}
+    if(member&&!member.sockets.size){life.cancelDuel(current.userId);if(current.userId===current.villageId)life.leave(current.userId);else if(life.active(current.userId)?.village_id===current.villageId)life.stop(current.userId);members.delete(current.userId);wordGames.leave(current.userId,current.villageId);}
     if(members&&!members.size)villageVisitors.delete(current.villageId);
     socket.data.village=null;
     logAction(current.userId,'village_leave',{villageId:current.villageId});

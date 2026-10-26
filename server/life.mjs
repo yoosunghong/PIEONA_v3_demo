@@ -1,3 +1,4 @@
+import {createFishingDuels} from './fishingDuels.mjs';
 import {createPetRuntime} from './petRuntime.mjs';
 import {SURVEY_REWARD} from '../shared/surveyRewards.mjs';
 import {awardLifeFish} from './lifeRewards.mjs';
@@ -45,7 +46,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   const owner=uid=>store.one('SELECT * FROM users WHERE id=?',uid);
   const anchors=uid=>villageLife(JSON.parse(owner(uid).village)).anchors;
   function viewSession(s){return s?{id:s.id,state:s.status==='moving'?'Moving':'Fishing',actor:s.actor_kind,anchorId:s.anchor_id,startedAt:s.started_at,nextAt:s.status==='active'?s.settled_at+FISHING_PERIOD:null,attempts:s.attempts,caught:s.caught,taskLimit:s.task_limit,items:itemsFor(s.id)}:null;}
-  function snapshot(uid){return {serverTime:clock(),session:viewSession(active(uid)),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid)};}
+  function snapshot(uid){return {serverTime:clock(),gold:owner(uid)?.gold,session:viewSession(active(uid)),duel:duels.snapshot(uid),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid)};}
   function publish(uid,results=[],notice){io.to(`user:${uid}`).emit('life:state',{...snapshot(uid),results,...(notice?{notice}:{})});}
   function petMembers(room){
     if(villageVisitors.get(room)?.size)ensurePet(room,`resident:${room}`,room);
@@ -54,7 +55,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function ensurePet(uid,key=uid,room=uid){if(!pets.has(key))pets.set(key,{userId:`pet:${uid}`,ownerId:uid,villageId:room,actorKind:'PET',x:1.1,z:0,rotation:0,moving:false,seatId:null,activityState:'Idle'});return pets.get(key);}
   function settle(uid,kind='PLAYER'){
     const s=active(uid,kind);if(!s||s.status!=='active')return [];
-    const elapsed=Math.floor((clock()-s.settled_at)/FISHING_PERIOD),count=Math.min(elapsed,s.task_limit?s.task_limit-s.attempts:elapsed);if(count<=0)return [];
+    const elapsed=Math.floor((Math.min(clock(),duels.limit(uid)??clock())-s.settled_at)/FISHING_PERIOD),count=Math.min(elapsed,s.task_limit?s.task_limit-s.attempts:elapsed);if(count<=0)return [];
     const results=[];
     store.transaction(()=>{
       for(let i=1;i<=count;i++){
@@ -64,6 +65,9 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       }
       store.run('UPDATE life_sessions SET settled_at=?,attempts=attempts+?,caught=caught+? WHERE id=?',s.settled_at+count*FISHING_PERIOD,count,results.filter(r=>r.itemId).length,s.id);
     });
+    const member=villageVisitors.get(s.village_id||uid)?.get(uid);
+    if(member){member.fishingCaught=s.caught+results.filter(r=>r.itemId).length;const caught=results.filter(r=>r.itemId).at(-1);if(caught)member.fishingCatch={id:`${s.id}:${caught.cycle}`,itemId:caught.itemId,at:clock()};}
+    emitVillage(s.village_id||uid);duels.changed(uid);
     for(const result of results)logAction(uid,'fishing_result',{actor:kind,sessionId:s.id,itemId:result.itemId,quantity:result.itemId?1:0});
     return results;
   }
@@ -73,11 +77,12 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     const member=villageVisitors.get(s.village_id||uid)?.get(uid);
     if(member){const approach=anchors(s.village_id||uid).find(a=>a.id===s.anchor_id)?.approach;if(approach)Object.assign(member,{x:approach.x,z:approach.z});Object.assign(member,{seatId:null,moving:false,jumpStarted:0,activityState:'Idle'});}
   }
-  function stop(uid,kind='PLAYER',pause=true){
+  function stop(uid,kind='PLAYER',pause=true,skipSettlement=false){
+    duels.leave(uid);
     if(pause)logAction(uid,'life_stop',{actor:kind});
     const room=playerVillage(uid);
     const kinds=['PLAYER'],results=[],items=[];
-    for(const actor of kinds){const s=active(uid,actor);if(!s)continue;results.push(...settle(uid,actor));items.push(...itemsFor(s.id));finish(uid,actor,s);}
+    for(const actor of kinds){const s=active(uid,actor);if(!s)continue;if(!skipSettlement)results.push(...settle(uid,actor));items.push(...itemsFor(s.id));finish(uid,actor,s);}
     for(const actor of kinds){const key=jobKey(uid,actor),job=jobs.get(key);if(job){gardening.cancel(job.op);jobs.delete(key);const member=memberFor(uid,actor);if(member)Object.assign(member,{moving:false,activityState:'Idle'});}}
     publish(uid,results);emitVillage(uid);if(room!==uid)emitVillage(room);return items;
   }
@@ -99,7 +104,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     if(Math.hypot(member.x-anchor.x,member.z-anchor.z)>INTERACTION_REACH)fail(409,'낚시 자리 가까이로 이동해 주세요.');
     if(occupied(villageId).has(anchor.id))fail(409,'이미 사용 중인 자리예요.');
     insertSession(uid,'PLAYER',anchor,false,false,villageId);
-    Object.assign(member,{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing'});
+    Object.assign(member,{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing',fishingCaught:0,fishingCatch:null});
     publish(uid);emitVillage(villageId);return snapshot(uid);
   }
   function startGardenJob(uid,action,kind,requestId){
@@ -144,14 +149,32 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       const results=settle(s.actor_id,s.actor_kind);
       if(results.length)publish(s.actor_id,results);
     }
+    duels.tick();
     petRuntime.tick();
     for(const uid of changed)emitVillage(uid);
   }
+  const duels=createFishingDuels({store,clock,members:room=>villageVisitors.get(room),anchors,active,busy,publish,emitVillage,stopPlayer:uid=>stop(uid,'PLAYER',false,true),settlePlayer:uid=>settle(uid),startPair(match){
+    const room=match.villageId,opponent=active(match.players[1].userId),people=villageVisitors.get(room);
+    if(!opponent||opponent.village_id!==room)fail(409,'상대가 낚시를 중단했어요.');
+    const first=anchors(room).find(a=>a.id===opponent.anchor_id&&!a.hidden);
+    if(!first)fail(409,'낚시 자리를 확인해 주세요.');
+    const challenger=people.get(match.players[0].userId),target=people.get(match.players[1].userId);
+    if(Math.hypot(challenger.x-target.x,challenger.z-target.z)>2.2)fail(409,'상대 가까이에서 수락을 기다려 주세요.');
+    for(const p of match.players)if(busy(p.userId)&&!active(p.userId))fail(409,'진행 중인 다른 활동을 마쳐주세요.');
+    const second=anchors(room).filter(a=>!a.hidden&&a.id!==first.id&&!store.one("SELECT 1 FROM life_sessions WHERE village_id=? AND anchor_id=? AND status IN ('moving','active') AND actor_id NOT IN (?,?)",room,a.id,...match.players.map(p=>p.userId))&&![...people.values()].some(p=>!match.players.some(player=>player.userId===p.userId)&&p.seatId===a.id)).sort((a,b)=>Math.hypot(a.x-first.x,a.z-first.z)-Math.hypot(b.x-first.x,b.z-first.z))[0];
+    if(!second)fail(409,'함께 낚시할 빈 자리가 없어요.');
+    for(const p of match.players){const old=active(p.userId);if(old){settle(p.userId);finish(p.userId,'PLAYER',old);}}
+    return match.players.map((p,i)=>{const anchor=i===0?second:first,session=insertSession(p.userId,'PLAYER',anchor,false,false,room);Object.assign(people.get(p.userId),{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing',fishingCaught:0,fishingCatch:null});return session;});
+  }});
   app.post('/api/me/life/actions',auth,(req,res)=>{const body=z.object({requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);const result=execute(req.user.id,body.action,body.requestId);res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});});
   app.get('/api/me/life',auth,(req,res)=>{res.json({...snapshot(req.user.id),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),inventoryAcquisitions:store.all(`SELECT i.item_id AS itemId,i.quantity,MAX(COALESCE((SELECT MAX(timestamp) FROM acquisition_events a WHERE a.owner_id=i.owner_id AND a.item_id=i.item_id),0),COALESCE((SELECT MAX(timestamp) FROM inventory_changes c WHERE c.owner_id=i.owner_id AND c.item_id=i.item_id AND c.quantity>0),0)) AS lastAcquiredAt FROM inventory_entries i WHERE i.owner_id=?`,req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
     COALESCE(NULLIF(s.actor_name,''),u.nickname) AS acquiredByName,COALESCE(s.actor_kind,'PLAYER') AS actor
     FROM fish_discoveries d JOIN users u ON u.id=d.acquired_by LEFT JOIN acquisition_events e ON e.rowid=(SELECT e2.rowid FROM acquisition_events e2 WHERE e2.owner_id=d.owner_id AND e2.item_id=d.item_id ORDER BY e2.timestamp,e2.rowid LIMIT 1) LEFT JOIN life_sessions s ON s.id=e.session_id WHERE d.owner_id=?`,req.user.id)});});
   io.on('connection',socket=>{
+    for(const [event,handler] of [['fishing:challenge',(uid,room,data)=>duels.request(uid,room,data)],['fishing:duel',(uid,room,data)=>duels.action(uid,room,data)]])socket.on(event,(data,ack)=>{
+      try{const user=sessionUser(socket.request.headers);if(!user)fail(401,'로그인이 필요해요.');tick();const duel=handler(user.id,socket.data.village?.villageId,data);if(typeof ack==='function')ack({ok:true,duel});}
+      catch(e){if(typeof ack==='function')ack({ok:false,error:e.status?e.message:'낚시 대결 요청을 처리하지 못했어요.'});}
+    });
     socket.on('life:start',(data,ack)=>{
       try{const user=sessionUser(socket.request.headers);if(!user)fail(401,'로그인이 필요해요.');
         if(!data||Object.keys(data).some(key=>key!=='anchorId'))fail(400,'잘못된 낚시 요청이에요.');
@@ -162,5 +185,5 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   });
   const petRuntime=createPetRuntime({app,auth,clock,random,villageVisitors,pets,ensurePet,emitVillage,dragonState:uid=>({available:!!store.one('SELECT 1 FROM account_rewards WHERE user_id=? AND reward_id=?',uid,SURVEY_REWARD),riding:JSON.parse(owner(uid).appearance).ride==='babyDragon'}),emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
   const timer=setInterval(()=>{try{tick();}catch(e){console.error('[life] tick failed',e.message);}},100);timer.unref();
-  return {arrive,switchAvatar,active,seatOccupied:(room,seatId,except)=>[...(villageVisitors.get(room)?.values()||[])].some(m=>m.userId!==except&&m.seatId===seatId),busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,petMembers,execute,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);}};
+  return {arrive,switchAvatar,active,cancelDuel:uid=>duels.leave(uid),seatOccupied:(room,seatId,except)=>[...(villageVisitors.get(room)?.values()||[])].some(m=>m.userId!==except&&m.seatId===seatId),busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,petMembers,execute,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);}};
 }

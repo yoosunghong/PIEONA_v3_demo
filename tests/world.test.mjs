@@ -521,3 +521,18 @@ test('editor complete snapshots save for every theme and accepted object moves',
     }
   }
 });
+
+test('pink pebble placement persists overlaps, inventory storage and rejects outside coordinates',async()=>{
+  const user=await register('pebble_owner');
+  const patch=scenery=>request('/me/world',user,{village:{scenery}},'PATCH');
+  const pebble={id:'pink-pebble-0',x:0,z:0,rotation:0};
+  let r=await patch([pebble]);assert.equal(r.status,200);
+  const furniture={id:randomUUID(),type:'bench',x:0,z:0,rotation:0};
+  r=await request('/me/world',user,{village:{items:[furniture]}},'PATCH');assert.equal(r.status,200);
+  const garden=villageScenery().find(item=>item.id==='scenery:life-garden-0');
+  r=await patch([{...pebble,x:garden.x,z:garden.z}]);assert.equal(r.status,200);
+  r=await patch([{...pebble,hidden:true}]);assert.equal(r.status,200);
+  assert.equal(r.body.user.village.scenery.find(item=>item.id===pebble.id).hidden,true);
+  r=await patch([pebble]);assert.equal(r.status,200);
+  r=await patch([{...pebble,x:100}]);assert.equal(r.status,400);
+});

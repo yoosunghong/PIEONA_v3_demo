@@ -44,7 +44,7 @@ export function useLife(userId,socket,connected,notify){
     catch(e){if(e.status)retry.current=null;notify(e.message);await load();}
     finally{guard.current=false;setPending(false);}
   };
-  return {data,pending,load,perform,start:anchorId=>command('life:start',{anchorId}),stop:(actor='PLAYER')=>command('life:stop',{actor})};
+  return {data,pending,load,perform,command,start:anchorId=>command('life:start',{anchorId}),stop:(actor='PLAYER')=>command('life:stop',{actor})};
 }
 
 export function FishingStatus({data,pending,connected,onStop}){
@@ -53,7 +53,7 @@ export function FishingStatus({data,pending,connected,onStop}){
   const sessions=[data?.session].filter(Boolean);
   const tasks=[data?.task].filter(Boolean);
   if(!sessions.length&&!tasks.length)return null;
-  return <section className="fishing-status" aria-label="낚시 진행 상황"><div><span className="life-eyebrow">우리 마을 생활</span>{tasks.map(task=><div className="fishing-actor" key={task.id}><strong>나 · {task.label}</strong><p>{task.state==='Moving'?'목적지로 이동 중':'작업 중 · 완료되면 보관함에 반영돼요'}</p><button className="text-button" disabled={pending||!connected} onClick={()=>onStop(task.actor)}>내 작업 중단</button></div>)}{sessions.map(session=>{const remaining=Math.max(0,Math.ceil((session.nextAt-data.serverTime-(now-data.receivedAt))/1000));return <div className="fishing-actor" key={session.id}><strong>🎣 나 · {session.state==='Moving'?'바다로 이동 중':'낚시 중'}</strong><p>{session.state==='Moving'?'예약한 자리로 걸어가고 있어요':`${session.caught}마리 획득 · ${connected?`${remaining}초 후 다음 판정`:'연결 확인 중…'}`}{session.taskLimit?` · ${session.attempts}/${session.taskLimit}회`:''}</p><button type="button" className="text-button" disabled={pending||!connected} onClick={()=>onStop(session.actor)}>내 낚시 중단</button></div>;})}</div></section>;
+  return <section className="fishing-status" aria-label="낚시 진행 상황"><div><span className="life-eyebrow">우리 마을 생활</span>{tasks.map(task=><div className="fishing-actor" key={task.id}><strong>나 · {task.label}</strong><p>{task.state==='Moving'?'목적지로 이동 중':'작업 중 · 완료되면 보관함에 반영돼요'}</p><button className="text-button" disabled={pending||!connected} onClick={()=>onStop(task.actor)}>내 작업 중단</button></div>)}{sessions.map(session=>{const remaining=Math.max(0,Math.ceil((session.nextAt-data.serverTime-(now-data.receivedAt))/1000));return <div className="fishing-actor" key={session.id}><strong>🎣 나 · {session.state==='Moving'?'바다로 이동 중':'낚시 중'}</strong><p>{session.state==='Moving'?'예약한 자리로 걸어가고 있어요':`${session.caught}마리 획득 · ${connected?`${remaining}초 후 다음 판정`:'연결 확인 중…'}`}{session.taskLimit?` · ${session.attempts}/${session.taskLimit}회`:''}</p><button type="button" className="text-button" disabled={pending||!connected} onClick={()=>onStop(session.actor)}>{data?.duel?.status==='active'?'대결 기권 · 낚시 중단':'내 낚시 중단'}</button></div>;})}</div></section>;
 }
 
 function GardenPanel({data,disabled,onAction}){

@@ -1,3 +1,4 @@
+import {villageCatalog} from '../src/villageCatalog.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
@@ -93,4 +94,18 @@ test('statues have unlimited stock while other decorations follow placement, sto
   assert.equal(remainingDecoration(editorHistory(editorHistory(history,{type:'undo'}),{type:'redo'}).present,'bench'),0);
   assert.equal(remainingDecoration(placed,'unknown'),0);
   assert.equal(remainingDecoration(Array.from({length:30},(_,i)=>({id:String(i),type:'statue'})),'statue'),Infinity);
+});
+
+test('pink pebbles can overlap facilities and furniture within the village and return to inventory',()=>{
+  const all=villageScenery(),pebbles=all.filter(item=>item.id.startsWith('scenery:pink-pebble-'));
+  assert.ok(pebbles.length>0);assert.equal(new Set(pebbles.map(item=>item.id)).size,pebbles.length);
+  const pebble=pebbles[0],items=[...all,{id:'bench-test',type:'bench',x:0,z:0}];
+  assert.equal(canPlaceDecoration(items,0,0,pebble.id),true);
+  const garden=all.find(item=>item.id==='scenery:life-garden-0');
+  assert.equal(canPlaceDecoration(items,garden.x,garden.z,pebble.id),true);
+  assert.equal(canPlaceDecoration(items,100,0,pebble.id),false);
+  assert.equal(canPlaceDecoration([{...pebble,x:0,z:0}],0,0),true);
+  const stored=villageScenery({scenery:[{id:pebble.id.slice(8),x:0,z:0,rotation:0,hidden:true}]});
+  const catalog=villageCatalog(stored),entry=catalog.find(item=>item.name==='분홍 자갈');
+  assert.equal(entry.total,pebbles.length);assert.equal(entry.remaining,1);assert.ok(entry.storedIds.includes(pebble.id));
 });
