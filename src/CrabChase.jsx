@@ -81,7 +81,7 @@ export default function CrabChase({target,me,notify,onReward,anonymous,socket,ra
     window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);window.addEventListener('blur',reset);document.addEventListener('visibilitychange',hidden);
     return()=>{engine.current.sendInput=null;clearInterval(interval);clearInterval(poll);keys.current.clear();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',reset);document.removeEventListener('visibilitychange',hidden);};
   },[status,socket]);
-  useEffect(()=>{sound.current?.set(music?.enabled??true,music?.volume??.3,status==='playing');if(status==='playing')return music?.interrupt();},[status,music?.enabled,music?.volume,music?.interrupt]);
+  useEffect(()=>{sound.current?.set(music?.enabled??true,music?.volume??.3,status==='playing');},[status,music?.enabled,music?.volume]);
   useEffect(()=>{if(status==='playing'||status==='ending')stage.current?.scrollIntoView({block:'start',behavior:'instant'});if(['ending','finished','settle'].includes(status))title.current?.focus({preventScroll:true});},[status]);
 
   useEffect(()=>{

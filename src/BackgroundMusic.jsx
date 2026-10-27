@@ -11,6 +11,7 @@ const savePreference = (key, value) => { try { localStorage.setItem(key, JSON.st
 
 export function MusicProvider({ children }) {
   const audio = useRef(null);
+  const [track, setTrack] = useState('/audio/S_Vilage_v2.mp3');
   const interruptions = useRef(new Set());
   const [interruptionVersion, setInterruptionVersion] = useState(0);
   const interrupt = useCallback(() => {
@@ -57,14 +58,14 @@ export function MusicProvider({ children }) {
       document.removeEventListener('pointerdown', unlock, true);
       document.removeEventListener('keydown', unlock, true);
     };
-  }, [enabled, interruptionVersion]);
+  }, [enabled, interruptionVersion, track]);
   const toggle = () => {
     if (enabled) { setEnabled(false); audio.current.pause(); }
     else { setEnabled(true); play(); }
   };
-  return <MusicContext.Provider value={{ playing, enabled, volume, setVolume, toggle, error, ducked, setDucked, interrupt }}>
+  return <MusicContext.Provider value={{ playing, enabled, volume, setVolume, toggle, error, ducked, setDucked, interrupt, track, setTrack }}>
     {children}
-    <audio ref={audio} src="/audio/S_Vilage_v2.mp3" preload="metadata" loop
+    <audio ref={audio} src={track} preload="metadata" loop
       onPlaying={() => setPlaying(true)} onPause={() => setPlaying(false)}
       onError={() => { setPlaying(false); setError('음악을 불러오지 못했어요. 재생 버튼으로 다시 시도해 주세요.'); }}/>
   </MusicContext.Provider>;
@@ -73,7 +74,7 @@ export function MusicProvider({ children }) {
 export const useBackgroundMusic = () => useContext(MusicContext);
 
 export function MusicControls() {
-  const { playing, volume, setVolume, toggle, error, ducked } = useBackgroundMusic();
+  const { playing, volume, setVolume, toggle, error, ducked, track } = useBackgroundMusic();
   const [open, setOpen] = useState(false);
   const root = useRef(null);
   const settingsButton = useRef(null);
@@ -93,8 +94,8 @@ export function MusicControls() {
     <button type="button" className="music-settings" aria-label="배경음악 음량 조절" aria-expanded={open}
       ref={settingsButton} onClick={() => setOpen(!open)}><SlidersHorizontal size={15}/></button>
     {open && <div className="music-popover" aria-label="배경음악 설정">
-      <strong><Music2 size={16}/>마을의 배경음악</strong>
-      <p>S_Vilage_v2 · 반복 재생</p>
+      <strong><Music2 size={16}/>{track === '/audio/minigame2.mp3' ? '미니게임 배경음악' : '마을의 배경음악'}</strong>
+      <p>{track === '/audio/minigame2.mp3' ? 'minigame2' : 'S_Vilage_v2'} · 반복 재생</p>
       <label><span><Volume2 size={15}/>음량 <output>{Math.round(volume * 100)}%</output></span>
         <input type="range" aria-label="배경음악 음량" min="0" max="100" step="1" value={Math.round(volume * 100)}
           onChange={e => setVolume(Number(e.target.value) / 100)}/>

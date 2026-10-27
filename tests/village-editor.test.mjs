@@ -107,5 +107,5 @@ test('pink pebbles can overlap facilities and furniture within the village and r
   assert.equal(canPlaceDecoration([{...pebble,x:0,z:0}],0,0),true);
   const stored=villageScenery({scenery:[{id:pebble.id.slice(8),x:0,z:0,rotation:0,hidden:true}]});
   const catalog=villageCatalog(stored),entry=catalog.find(item=>item.name==='분홍 자갈');
-  assert.equal(entry.total,pebbles.length);assert.equal(entry.remaining,1);assert.ok(entry.storedIds.includes(pebble.id));
+  assert.equal(entry.total,3);assert.equal(entry.remaining,3);assert.ok(entry.storedIds.includes(pebble.id));
 });

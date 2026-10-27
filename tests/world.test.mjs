@@ -525,7 +525,7 @@ test('editor complete snapshots save for every theme and accepted object moves',
 test('pink pebble placement persists overlaps, inventory storage and rejects outside coordinates',async()=>{
   const user=await register('pebble_owner');
   const patch=scenery=>request('/me/world',user,{village:{scenery}},'PATCH');
-  const pebble={id:'pink-pebble-0',x:0,z:0,rotation:0};
+  const pebble={id:'pink-pebble-cluster-0',x:0,z:0,rotation:0};
   let r=await patch([pebble]);assert.equal(r.status,200);
   const furniture={id:randomUUID(),type:'bench',x:0,z:0,rotation:0};
   r=await request('/me/world',user,{village:{items:[furniture]}},'PATCH');assert.equal(r.status,200);

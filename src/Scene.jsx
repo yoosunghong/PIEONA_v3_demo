@@ -161,7 +161,10 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     // Seeded planting keeps the island stable between views.
     let seed=42;const rand=()=>{seed=(seed*16807)%2147483647;return(seed-1)/2147483646;};
     const flowerGeo=new THREE.IcosahedronGeometry(.045,0);geometries.push(flowerGeo);
-    for(const pebble of pinkPebbles){const part=new THREE.Mesh(flowerGeo,petal);part.position.set(pebble.x,pebble.y,pebble.z);part.scale.setScalar(pebble.scale);world.add(part);registerScenery(pebble.id,[part],pebble.x,pebble.z);}
+    for(const cluster of pinkPebbles){
+      const parts=cluster.stones.map(pebble=>{const part=new THREE.Mesh(flowerGeo,petal);part.position.set(cluster.x+pebble.x,pebble.y,cluster.z+pebble.z);part.scale.setScalar(pebble.scale);world.add(part);return part;});
+      registerScenery(cluster.id,parts,cluster.x,cluster.z);
+    }
 
     const particleGeo=new THREE.BufferGeometry();const positions=new Float32Array(90*3);for(let i=0;i<90;i++){positions[i*3]=(rand()-.5)*20;positions[i*3+1]=rand()*8;positions[i*3+2]=(rand()-.5)*18;}particleGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));geometries.push(particleGeo);const particleMat=new THREE.PointsMaterial({color:0xf8e7ba,size:.045,transparent:true,opacity:.65,depthWrite:false});materials.push(particleMat);const particles=new THREE.Points(particleGeo,particleMat);world.add(particles);
     if(portrait){world.background=new THREE.Color(0xeaf5ff);world.fog=null;const pedestal=cyl(1.8,1.9,.12,mat(0xd6e9f9),0,.30,0);pedestal.userData.previewStage=true;}
@@ -208,14 +211,18 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
       tapGesture.down(e);
       if(e.button!==0)return;pointerDown={x:e.clientX,y:e.clientY,id:e.pointerId};
       const edit=callbacks.current.editor;if(!edit||edit.busy)return;
-      const model=itemHit(e);if(model){dragged={model,id:model.userData.itemId,start:model.position.clone(),anchor:ground(e),point:{x:model.position.x,z:model.position.z}};controls.enabled=false;renderer.domElement.setPointerCapture(e.pointerId);edit.onSelect(model.userData.itemId);}
+      const model=itemHit(e);
+      // A selected gravel cluster can be moved by clicking its destination,
+      // including ground occupied by another object that gravel may overlap.
+      if(isPinkPebble(edit.selected)&&model?.userData.itemId!==edit.selected)return;
+      if(model){dragged={model,id:model.userData.itemId,start:model.position.clone(),anchor:ground(e),point:{x:model.position.x,z:model.position.z}};controls.enabled=false;renderer.domElement.setPointerCapture(e.pointerId);edit.onSelect(model.userData.itemId);}
     }
     function move(e){
       tapGesture.move(e);
       const edit=callbacks.current.editor;if(!edit||edit.busy)return;
       const point=ground(e);if(!point)return;
       if(dragged?.anchor){point.x=snapPosition(point.x+dragged.start.x-dragged.anchor.x);point.z=snapPosition(point.z+dragged.start.z-dragged.anchor.z);}
-      const valid=canPlaceDecoration(callbacks.current.items,point.x,point.z,dragged?.id||null);
+      const valid=canPlaceDecoration(callbacks.current.items,point.x,point.z,dragged?.id||edit.selected||null);
       const preview=previewRoot.children[0];
       if(dragged&&pointerDown&&e.pointerId===pointerDown.id){
         if(Math.hypot(pointerDown.x-e.clientX,pointerDown.y-e.clientY)<5)return;
@@ -236,7 +243,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
       if(!callbacks.current.editor&&(!state.current?.inputEnabled||state.current?.paused))return;
       if(e.button!==0||!pointerDown||!tapped)return;
       const edit=callbacks.current.editor;
-      if(edit){if(edit.busy)return;const point=ground(e);if(edit.tool&&point)edit.onPlace(point);else edit.onSelect(null);return;}
+      if(edit){if(edit.busy)return;const point=ground(e);if(edit.tool&&point)edit.onPlace(point);else if(isPinkPebble(edit.selected)&&point)edit.onMove(edit.selected,point);else edit.onSelect(null);return;}
       ray(e);for(const hit of raycaster.intersectObjects(world.children,true)){let ancestor=hit.object,visible=true;while(ancestor){if(!ancestor.visible){visible=false;break;}ancestor=ancestor.parent;}if(!visible)continue;let obj=hit.object;while(obj){if(!obj.visible)break;if(obj.userData.action){if(obj.userData.action==='storage'||obj.userData.action==='kitchen'||obj.userData.action.startsWith('garden:')||obj.userData.action.startsWith('fishing:'))lifeToggle.current?.(obj.userData.action);else callbacks.current.onInteract?.(obj.userData.action);return;}obj=obj.parent;}}
       const s=state.current;
       if(portrait||!['home','village'].includes(s.mode)||!(e.pointerType==='touch'||isFoldViewport(window.innerWidth,window.innerHeight)||window.matchMedia('(max-width: 800px), (pointer: coarse)').matches))return;

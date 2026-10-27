@@ -7,7 +7,7 @@ export const perimeterRocks=Array.from({length:42},(_,i)=>{
   return{id:`edge-rock-${i}`,name:'가장자리 돌',x:Math.cos(angle)*radius,z:Math.sin(angle)*radius};
 });
 export const perimeterTrees=[[-4.6,3.7,1.05],[3.6,4.8,1.1],[-5.6,-1.9,.85],[4.1,-4.2,.8]];
-// The original scattered pink pebbles keep stable positions and inventory IDs.
+// Store the original scattered stones as three movable inventory clusters.
 export const isPinkPebble=id=>typeof id==='string'&&/^(scenery:)?pink-pebble-/.test(id);
 export const pinkPebbles=(()=>{
   let seed=42;const rand=()=>{seed=seed*16807%2147483647;return(seed-1)/2147483646;},items=[];
@@ -16,7 +16,13 @@ export const pinkPebbles=(()=>{
     if(x*x+z*z>40||x*x+z*z<8||Math.abs(x)<.8&&z>0||x<-2&&z<1||x>2&&z<3)continue;
     items.push({id:`pink-pebble-${items.length}`,name:'분홍 자갈',x,z,y:.2+rand()*.16,scale:.7+rand()});
   }
-  return items;
+  const anchors=[[-.5,-4.3],[-3.4,3.6],[3.6,4.2]];
+  return anchors.map(([x,z],index)=>({
+    id:`pink-pebble-cluster-${index}`,name:'분홍 자갈',x,z,
+    stones:items.filter(stone=>anchors.reduce((best,anchor,i)=>
+      Math.hypot(stone.x-anchor[0],stone.z-anchor[1])<Math.hypot(stone.x-anchors[best][0],stone.z-anchors[best][1])?i:best,0)===index)
+      .map(stone=>({...stone,x:stone.x-x,z:stone.z-z})),
+  }));
 })();
 export const sceneryDefinitions = [
   ...[[-3.7,-2.4],[3.8,-2.7],[-5,1.5],[4.8,1.3],[1,-5.1],[-2,-5.2]].map(([x,z],i)=>({id:`tree-${i}`,name:[0,3].includes(i)?'벚꽃나무':'정원 나무',x,z})),
@@ -42,7 +48,7 @@ export function villageScenery(village={}){
   return sceneryDefinitions.map(def=>{
     const saved=village.scenery?.find(item=>item.id===def.id);
     const point=def.id==='campfire'&&village.theme==='campfire'?{x:1.2,z:.8}:def;
-    return {type:'scenery',name:def.name,x:point.x,z:point.z,rotation:0,...saved,...(['life-storage','life-kitchen'].includes(def.id)?{hidden:true}:{}),id:'scenery:'+def.id};
+    return {type:'scenery',name:def.name,x:point.x,z:point.z,rotation:0,...(isPinkPebble(def.id)?{hidden:true}:{}),...saved,...(['life-storage','life-kitchen'].includes(def.id)?{hidden:true}:{}),id:'scenery:'+def.id};
   });
 }
 export function validSceneryPlacement(x,z,village={},selected=null){return Number.isFinite(x)&&Number.isFinite(z)&&(isPinkPebble(selected)||!inLifeArea(x,z,village,selected))&&Math.hypot(x,z)<=SCENERY_RADIUS;}

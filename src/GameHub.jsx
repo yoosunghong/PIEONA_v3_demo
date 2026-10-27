@@ -5,6 +5,7 @@ import WordGames from './WordGames';
 import Runner from './Runner';
 import CrabChase from './CrabChase';
 import Volleyball from './Volleyball';
+import {useBackgroundMusic} from './BackgroundMusic';
 import {RUN_DISTANCE} from '../shared/runner.mjs';
 import {maxGamePlayers} from '../shared/multiplayer.mjs';
 import AvatarPortrait from './AvatarPortrait';
@@ -28,6 +29,12 @@ const GAMES = [
 export default function GameHub({target,me,notify,onReward,anonymous,socket,members=[],race,onLeaveRace}){
   const [wordKind,setWordKind]=useState(null);
   const [game,setGame]=useState(null),[selected,setSelected]=useState(null),[category,setCategory]=useState('all');
+  const {setTrack}=useBackgroundMusic();
+  const musicKind=wordKind||(race?.kind||game);
+  useEffect(()=>{
+    setTrack(['typing','wordchain','crab','volley'].includes(musicKind)?'/audio/minigame2.mp3':'/audio/S_Vilage_v2.mp3');
+    return()=>setTrack('/audio/S_Vilage_v2.mp3');
+  },[musicKind,setTrack]);
   const [multiplayer,setMultiplayer]=useState(true),[selectedFriends,setSelectedFriends]=useState([]),[inviteProgress,setInviteProgress]=useState(null);
   const [pending,setPending]=useState(null),[sending,setSending]=useState(false),[hideName,setHideName]=useState(!!anonymous);
   const [query,setQuery]=useState(''),[sort,setSort]=useState('available'),[showRecords,setShowRecords]=useState(false),[revision,setRevision]=useState(0);

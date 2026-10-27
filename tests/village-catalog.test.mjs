@@ -1,8 +1,21 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {villageScenery} from '../shared/scenery.mjs';
+import {villageScenery,pinkPebbles} from '../shared/scenery.mjs';
 import {decorations} from '../shared/world.mjs';
 import {villageCatalog,filterVillageCatalog,rememberDecoration} from '../src/villageCatalog.mjs';
+
+test('pink gravel starts in inventory as three clusters and restores a whole cluster',()=>{
+  assert.equal(pinkPebbles.length,3);
+  assert.ok(pinkPebbles.every(cluster=>cluster.stones.length>1));
+  const legacy={scenery:[{id:'pink-pebble-0',x:1,z:1,rotation:0}]};
+  const initial=villageScenery(legacy);
+  const entry=villageCatalog(initial).find(item=>item.name==='분홍 자갈');
+  assert.equal(entry.total,3);
+  assert.equal(entry.remaining,3);
+  const placed=villageScenery({scenery:[{id:pinkPebbles[0].id,x:1,z:1,rotation:1,hidden:false}]});
+  assert.equal(villageCatalog(placed).find(item=>item.name==='분홍 자갈').remaining,2);
+  assert.equal(placed.find(item=>item.id==='scenery:'+pinkPebbles[0].id).hidden,false);
+});
 
 test('all lists every type in stable order whether stored, placed or recently used',()=>{
   const placed=villageScenery({}),stored=placed.map(item=>({...item,hidden:true}));
