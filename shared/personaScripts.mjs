@@ -24,12 +24,14 @@ export function validateScripts(raw){
  for(const group of data.events){
   const event=ACTIVE_EVENTS.find(e=>e.id===group.eventId);
   if(!event||events.has(group.eventId))throw new Error('PSS_EVENT_INVALID');events.add(group.eventId);
+  if(new Set(group.variants.map(v=>v.text)).size!==3)throw new Error('PSS_DUPLICATE_TEXT');
   for(const v of group.variants){
    if(ids.has(v.id))throw new Error('PSS_DUPLICATE_VARIANT');ids.add(v.id);
    if(v.outcome!==event.outcome)throw new Error('PSS_OUTCOME_INVALID');
    const stripped=v.text.replace(/\{([a-zA-Z][a-zA-Z0-9]*)\}/g,(_,key)=>{if(!event.variables.includes(key))throw new Error('PSS_PLACEHOLDER_INVALID');return '';});
    if(/[{}<>\u0000-\u001f]/.test(stripped))throw new Error('PSS_TEXT_INVALID');
    if(event.outcome==='failure'&&/잡았|성공했|획득했|caught|succeeded/i.test(v.text)||['success','rare'].includes(event.outcome)&&/못\s*잡|실패|놓쳤|failed|did not catch/i.test(v.text))throw new Error('PSS_SEMANTIC_CONTRADICTION');
+   renderVariant(v,event,Object.fromEntries(event.variables.map(key=>[key,'가'.repeat(24)])));
   }
  }
  return data;
@@ -47,5 +49,5 @@ export function selectVariant(variants,history={remaining:[],last:null},emotion=
   const score=v=>(v.mood===emotion?2:0)+(v.affinity==='trusted'&&relationship.trust>=.6||v.affinity==='familiar'&&relationship.familiarity>=.3?1:0);
   return score(b)-score(a)||a.id.localeCompare(b.id);
  }).map(v=>v.id);if(remaining[0]===history.last)remaining.push(remaining.shift());}
- const selected=variants.find(v=>v.id===remaining.shift());return {selected,history:{remaining,last:selected.id}};
+ const id=remaining.shift(),selected=variants.find(v=>v.id===id);return {selected,history:{remaining,last:selected.id}};
 }

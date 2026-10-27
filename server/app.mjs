@@ -8,6 +8,7 @@ import {WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
 import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance,suppressedScenery} from '../shared/scenery.mjs';
 import {villageBenches,BENCH_REACH} from '../shared/benches.mjs';
 import {installLife} from './life.mjs';
+import {installPersonaScripts} from './personaScripts.mjs';
 import {installExploration} from './exploration.mjs';
 import {createActionLogger} from './actionLog.mjs';
 import {generateTopic} from './topic.mjs';
@@ -53,7 +54,7 @@ export function createApp(options = {}) {
   const logAction=createActionLogger(options.logWriter||(options.testing?()=>{}:undefined));
   const store = options.store || openStore(process.env.DATABASE_PATH);
   const app = express(); const server = createServer(app);
-  const origins = new Set([process.env.PUBLIC_ORIGIN || 'https://pieona.yoosung.dev', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173']);
+  const origins = new Set([options.publicOrigin || process.env.PUBLIC_ORIGIN || 'https://pieona.yoosung.dev', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173']);
   const io = new Server(server, { maxHttpBufferSize: 16384, allowRequest: (req, done) => done(null, !req.headers.origin || origins.has(req.headers.origin)) });
   const invites=new Map(), races=new Map(), raceByGame=new Map();
   const online = new Map(); const locks = new Set(); const villageVisitors = new Map();
@@ -460,7 +461,8 @@ export function createApp(options = {}) {
   const crabs=installCrabGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.crabClock});
   const volleys=installVolleyGames({app,io,store,auth,sessionUser,checkTarget,busy:userId=>busy(userId),emitVillage,emitUpdate,event,activity,rewardVisit,clock:options.volleyClock});
   const busy=(userId,exceptInvite)=>wordGames.busy(userId)||life.busy(userId)||crabs.busy(userId)||volleys.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started)||[...invites.values()].some(i=>i.id!==exceptInvite&&invitePlayers(i).some(p=>p.userId===userId));
-  const life=installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction,clock:options.lifeClock,random:options.lifeRandom});
+  const personaScripts=installPersonaScripts({app,store,auth,limiter:aiLimiter,io,provider:options.personaProvider,testing:!!options.testing,forceVariant:options.pssForceVariant});
+  const life=installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction,personaScripts,clock:options.lifeClock,random:options.lifeRandom});
   installExploration({app,store,auth,logAction,clock:options.explorationClock,random:options.explorationRandom});
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
   const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance:user=>profile(user,user.id).appearance,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
@@ -771,10 +773,11 @@ export function createApp(options = {}) {
   app.use('/api',(req,res)=>res.status(404).json({error:'요청한 기능을 찾을 수 없어요.'}));
   app.use((error,req,res,next)=>{
     if(res.headersSent)return next(error);
+    if(error.message?.startsWith('PSS_'))return res.status(error.message.startsWith('PSS_LLM_')?502:422).json({error:`아바타 업데이트 실패 (${error.message}). 기존 버전은 유지됩니다. 다시 분석해 주세요.`});
     const messages={AI_RATE_LIMIT:'Gemini 사용 한도에 도달했어요. 잠시 후 다시 시도해주세요.',AI_UNAVAILABLE:'Gemini 연결에 실패했어요. 서버의 키와 모델 설정을 확인해주세요.',AI_EMPTY:'응답을 만들지 못했어요. 다른 표현으로 다시 이야기해주세요.'};
     const status=error instanceof z.ZodError?400:error.status&&error.status<500?error.status:error.message?.startsWith('AI_')?502:500;
     if(status===500)console.error('[server]',error.name,error.message?.slice(0,160));
     res.status(status).json({error:error instanceof z.ZodError?'입력 형식 또는 길이를 확인해 주세요.':messages[error.message]||(status===500?'처리 중 오류가 발생했어요. 다시 시도해 주세요.':error.message)});
   });
-  return {app,server,io,store,life,avatars,wordGames,polls,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);wordGames.close();polls.close();life.close();crabs.close();volleys.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
+  return {app,server,io,store,life,personaScripts,avatars,wordGames,polls,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);wordGames.close();polls.close();life.close();crabs.close();volleys.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
 }

@@ -1,0 +1,19 @@
+{
+  "createdAt": "2026-10-27T09:15:02.478Z",
+  "mode": "gemini",
+  "status": "FAILED",
+  "error": "아바타 업데이트 실패 (PSS_LLM_HTTP_402). 기존 버전은 유지됩니다. 다시 분석해 주세요.",
+  "stack": "Error: 아바타 업데이트 실패 (PSS_LLM_HTTP_402). 기존 버전은 유지됩니다. 다시 분석해 주세요.\n    at updateThroughUI (file:///D:/Github/PIEONA_v3_prototype/scripts/verify-persona-scripts.mjs:54:91)\n    at async file:///D:/Github/PIEONA_v3_prototype/scripts/verify-persona-scripts.mjs:66:3",
+  "generationCalls": 0,
+  "analysisCalls": 1,
+  "providerErrors": [
+    {
+      "status": 502,
+      "body": "{\"error\":\"아바타 업데이트 실패 (PSS_LLM_HTTP_402). 기존 버전은 유지됩니다. 다시 분석해 주세요.\"}"
+    }
+  ],
+  "versions": [],
+  "uiEvidence": [],
+  "errors": [],
+  "dom": "홈\n앨범\n아바타 카드\n기억\n메시지\n토픽\nILLOVA\n나의 이야기가 피어나는 곳\n설문\nBGM\n0\nG\n검증 아바타\nLv. 1\n나의 작은 세상\n내 정원\n나의 작은 쉼터\n검증 아바타의 작은 마을\n방명록\n팻말 보기\n캡처\nLv. 1\n현재 경험치\n0 / 100 XP\n마을테마\nAvatar Update\n숲으로 출발\n공방\n마을 꾸미기\n캐릭터 변경 · 꾸미기\n미니게임\n마을 기록\n아바타와 이야기하기\n친구 0\n이웃 0\n함께할 이웃을 기다려요\n\n친구가 계정을 만들면 이곳에서 만날 수 있어요.\n\n초대 주소 복사\n함께 만드는 더 큰 세상\n\n친구와 이웃을 만나보세요!\n\n전체 0명의 이웃 중 0명 접속 중\nPERSONA · EVENT SCRIPTS\n아바타 업데이트\n×\n\n대화에서 자란 성향을 검토하고, 생활 활동에 사용할 짧은 대사를 준비해요. 활동 중에는 AI를 호출하지 않아요.\n\n아바타 업데이트 실패 (PSS_LLM_HTTP_402). 기존 버전은 유지됩니다. 다시 분석해 주세요.\n\n현재 성향 버전 0 · 대사 버전 0\n\n성향\t변경 전\t제안\n사교성\t50\t—\n다정함\t50\t—\n호기심\t50\t—\n장난기\t50\t—\n감수성\t50\t—\n활동 선호\t50\t—\n말투\t다정하고 편안하게\t—\n취향\t—\t—\n현재 자아의 내 대화 최근 40개와 기억 최대 30개를 Google Gemini로 보내 성향을 분석하는 데 동의해요.\n대화로 성향 분석\n지원 이벤트 7개 / 미지원 34개"
+}

@@ -11,7 +11,7 @@ import {z} from 'zod';
 import {lifeActionSchema} from './lifeActions.mjs';
 
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
-export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction=()=>{},clock=Date.now,random=()=>randomInt(0,0x100000000)/0x100000000}){
+export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,personaScripts,logAction=()=>{},clock=Date.now,random=()=>randomInt(0,0x100000000)/0x100000000}){
   store.db.exec(`
     CREATE TABLE IF NOT EXISTS life_sessions (
       id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL REFERENCES users(id),
@@ -56,15 +56,18 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function settle(uid,kind='PLAYER'){
     const s=active(uid,kind);if(!s||s.status!=='active')return [];
     const elapsed=Math.floor((Math.min(clock(),duels.limit(uid)??clock())-s.settled_at)/FISHING_PERIOD),count=Math.min(elapsed,s.task_limit?s.task_limit-s.attempts:elapsed);if(count<=0)return [];
-    const results=[];
+    const results=[],dialogues=[];
     store.transaction(()=>{
       for(let i=1;i<=count;i++){
         const timestamp=s.settled_at+i*FISHING_PERIOD,cycle=s.attempts+i;
         const fish=awardLifeFish(store,s,cycle,timestamp,random);
         results.push({cycle,actor:kind,itemId:fish?.itemId||null});
+        const eventId=!fish?'fishing.result.failure':['rare','special'].includes(fish.rarity)?'fishing.result.rare':'fishing.result.success';
+        const line=personaScripts?.emit(uid,eventId,fish?{fishName:fish.name}:{},`${s.id}:${cycle}`,false);if(line)dialogues.push(line);
       }
       store.run('UPDATE life_sessions SET settled_at=?,attempts=attempts+?,caught=caught+? WHERE id=?',s.settled_at+count*FISHING_PERIOD,count,results.filter(r=>r.itemId).length,s.id);
     });
+    for(const line of dialogues)personaScripts.notify(line);
     const member=villageVisitors.get(s.village_id||uid)?.get(uid);
     if(member){member.fishingCaught=s.caught+results.filter(r=>r.itemId).length;const caught=results.filter(r=>r.itemId).at(-1);if(caught)member.fishingCatch={id:`${s.id}:${caught.cycle}`,itemId:caught.itemId,at:clock()};}
     emitVillage(s.village_id||uid);duels.changed(uid);
@@ -93,7 +96,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function insertSession(uid,kind,anchor,moving,report=false,villageId=uid){
     const user=owner(uid),time=clock();
     store.run('INSERT INTO life_sessions(id,owner_id,actor_id,actor_kind,actor_name,avatar_slot,anchor_id,started_at,settled_at,status,task_limit,village_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',id(),uid,uid,kind,user.nickname,user.active_slot,anchor.id,time,time,moving?'moving':'active',report?3:null,villageId);
-    const session=active(uid,kind);logAction(uid,'fishing_start',{actor:kind,sessionId:session.id});return session;
+    const session=active(uid,kind);logAction(uid,'fishing_start',{actor:kind,sessionId:session.id});personaScripts?.emit(uid,'fishing.start',{},session.id);return session;
   }
   function start(uid,anchorId,villageId){
     if(!villageId||!villageVisitors.get(villageId)?.has(uid))fail(403,'마을에 입장한 뒤 낚시해 주세요.');
@@ -140,6 +143,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
         let result;
         try{result=gardening.complete(job.op);}catch(e){gardening.cancel(job.op,'작업 저장에 실패했어. 재료와 작물은 그대로야. 다시 시도해 주세요.');result={ok:false,reply:'작업 저장에 실패했어. 재료와 작물은 그대로야. 다시 시도해 주세요.'};console.error('[life] garden operation failed',e.message);}
         logAction(uid,'life_work_complete',{actor:kind,intent:job.op.intent,operationId:job.op.id,ok:result.ok});
+        if(result.ok){const eventId={PLANT_SEED:'garden.plant.complete',HARVEST_CROP:'garden.harvest.complete',COOK_FOOD:'cooking.complete'}[job.op.intent];personaScripts?.emit(uid,eventId,{},job.op.id);}
         for(const item of result.items||[])logAction(uid,'inventory_gain',{actor:kind,operationId:job.op.id,...item});
         for(const item of result.consumed||[])logAction(uid,'inventory_spend',{actor:kind,operationId:job.op.id,...item});
         jobs.delete(key);Object.assign(member,{moving:false,activityState:'Idle'});publish(uid,[],result.reply);changed.add(uid);

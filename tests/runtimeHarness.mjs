@@ -6,7 +6,7 @@ import {openStore} from '../server/store.mjs';
 export async function harness(options={}){
   let time=Date.now();const sockets=[];
   const runtime=createApp({testing:true,store:openStore(':memory:'),lifeClock:()=>time,...options});
-  await new Promise(resolve=>runtime.server.listen(0,'127.0.0.1',resolve));
+  await new Promise(resolve=>runtime.server.listen(options.port||0,'127.0.0.1',resolve));
   const base=`http://127.0.0.1:${runtime.server.address().port}`;
   async function request(path,user,body,method=body?'POST':'GET'){
     const response=await fetch(base+'/api'+path,{method,headers:{'Content-Type':'application/json',...(user?{Cookie:user.cookie}:{})},body:body?JSON.stringify(body):undefined});

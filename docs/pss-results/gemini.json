@@ -1,0 +1,48 @@
+{
+  "provider": "gemini",
+  "status": "PASS",
+  "createdAt": "2026-10-27T09:32:00.187Z",
+  "model": "gemini-3-flash-preview",
+  "seed": 0,
+  "browser": "156.0.4314.42",
+  "registeredEvents": 41,
+  "activeEvents": 7,
+  "unsupportedEvents": 34,
+  "analysisCalls": 2,
+  "generationCalls": 2,
+  "generatedVariants": 42,
+  "reachableVariants": 42,
+  "runtimeExecutedVariants": 42,
+  "uiVerifiedVariants": 42,
+  "naturalSelectionVariants": 42,
+  "forcedSelectionVariants": 42,
+  "schemaValidity": 1,
+  "reachabilityCoverage": 1,
+  "runtimeExecutionCoverage": 1,
+  "uiDisplayCoverage": 1,
+  "variantSelectionCoverage": 1,
+  "missingEventBindings": 0,
+  "invalidScripts": [],
+  "unreachableScripts": [],
+  "failedScripts": [],
+  "failedTests": 0,
+  "uiChecks": 131,
+  "gameplayExecutions": 131,
+  "noRuntimeLLMCalls": true,
+  "rawEvidence": "../../artifacts/pss/gemini/coverage.json",
+  "coverage": "coverage.json",
+  "screenshots": [
+    {
+      "executionId": "53d455cc-eb04-469f-b699-0cec6c2ab848",
+      "screenshot": "../../artifacts/pss/gemini/v1-natural-fishing-start-1-53d455cc-eb04-469f-b699-0cec6c2ab848.png",
+      "viewport": [
+        1365,
+        900
+      ]
+    }
+  ],
+  "previousFailure": {
+    "status": "RESOLVED",
+    "report": "gemini-initial-402.json"
+  }
+}

@@ -1,0 +1,13 @@
+import {EVENT_REGISTRY,ACTIVE_EVENTS,validateScripts} from './personaScripts.mjs';
+
+// Every stored/generated variant stays in the denominator, even if its binding is missing.
+export function scriptCoverage(versions,executions,uiEvidence=[],staticEvidence={}){
+ const invalidVersions=new Set();for(const v of versions)try{validateScripts(v.scripts);}catch{invalidVersions.add(`${v.ownerId}:${v.slot}:${v.version}`);}
+ const rows=versions.flatMap(v=>v.scripts.events.flatMap(e=>e.variants.map(variant=>{
+  const id=`${v.ownerId}:${v.slot}:${v.version}:${variant.id}`,runs=executions.filter(x=>x.variantId===id),ui=uiEvidence.filter(x=>x.variantId===id&&x.visible&&x.unclipped&&x.textMatches);
+  const row={eventId:e.eventId,variantId:id,localVariantId:variant.id,version:v.version,text:variant.text,valid:!invalidVersions.has(`${v.ownerId}:${v.slot}:${v.version}`),staticReachable:!!staticEvidence[e.eventId]&&ACTIVE_EVENTS.some(e2=>e2.id===e.eventId),runtimeExecuted:runs.length>0,uiDisplayed:ui.length>0,forcedSelection:runs.some(r=>r.forced),naturalSelection:runs.some(r=>!r.forced),evidence:{static:staticEvidence[e.eventId]||null,executionIds:runs.map(r=>r.id),ui:ui.map(x=>({executionId:x.executionId,screenshot:x.screenshot,viewport:x.viewport}))}};
+  return {...row,status:row.valid&&row.staticReachable&&row.runtimeExecuted&&row.uiDisplayed&&row.forcedSelection&&row.naturalSelection?'PASS':'FAIL'};
+ })));
+ const count=key=>rows.filter(r=>r[key]).length,total=rows.length;
+ return {scope:'All stored versions in this run; variants counted separately by owner/slot/version. UI includes real browser DOM/layout checks.',registeredEvents:EVENT_REGISTRY.length,activeEvents:ACTIVE_EVENTS.length,unsupportedEvents:EVENT_REGISTRY.filter(e=>!e.active),generatedScriptVariants:total,invalidScripts:rows.filter(r=>!r.valid).map(r=>r.variantId),schemaValidity:total?count('valid')/total:0,missingEventBindings:rows.filter(r=>!r.staticReachable).length,reachableVariants:count('staticReachable'),runtimeExecutedVariants:count('runtimeExecuted'),uiVerifiedVariants:count('uiDisplayed'),naturalSelectionVariants:count('naturalSelection'),forcedSelectionVariants:count('forcedSelection'),reachabilityCoverage:total?count('staticReachable')/total:0,runtimeExecutionCoverage:total?count('runtimeExecuted')/total:0,uiDisplayCoverage:total?count('uiDisplayed')/total:0,variantSelectionCoverage:total?count('naturalSelection')/total:0,unreachableScripts:rows.filter(r=>!r.staticReachable).map(r=>r.variantId),failedScripts:rows.filter(r=>r.status!=='PASS').map(r=>r.variantId),rows};
+}

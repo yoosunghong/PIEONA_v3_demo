@@ -1,0 +1,2988 @@
+{
+  "createdAt": "2026-10-27T09:16:45.753Z",
+  "scope": "All stored versions in this run; variants counted separately by owner/slot/version. UI includes real browser DOM/layout checks.",
+  "summary": {
+    "provider": "fixture (not LLM)",
+    "seed": 0,
+    "browser": "156.0.4314.42",
+    "createdAt": "2026-10-27T09:16:45.753Z",
+    "registeredEvents": 41,
+    "activeEvents": 7,
+    "unsupportedEvents": 34,
+    "generatedVariants": 42,
+    "reachableVariants": 42,
+    "runtimeExecutedVariants": 42,
+    "uiVerifiedVariants": 42,
+    "naturalSelectionVariants": 42,
+    "forcedSelectionVariants": 42,
+    "schemaValidity": 1,
+    "reachabilityCoverage": 1,
+    "runtimeExecutionCoverage": 1,
+    "uiDisplayCoverage": 1,
+    "variantSelectionCoverage": 1,
+    "missingEventBindings": 0,
+    "invalidScripts": [],
+    "unreachableScripts": [],
+    "failedScripts": [],
+    "failedTests": 0,
+    "uiChecks": 131,
+    "gameplayExecutions": 131
+  },
+  "unsupportedEvents": [
+    {
+      "id": "request.follow.accept",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.follow.reject",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.follow.start",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.gathering.accept",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.gathering.reject",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.gathering.working",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.mining.accept",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.mining.reject",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.mining.working",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.logging.accept",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.logging.reject",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.logging.working",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.fishing.accept",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.fishing.reject",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.fishing.working",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.rest.accept",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "request.rest.reject",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "AI task execution is disabled; player activities do not constitute avatar acceptance"
+    },
+    {
+      "id": "emotion.affection.positive",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "emotion.affection.neutral",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "emotion.anger.mild",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "emotion.anger.strong",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "emotion.sadness.mild",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "emotion.sadness.strong",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "emotion.fatigue.mild",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "emotion.fatigue.exhausted",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No normal avatar emotion state transition producer is implemented"
+    },
+    {
+      "id": "reaction.task.success",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "reaction.task.failure",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "reaction.discovery.common",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "reaction.discovery.rare",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "social.visit.greeting",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "social.visit.farewell",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "social.avatar.propose",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "social.avatar.accept",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    },
+    {
+      "id": "social.avatar.reject",
+      "active": false,
+      "trigger": null,
+      "source": null,
+      "preconditions": [],
+      "variables": [],
+      "runtimeState": null,
+      "variants": 0,
+      "output": null,
+      "reachability": "unsupported",
+      "reason": "No PSS binding for this gameplay path"
+    }
+  ],
+  "rows": [
+    {
+      "eventId": "fishing.start",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.start.1",
+      "localVariantId": "fishing.start.1",
+      "version": 1,
+      "text": "낚시하는 모습을 보고 있을게요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "insertSession",
+          "source": "server/life.mjs",
+          "playerAction": "Walk to a fishing seat and press E",
+          "preconditions": [
+            "authenticated village member",
+            "reachable free fishing seat"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "7265673e-6e40-4516-81ac-ad11f5b5e017",
+          "a6ac0643-2893-4180-ba80-438831edbecc",
+          "1f4eab9e-b462-4e13-a1f1-ef1643a21f50",
+          "d538fd28-3543-49de-be45-6452338846d0"
+        ],
+        "ui": [
+          {
+            "executionId": "7265673e-6e40-4516-81ac-ad11f5b5e017",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-start-2-7265673e-6e40-4516-81ac-ad11f5b5e017.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "a6ac0643-2893-4180-ba80-438831edbecc",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-start-1-a6ac0643-2893-4180-ba80-438831edbecc.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "1f4eab9e-b462-4e13-a1f1-ef1643a21f50",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-2-1f4eab9e-b462-4e13-a1f1-ef1643a21f50.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "d538fd28-3543-49de-be45-6452338846d0",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-2-d538fd28-3543-49de-be45-6452338846d0.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.start",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.start.2",
+      "localVariantId": "fishing.start.2",
+      "version": 1,
+      "text": "바닷바람이 조용하네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "insertSession",
+          "source": "server/life.mjs",
+          "playerAction": "Walk to a fishing seat and press E",
+          "preconditions": [
+            "authenticated village member",
+            "reachable free fishing seat"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "a36c4c25-4052-4151-88f4-c11e37f01d86",
+          "5ccd33ca-c4b9-4dd0-8150-6d91a40d63b5",
+          "7b8af4ea-830c-439b-b04c-86e64e008d3e",
+          "96b4bf0b-26c2-451a-9323-aa443eeada87",
+          "891694d2-be82-484d-a541-15d18bbf27a3"
+        ],
+        "ui": [
+          {
+            "executionId": "a36c4c25-4052-4151-88f4-c11e37f01d86",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-start-1-a36c4c25-4052-4151-88f4-c11e37f01d86.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "5ccd33ca-c4b9-4dd0-8150-6d91a40d63b5",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-start-2-5ccd33ca-c4b9-4dd0-8150-6d91a40d63b5.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "7b8af4ea-830c-439b-b04c-86e64e008d3e",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-1-7b8af4ea-830c-439b-b04c-86e64e008d3e.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "96b4bf0b-26c2-451a-9323-aa443eeada87",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-1-96b4bf0b-26c2-451a-9323-aa443eeada87.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "891694d2-be82-484d-a541-15d18bbf27a3",
+            "screenshot": "../../artifacts/pss/fixture/rollback-891694d2-be82-484d-a541-15d18bbf27a3.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.start",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.start.3",
+      "localVariantId": "fishing.start.3",
+      "version": 1,
+      "text": "느긋하게 기다려 봐요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "insertSession",
+          "source": "server/life.mjs",
+          "playerAction": "Walk to a fishing seat and press E",
+          "preconditions": [
+            "authenticated village member",
+            "reachable free fishing seat"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "bb40a5f4-0e12-417b-b67f-8910e43c99d4",
+          "d8345aa6-0863-4b83-9ab7-d73847b8e81b",
+          "e85f1e84-bf8c-4a01-b9cb-3f2ad78f9aa1",
+          "0d2a4cf5-2930-4b87-8a35-15717fd4e8f1",
+          "6ca18492-800c-4a01-b2df-867250db42b2"
+        ],
+        "ui": [
+          {
+            "executionId": "bb40a5f4-0e12-417b-b67f-8910e43c99d4",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-start-3-bb40a5f4-0e12-417b-b67f-8910e43c99d4.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "d8345aa6-0863-4b83-9ab7-d73847b8e81b",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-start-3-d8345aa6-0863-4b83-9ab7-d73847b8e81b.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "e85f1e84-bf8c-4a01-b9cb-3f2ad78f9aa1",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-3-e85f1e84-bf8c-4a01-b9cb-3f2ad78f9aa1.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "0d2a4cf5-2930-4b87-8a35-15717fd4e8f1",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-3-0d2a4cf5-2930-4b87-8a35-15717fd4e8f1.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "6ca18492-800c-4a01-b2df-867250db42b2",
+            "screenshot": "../../artifacts/pss/fixture/mobile-restored-6ca18492-800c-4a01-b2df-867250db42b2.png",
+            "viewport": [
+              390,
+              844
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.success",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.success.1",
+      "localVariantId": "fishing.result.success.1",
+      "version": 1,
+      "text": "{fishName}을 낚으셨네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a common or uncommon catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "common or uncommon catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "38eb9627-fb65-47a6-8fe7-00b408e3bde1",
+          "baed7f57-655d-475b-bf13-f12e5bc5231b",
+          "2a1f7db3-bde0-4a18-862d-70ca398292d9",
+          "6ac1dc1d-ee59-477f-897b-59b322c72e41"
+        ],
+        "ui": [
+          {
+            "executionId": "38eb9627-fb65-47a6-8fe7-00b408e3bde1",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-success-2-38eb9627-fb65-47a6-8fe7-00b408e3bde1.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "baed7f57-655d-475b-bf13-f12e5bc5231b",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-success-1-baed7f57-655d-475b-bf13-f12e5bc5231b.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "2a1f7db3-bde0-4a18-862d-70ca398292d9",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-2-2a1f7db3-bde0-4a18-862d-70ca398292d9.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "6ac1dc1d-ee59-477f-897b-59b322c72e41",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-2-6ac1dc1d-ee59-477f-897b-59b322c72e41.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.success",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.success.2",
+      "localVariantId": "fishing.result.success.2",
+      "version": 1,
+      "text": "{fishName}의 비늘이 반짝이네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a common or uncommon catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "common or uncommon catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "76428e58-d99f-4ae4-90ea-dbe3984dd57a",
+          "dc9ccfd3-32bd-4086-a931-646b7bae86c5",
+          "1ff812f5-5b2e-43f3-b8bc-4f8cd43e3a70",
+          "bd4c5314-f5c0-425a-95cc-69e222edc7ad"
+        ],
+        "ui": [
+          {
+            "executionId": "76428e58-d99f-4ae4-90ea-dbe3984dd57a",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-success-1-76428e58-d99f-4ae4-90ea-dbe3984dd57a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "dc9ccfd3-32bd-4086-a931-646b7bae86c5",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-success-2-dc9ccfd3-32bd-4086-a931-646b7bae86c5.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "1ff812f5-5b2e-43f3-b8bc-4f8cd43e3a70",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-1-1ff812f5-5b2e-43f3-b8bc-4f8cd43e3a70.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "bd4c5314-f5c0-425a-95cc-69e222edc7ad",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-1-bd4c5314-f5c0-425a-95cc-69e222edc7ad.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.success",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.success.3",
+      "localVariantId": "fishing.result.success.3",
+      "version": 1,
+      "text": "한 마리 더 모였네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a common or uncommon catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "common or uncommon catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "39afc45e-d69d-4728-a0ac-8ea17b0925b1",
+          "dc67db7b-d4d9-42d5-bfa9-9d01c5eeea5c",
+          "9e3ff88c-0a93-4c76-a0de-78a30514c921",
+          "c045686a-647d-4fe9-b324-c618c32445fe"
+        ],
+        "ui": [
+          {
+            "executionId": "39afc45e-d69d-4728-a0ac-8ea17b0925b1",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-success-3-39afc45e-d69d-4728-a0ac-8ea17b0925b1.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "dc67db7b-d4d9-42d5-bfa9-9d01c5eeea5c",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-success-3-dc67db7b-d4d9-42d5-bfa9-9d01c5eeea5c.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "9e3ff88c-0a93-4c76-a0de-78a30514c921",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-3-9e3ff88c-0a93-4c76-a0de-78a30514c921.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "c045686a-647d-4fe9-b324-c618c32445fe",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-3-c045686a-647d-4fe9-b324-c618c32445fe.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.failure",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.failure.1",
+      "localVariantId": "fishing.result.failure.1",
+      "version": 1,
+      "text": "이번에는 조용하네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until an unsuccessful attempt",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "catch roll failed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "25c4522b-a979-47f9-81d7-402b63eafb16",
+          "ab316f2c-137a-498c-80e3-50b0a02090eb"
+        ],
+        "ui": [
+          {
+            "executionId": "25c4522b-a979-47f9-81d7-402b63eafb16",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-failure-1-25c4522b-a979-47f9-81d7-402b63eafb16.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "ab316f2c-137a-498c-80e3-50b0a02090eb",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-failure-1-ab316f2c-137a-498c-80e3-50b0a02090eb.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.failure",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.failure.2",
+      "localVariantId": "fishing.result.failure.2",
+      "version": 1,
+      "text": "입질이 없었네요. 조금 더 기다려 봐요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until an unsuccessful attempt",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "catch roll failed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "e1cf815d-a5dd-43eb-90d2-6be0f4b8af00",
+          "e3452694-3698-4266-b1c7-758be99bbd20"
+        ],
+        "ui": [
+          {
+            "executionId": "e1cf815d-a5dd-43eb-90d2-6be0f4b8af00",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-failure-2-e1cf815d-a5dd-43eb-90d2-6be0f4b8af00.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "e3452694-3698-4266-b1c7-758be99bbd20",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-failure-2-e3452694-3698-4266-b1c7-758be99bbd20.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.failure",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.failure.3",
+      "localVariantId": "fishing.result.failure.3",
+      "version": 1,
+      "text": "다음 물결을 기다려요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until an unsuccessful attempt",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "catch roll failed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "5e2736e6-0c6c-422e-b04c-df8f2c2e1057",
+          "7b0837d2-f7c9-49ad-9824-a451906f16d7"
+        ],
+        "ui": [
+          {
+            "executionId": "5e2736e6-0c6c-422e-b04c-df8f2c2e1057",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-failure-3-5e2736e6-0c6c-422e-b04c-df8f2c2e1057.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "7b0837d2-f7c9-49ad-9824-a451906f16d7",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-failure-3-7b0837d2-f7c9-49ad-9824-a451906f16d7.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.rare",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.rare.1",
+      "localVariantId": "fishing.result.rare.1",
+      "version": 1,
+      "text": "{fishName}이라니, 귀한 만남이네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a rare or legendary catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "rare or legendary catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "67ae4977-eba5-4fb0-bd1b-f4e7f93caf77",
+          "ea976396-8200-4f87-bf4d-445f700218dd"
+        ],
+        "ui": [
+          {
+            "executionId": "67ae4977-eba5-4fb0-bd1b-f4e7f93caf77",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-rare-2-67ae4977-eba5-4fb0-bd1b-f4e7f93caf77.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "ea976396-8200-4f87-bf4d-445f700218dd",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-rare-1-ea976396-8200-4f87-bf4d-445f700218dd.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.rare",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.rare.2",
+      "localVariantId": "fishing.result.rare.2",
+      "version": 1,
+      "text": "특별한 {fishName}을 만났네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a rare or legendary catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "rare or legendary catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "ab2c05f6-5039-42f1-83f0-c897eae56f0b",
+          "0fae0d74-cd80-4534-8e0f-48cff9559158"
+        ],
+        "ui": [
+          {
+            "executionId": "ab2c05f6-5039-42f1-83f0-c897eae56f0b",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-rare-3-ab2c05f6-5039-42f1-83f0-c897eae56f0b.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "0fae0d74-cd80-4534-8e0f-48cff9559158",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-rare-2-0fae0d74-cd80-4534-8e0f-48cff9559158.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.rare",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:fishing.result.rare.3",
+      "localVariantId": "fishing.result.rare.3",
+      "version": 1,
+      "text": "{fishName}의 빛이 참 곱네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a rare or legendary catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "rare or legendary catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "9106ec69-de95-45f9-bcff-fc0b80371cba",
+          "d5cd4999-e2f4-4f48-aad5-4225dca55ae5"
+        ],
+        "ui": [
+          {
+            "executionId": "9106ec69-de95-45f9-bcff-fc0b80371cba",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-fishing-result-rare-1-9106ec69-de95-45f9-bcff-fc0b80371cba.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "d5cd4999-e2f4-4f48-aad5-4225dca55ae5",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-fishing-result-rare-3-d5cd4999-e2f4-4f48-aad5-4225dca55ae5.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.plant.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:garden.plant.complete.1",
+      "localVariantId": "garden.plant.complete.1",
+      "version": 1,
+      "text": "씨앗이 자랄 시간이네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the garden seed control and finish the activity",
+          "preconditions": [
+            "own village member",
+            "plant operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "c25b5c7c-fa12-4c84-a17b-8a544bb98343",
+          "228fd7e1-b41b-432b-8c20-5f90bcc3d59c",
+          "17dc538a-41d0-4f38-8234-48c8c43c947f",
+          "1c9c26ef-25f1-49cf-af02-6238e8c8b441"
+        ],
+        "ui": [
+          {
+            "executionId": "c25b5c7c-fa12-4c84-a17b-8a544bb98343",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-plant-complete-2-c25b5c7c-fa12-4c84-a17b-8a544bb98343.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "228fd7e1-b41b-432b-8c20-5f90bcc3d59c",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-plant-complete-1-228fd7e1-b41b-432b-8c20-5f90bcc3d59c.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "17dc538a-41d0-4f38-8234-48c8c43c947f",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-harvest-complete-3-17dc538a-41d0-4f38-8234-48c8c43c947f.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "1c9c26ef-25f1-49cf-af02-6238e8c8b441",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-harvest-complete-3-1c9c26ef-25f1-49cf-af02-6238e8c8b441.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.plant.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:garden.plant.complete.2",
+      "localVariantId": "garden.plant.complete.2",
+      "version": 1,
+      "text": "작은 싹을 기다려 봐요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the garden seed control and finish the activity",
+          "preconditions": [
+            "own village member",
+            "plant operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "6cbf094e-fcb8-48ad-8b0c-ce00cccf7463",
+          "a9904ad2-9af6-45db-bb79-df55e24c2e9e",
+          "38b657c2-c83d-4ef6-bee4-fc1211f429d7",
+          "5b00b68d-77e8-4986-a026-58c54dac3b0a"
+        ],
+        "ui": [
+          {
+            "executionId": "6cbf094e-fcb8-48ad-8b0c-ce00cccf7463",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-plant-complete-1-6cbf094e-fcb8-48ad-8b0c-ce00cccf7463.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "a9904ad2-9af6-45db-bb79-df55e24c2e9e",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-plant-complete-2-a9904ad2-9af6-45db-bb79-df55e24c2e9e.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "38b657c2-c83d-4ef6-bee4-fc1211f429d7",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-harvest-complete-2-38b657c2-c83d-4ef6-bee4-fc1211f429d7.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "5b00b68d-77e8-4986-a026-58c54dac3b0a",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-harvest-complete-2-5b00b68d-77e8-4986-a026-58c54dac3b0a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.plant.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:garden.plant.complete.3",
+      "localVariantId": "garden.plant.complete.3",
+      "version": 1,
+      "text": "밭에 새 이야기가 시작됐네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the garden seed control and finish the activity",
+          "preconditions": [
+            "own village member",
+            "plant operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "3bd6c73a-09a3-4b7c-8c42-cd57e26023ec",
+          "f1a63373-1df4-4190-bf41-7fc6b5006994",
+          "0bfc7855-d132-4fe8-9bcd-88758c9712f2"
+        ],
+        "ui": [
+          {
+            "executionId": "3bd6c73a-09a3-4b7c-8c42-cd57e26023ec",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-plant-complete-3-3bd6c73a-09a3-4b7c-8c42-cd57e26023ec.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "f1a63373-1df4-4190-bf41-7fc6b5006994",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-plant-complete-3-f1a63373-1df4-4190-bf41-7fc6b5006994.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "0bfc7855-d132-4fe8-9bcd-88758c9712f2",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-harvest-complete-1-0bfc7855-d132-4fe8-9bcd-88758c9712f2.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.harvest.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:garden.harvest.complete.1",
+      "localVariantId": "garden.harvest.complete.1",
+      "version": 1,
+      "text": "정성껏 키운 작물이네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Wait for a planted crop to mature and harvest it",
+          "preconditions": [
+            "own village member",
+            "mature crop",
+            "harvest operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "5289bce8-76b8-4dd8-9eeb-7f8944e96984",
+          "9459b26e-d5f7-4746-b324-c1efa55ba57d",
+          "ffb9ebaf-e2d8-4921-b42b-78399a8316ce",
+          "9928cd72-0687-463b-b200-d02cf0a956d0"
+        ],
+        "ui": [
+          {
+            "executionId": "5289bce8-76b8-4dd8-9eeb-7f8944e96984",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-plant-complete-3-5289bce8-76b8-4dd8-9eeb-7f8944e96984.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "9459b26e-d5f7-4746-b324-c1efa55ba57d",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-plant-complete-3-9459b26e-d5f7-4746-b324-c1efa55ba57d.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "ffb9ebaf-e2d8-4921-b42b-78399a8316ce",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-harvest-complete-3-ffb9ebaf-e2d8-4921-b42b-78399a8316ce.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "9928cd72-0687-463b-b200-d02cf0a956d0",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-harvest-complete-1-9928cd72-0687-463b-b200-d02cf0a956d0.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.harvest.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:garden.harvest.complete.2",
+      "localVariantId": "garden.harvest.complete.2",
+      "version": 1,
+      "text": "수확 바구니가 채워졌네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Wait for a planted crop to mature and harvest it",
+          "preconditions": [
+            "own village member",
+            "mature crop",
+            "harvest operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "ec782260-abfc-4622-b075-ecfa96a94bc1",
+          "a1e232d2-b0fc-4723-9b55-b8e42bf8a920",
+          "799a37d2-b1b9-4bf6-b27f-d89cb8535f98",
+          "5fb674e8-f121-433b-babb-29fc181c00a3"
+        ],
+        "ui": [
+          {
+            "executionId": "ec782260-abfc-4622-b075-ecfa96a94bc1",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-plant-complete-2-ec782260-abfc-4622-b075-ecfa96a94bc1.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "a1e232d2-b0fc-4723-9b55-b8e42bf8a920",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-plant-complete-2-a1e232d2-b0fc-4723-9b55-b8e42bf8a920.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "799a37d2-b1b9-4bf6-b27f-d89cb8535f98",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-harvest-complete-2-799a37d2-b1b9-4bf6-b27f-d89cb8535f98.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "5fb674e8-f121-433b-babb-29fc181c00a3",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-harvest-complete-2-5fb674e8-f121-433b-babb-29fc181c00a3.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.harvest.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:garden.harvest.complete.3",
+      "localVariantId": "garden.harvest.complete.3",
+      "version": 1,
+      "text": "작물의 향기가 좋네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Wait for a planted crop to mature and harvest it",
+          "preconditions": [
+            "own village member",
+            "mature crop",
+            "harvest operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "bdfae060-c573-4c01-8488-12f5aed9eef5",
+          "cd16e9eb-d5b5-4c5d-a5e8-1cbef5d24d51",
+          "94f16f91-5b8f-4b80-b9c1-06179b82470f"
+        ],
+        "ui": [
+          {
+            "executionId": "bdfae060-c573-4c01-8488-12f5aed9eef5",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-plant-complete-1-bdfae060-c573-4c01-8488-12f5aed9eef5.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "cd16e9eb-d5b5-4c5d-a5e8-1cbef5d24d51",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-garden-harvest-complete-1-cd16e9eb-d5b5-4c5d-a5e8-1cbef5d24d51.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "94f16f91-5b8f-4b80-b9c1-06179b82470f",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-garden-harvest-complete-3-94f16f91-5b8f-4b80-b9c1-06179b82470f.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "cooking.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:cooking.complete.1",
+      "localVariantId": "cooking.complete.1",
+      "version": 1,
+      "text": "요리가 완성됐네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the kitchen recipe control and finish cooking",
+          "preconditions": [
+            "own village member",
+            "recipe ingredients available",
+            "cook operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "093ed82d-8d72-458f-9b48-dcb7f17a2a16",
+          "bf9db569-3d6d-4204-b820-37151b280221"
+        ],
+        "ui": [
+          {
+            "executionId": "093ed82d-8d72-458f-9b48-dcb7f17a2a16",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-2-093ed82d-8d72-458f-9b48-dcb7f17a2a16.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "bf9db569-3d6d-4204-b820-37151b280221",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-1-bf9db569-3d6d-4204-b820-37151b280221.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "cooking.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:cooking.complete.2",
+      "localVariantId": "cooking.complete.2",
+      "version": 1,
+      "text": "따뜻한 냄새가 나네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the kitchen recipe control and finish cooking",
+          "preconditions": [
+            "own village member",
+            "recipe ingredients available",
+            "cook operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "402cc805-0a02-44f2-816b-7fc4c3a485dc",
+          "59a0450b-2bc5-4bb8-b9a8-a48de94cc11e"
+        ],
+        "ui": [
+          {
+            "executionId": "402cc805-0a02-44f2-816b-7fc4c3a485dc",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-1-402cc805-0a02-44f2-816b-7fc4c3a485dc.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "59a0450b-2bc5-4bb8-b9a8-a48de94cc11e",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-2-59a0450b-2bc5-4bb8-b9a8-a48de94cc11e.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "cooking.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:1:cooking.complete.3",
+      "localVariantId": "cooking.complete.3",
+      "version": 1,
+      "text": "보관함에 음식이 생겼네요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the kitchen recipe control and finish cooking",
+          "preconditions": [
+            "own village member",
+            "recipe ingredients available",
+            "cook operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "6cac401e-5212-4a0d-8f12-026199ee6463",
+          "fb880ad4-ebc9-4a0d-b99d-3be2bdb917a8"
+        ],
+        "ui": [
+          {
+            "executionId": "6cac401e-5212-4a0d-8f12-026199ee6463",
+            "screenshot": "../../artifacts/pss/fixture/v1-natural-cooking-complete-3-6cac401e-5212-4a0d-8f12-026199ee6463.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "fb880ad4-ebc9-4a0d-b99d-3be2bdb917a8",
+            "screenshot": "../../artifacts/pss/fixture/v1-forced-cooking-complete-3-fb880ad4-ebc9-4a0d-b99d-3be2bdb917a8.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.start",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.start.1",
+      "localVariantId": "fishing.start.1",
+      "version": 2,
+      "text": "헤헤, 낚시하는 모습을 보고 있을게!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "insertSession",
+          "source": "server/life.mjs",
+          "playerAction": "Walk to a fishing seat and press E",
+          "preconditions": [
+            "authenticated village member",
+            "reachable free fishing seat"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "6a224b24-cfa1-443b-bb94-950a8a7756c5",
+          "36411013-38fa-4aa7-b3aa-fbea370553ca",
+          "0a34d016-68d7-4bb9-a98b-932f4a4527ee",
+          "cfe53823-4ebb-4492-b800-351182e04a5a"
+        ],
+        "ui": [
+          {
+            "executionId": "6a224b24-cfa1-443b-bb94-950a8a7756c5",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-start-2-6a224b24-cfa1-443b-bb94-950a8a7756c5.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "36411013-38fa-4aa7-b3aa-fbea370553ca",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-start-1-36411013-38fa-4aa7-b3aa-fbea370553ca.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "0a34d016-68d7-4bb9-a98b-932f4a4527ee",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-2-0a34d016-68d7-4bb9-a98b-932f4a4527ee.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "cfe53823-4ebb-4492-b800-351182e04a5a",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-3-cfe53823-4ebb-4492-b800-351182e04a5a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.start",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.start.2",
+      "localVariantId": "fishing.start.2",
+      "version": 2,
+      "text": "헤헤, 바닷바람이 조용하네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "insertSession",
+          "source": "server/life.mjs",
+          "playerAction": "Walk to a fishing seat and press E",
+          "preconditions": [
+            "authenticated village member",
+            "reachable free fishing seat"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "607e496b-e120-4445-a534-1841189c34f2",
+          "64b450ce-9207-42d1-a25d-1ed55c443126",
+          "df62a03d-4844-4ba3-bdce-8802b6b694f6",
+          "0f1939a7-2267-48d6-84cf-a471c35b8180",
+          "f7ef1d94-4e97-4209-8c3a-ea754d862a8a"
+        ],
+        "ui": [
+          {
+            "executionId": "607e496b-e120-4445-a534-1841189c34f2",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-start-1-607e496b-e120-4445-a534-1841189c34f2.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "64b450ce-9207-42d1-a25d-1ed55c443126",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-start-2-64b450ce-9207-42d1-a25d-1ed55c443126.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "df62a03d-4844-4ba3-bdce-8802b6b694f6",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-1-df62a03d-4844-4ba3-bdce-8802b6b694f6.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "0f1939a7-2267-48d6-84cf-a471c35b8180",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-1-0f1939a7-2267-48d6-84cf-a471c35b8180.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "f7ef1d94-4e97-4209-8c3a-ea754d862a8a",
+            "screenshot": "../../artifacts/pss/fixture/reconnect-f7ef1d94-4e97-4209-8c3a-ea754d862a8a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.start",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.start.3",
+      "localVariantId": "fishing.start.3",
+      "version": 2,
+      "text": "헤헤, 느긋하게 기다려 보자!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "insertSession",
+          "source": "server/life.mjs",
+          "playerAction": "Walk to a fishing seat and press E",
+          "preconditions": [
+            "authenticated village member",
+            "reachable free fishing seat"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "66de7a9c-cfa7-438f-91be-d919faec286f",
+          "ed9090aa-32f6-4427-995e-1dd18b8b2dac",
+          "9170604f-34be-4362-831a-460aa0d3a22a",
+          "1f3a1f2e-c5b4-476f-b35b-1f9b7e46c714"
+        ],
+        "ui": [
+          {
+            "executionId": "66de7a9c-cfa7-438f-91be-d919faec286f",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-start-3-66de7a9c-cfa7-438f-91be-d919faec286f.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "ed9090aa-32f6-4427-995e-1dd18b8b2dac",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-start-3-ed9090aa-32f6-4427-995e-1dd18b8b2dac.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "9170604f-34be-4362-831a-460aa0d3a22a",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-3-9170604f-34be-4362-831a-460aa0d3a22a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "1f3a1f2e-c5b4-476f-b35b-1f9b7e46c714",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-2-1f3a1f2e-c5b4-476f-b35b-1f9b7e46c714.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.success",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.success.1",
+      "localVariantId": "fishing.result.success.1",
+      "version": 2,
+      "text": "헤헤, {fishName}을 낚으셨네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a common or uncommon catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "common or uncommon catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "a5db788c-3985-4404-809f-f355c93e2d63",
+          "cfdfb922-0a0a-47c7-8d3f-20ff54870b5f",
+          "70610341-294c-47b5-93cf-738119bae1a9",
+          "e495a511-111e-4a99-ae6b-bae8abbe57e9"
+        ],
+        "ui": [
+          {
+            "executionId": "a5db788c-3985-4404-809f-f355c93e2d63",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-success-2-a5db788c-3985-4404-809f-f355c93e2d63.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "cfdfb922-0a0a-47c7-8d3f-20ff54870b5f",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-success-1-cfdfb922-0a0a-47c7-8d3f-20ff54870b5f.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "70610341-294c-47b5-93cf-738119bae1a9",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-2-70610341-294c-47b5-93cf-738119bae1a9.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "e495a511-111e-4a99-ae6b-bae8abbe57e9",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-3-e495a511-111e-4a99-ae6b-bae8abbe57e9.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.success",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.success.2",
+      "localVariantId": "fishing.result.success.2",
+      "version": 2,
+      "text": "헤헤, {fishName}의 비늘이 반짝이네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a common or uncommon catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "common or uncommon catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "912a16d4-6905-4d32-883e-a6b27a0ddb37",
+          "d21d8472-f2e8-4a23-a506-d5c86de4c039",
+          "fd79d73c-9a44-4f63-86be-ae501dd8409d",
+          "1bfb4e6c-b214-4270-979f-b3dd7bed365d"
+        ],
+        "ui": [
+          {
+            "executionId": "912a16d4-6905-4d32-883e-a6b27a0ddb37",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-success-1-912a16d4-6905-4d32-883e-a6b27a0ddb37.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "d21d8472-f2e8-4a23-a506-d5c86de4c039",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-success-2-d21d8472-f2e8-4a23-a506-d5c86de4c039.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "fd79d73c-9a44-4f63-86be-ae501dd8409d",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-1-fd79d73c-9a44-4f63-86be-ae501dd8409d.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "1bfb4e6c-b214-4270-979f-b3dd7bed365d",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-1-1bfb4e6c-b214-4270-979f-b3dd7bed365d.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.success",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.success.3",
+      "localVariantId": "fishing.result.success.3",
+      "version": 2,
+      "text": "헤헤, 한 마리 더 모였네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a common or uncommon catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "common or uncommon catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "5eecb8bf-fdda-480a-9d09-3cc5fb42ddd3",
+          "0dc41c70-400b-4afb-94e3-ae4c6417476b",
+          "8be13144-8e34-438e-a605-1c93d4bb4d61",
+          "ba4f9de7-8ead-48d5-8a35-1576705e6e29"
+        ],
+        "ui": [
+          {
+            "executionId": "5eecb8bf-fdda-480a-9d09-3cc5fb42ddd3",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-success-3-5eecb8bf-fdda-480a-9d09-3cc5fb42ddd3.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "0dc41c70-400b-4afb-94e3-ae4c6417476b",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-success-3-0dc41c70-400b-4afb-94e3-ae4c6417476b.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "8be13144-8e34-438e-a605-1c93d4bb4d61",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-3-8be13144-8e34-438e-a605-1c93d4bb4d61.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "ba4f9de7-8ead-48d5-8a35-1576705e6e29",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-2-ba4f9de7-8ead-48d5-8a35-1576705e6e29.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.failure",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.failure.1",
+      "localVariantId": "fishing.result.failure.1",
+      "version": 2,
+      "text": "헤헤, 이번에는 조용하네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until an unsuccessful attempt",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "catch roll failed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "2c8d6a07-d809-4f8c-b3a6-919e328227c4",
+          "d8b8c85b-c51b-4841-801b-4f3c218ba3fc"
+        ],
+        "ui": [
+          {
+            "executionId": "2c8d6a07-d809-4f8c-b3a6-919e328227c4",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-failure-2-2c8d6a07-d809-4f8c-b3a6-919e328227c4.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "d8b8c85b-c51b-4841-801b-4f3c218ba3fc",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-failure-1-d8b8c85b-c51b-4841-801b-4f3c218ba3fc.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.failure",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.failure.2",
+      "localVariantId": "fishing.result.failure.2",
+      "version": 2,
+      "text": "헤헤, 입질이 없었네! 조금 더 기다려 보자!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until an unsuccessful attempt",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "catch roll failed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "bfdbad78-fa50-4547-aad2-47cd9ce5da1d",
+          "e6f9cec8-2ce1-494b-8311-661c7e03b0e2"
+        ],
+        "ui": [
+          {
+            "executionId": "bfdbad78-fa50-4547-aad2-47cd9ce5da1d",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-failure-1-bfdbad78-fa50-4547-aad2-47cd9ce5da1d.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "e6f9cec8-2ce1-494b-8311-661c7e03b0e2",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-failure-2-e6f9cec8-2ce1-494b-8311-661c7e03b0e2.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.failure",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.failure.3",
+      "localVariantId": "fishing.result.failure.3",
+      "version": 2,
+      "text": "헤헤, 다음 물결을 기다려요.",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until an unsuccessful attempt",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "catch roll failed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "98af7f93-3637-4233-a84f-1737ac93e80b",
+          "932682a7-9692-4d36-91d7-f2b51d516734"
+        ],
+        "ui": [
+          {
+            "executionId": "98af7f93-3637-4233-a84f-1737ac93e80b",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-failure-3-98af7f93-3637-4233-a84f-1737ac93e80b.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "932682a7-9692-4d36-91d7-f2b51d516734",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-failure-3-932682a7-9692-4d36-91d7-f2b51d516734.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.rare",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.rare.1",
+      "localVariantId": "fishing.result.rare.1",
+      "version": 2,
+      "text": "헤헤, {fishName}이라니, 귀한 만남이네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a rare or legendary catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "rare or legendary catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "a8afbd21-708f-4e94-a041-181160267f58",
+          "869876f2-2269-4a51-816d-3f36c1499de5"
+        ],
+        "ui": [
+          {
+            "executionId": "a8afbd21-708f-4e94-a041-181160267f58",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-rare-3-a8afbd21-708f-4e94-a041-181160267f58.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "869876f2-2269-4a51-816d-3f36c1499de5",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-rare-1-869876f2-2269-4a51-816d-3f36c1499de5.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.rare",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.rare.2",
+      "localVariantId": "fishing.result.rare.2",
+      "version": 2,
+      "text": "헤헤, 특별한 {fishName}을 만났네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a rare or legendary catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "rare or legendary catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "5a12ff2e-a609-432b-b562-7b3a5c8a3470",
+          "b411d7b6-8f83-4f4c-ba43-fd62470ed15e"
+        ],
+        "ui": [
+          {
+            "executionId": "5a12ff2e-a609-432b-b562-7b3a5c8a3470",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-rare-2-5a12ff2e-a609-432b-b562-7b3a5c8a3470.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "b411d7b6-8f83-4f4c-ba43-fd62470ed15e",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-rare-2-b411d7b6-8f83-4f4c-ba43-fd62470ed15e.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "fishing.result.rare",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:fishing.result.rare.3",
+      "localVariantId": "fishing.result.rare.3",
+      "version": 2,
+      "text": "헤헤, {fishName}의 빛이 참 곱네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "settle",
+          "source": "server/life.mjs",
+          "playerAction": "Keep fishing until a rare or legendary catch",
+          "preconditions": [
+            "active fishing session",
+            "45 seconds elapsed",
+            "rare or legendary catch"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "4016b0ab-4771-4719-8c63-93430ba974bd",
+          "f73c5e68-549c-475f-9174-0ab79cafcbfd"
+        ],
+        "ui": [
+          {
+            "executionId": "4016b0ab-4771-4719-8c63-93430ba974bd",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-fishing-result-rare-1-4016b0ab-4771-4719-8c63-93430ba974bd.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "f73c5e68-549c-475f-9174-0ab79cafcbfd",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-fishing-result-rare-3-f73c5e68-549c-475f-9174-0ab79cafcbfd.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.plant.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:garden.plant.complete.1",
+      "localVariantId": "garden.plant.complete.1",
+      "version": 2,
+      "text": "헤헤, 씨앗이 자랄 시간이네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the garden seed control and finish the activity",
+          "preconditions": [
+            "own village member",
+            "plant operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "dc7a2e4a-f3cd-44e4-920f-e1edebe2af7c",
+          "8f7d9996-d417-4b54-85f4-4561fb182456",
+          "bf0f7d76-e082-4973-a85a-9fa2cfd7229a",
+          "c558f9ac-461b-4968-b760-505511ba3864"
+        ],
+        "ui": [
+          {
+            "executionId": "dc7a2e4a-f3cd-44e4-920f-e1edebe2af7c",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-plant-complete-2-dc7a2e4a-f3cd-44e4-920f-e1edebe2af7c.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "8f7d9996-d417-4b54-85f4-4561fb182456",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-plant-complete-1-8f7d9996-d417-4b54-85f4-4561fb182456.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "bf0f7d76-e082-4973-a85a-9fa2cfd7229a",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-harvest-complete-3-bf0f7d76-e082-4973-a85a-9fa2cfd7229a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "c558f9ac-461b-4968-b760-505511ba3864",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-harvest-complete-3-c558f9ac-461b-4968-b760-505511ba3864.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.plant.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:garden.plant.complete.2",
+      "localVariantId": "garden.plant.complete.2",
+      "version": 2,
+      "text": "헤헤, 작은 싹을 기다려 보자!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the garden seed control and finish the activity",
+          "preconditions": [
+            "own village member",
+            "plant operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "03aa00c1-4fbb-4937-95bd-4043341391ed",
+          "9ce4e5ea-dfcc-40f4-a4ad-f85bc87da28e",
+          "9d542195-453a-4dfe-97b8-5cacc86049df",
+          "829432a9-72b6-4269-a4f2-a351cff0b50a"
+        ],
+        "ui": [
+          {
+            "executionId": "03aa00c1-4fbb-4937-95bd-4043341391ed",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-plant-complete-1-03aa00c1-4fbb-4937-95bd-4043341391ed.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "9ce4e5ea-dfcc-40f4-a4ad-f85bc87da28e",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-plant-complete-2-9ce4e5ea-dfcc-40f4-a4ad-f85bc87da28e.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "9d542195-453a-4dfe-97b8-5cacc86049df",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-harvest-complete-2-9d542195-453a-4dfe-97b8-5cacc86049df.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "829432a9-72b6-4269-a4f2-a351cff0b50a",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-harvest-complete-2-829432a9-72b6-4269-a4f2-a351cff0b50a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.plant.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:garden.plant.complete.3",
+      "localVariantId": "garden.plant.complete.3",
+      "version": 2,
+      "text": "헤헤, 밭에 새 이야기가 시작됐네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the garden seed control and finish the activity",
+          "preconditions": [
+            "own village member",
+            "plant operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "3fc0417c-3e6d-4235-bee5-602d6d216f49",
+          "4331f149-a99c-42a1-af41-f1e1bb05d55a",
+          "db97d94b-7720-493e-9761-98b3c15424a8"
+        ],
+        "ui": [
+          {
+            "executionId": "3fc0417c-3e6d-4235-bee5-602d6d216f49",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-plant-complete-3-3fc0417c-3e6d-4235-bee5-602d6d216f49.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "4331f149-a99c-42a1-af41-f1e1bb05d55a",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-plant-complete-3-4331f149-a99c-42a1-af41-f1e1bb05d55a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "db97d94b-7720-493e-9761-98b3c15424a8",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-harvest-complete-1-db97d94b-7720-493e-9761-98b3c15424a8.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.harvest.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:garden.harvest.complete.1",
+      "localVariantId": "garden.harvest.complete.1",
+      "version": 2,
+      "text": "헤헤, 정성껏 키운 작물이네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Wait for a planted crop to mature and harvest it",
+          "preconditions": [
+            "own village member",
+            "mature crop",
+            "harvest operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "d250966a-e110-4879-af55-4c002e2ef492",
+          "c92806db-7110-44b3-a229-b3dfe955f87a",
+          "700381fa-1afc-4793-9f9e-b6af69f8b9f2",
+          "bac31ae4-169f-4aaf-b06a-7a0b52011880"
+        ],
+        "ui": [
+          {
+            "executionId": "d250966a-e110-4879-af55-4c002e2ef492",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-plant-complete-3-d250966a-e110-4879-af55-4c002e2ef492.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "c92806db-7110-44b3-a229-b3dfe955f87a",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-plant-complete-3-c92806db-7110-44b3-a229-b3dfe955f87a.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "700381fa-1afc-4793-9f9e-b6af69f8b9f2",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-harvest-complete-3-700381fa-1afc-4793-9f9e-b6af69f8b9f2.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "bac31ae4-169f-4aaf-b06a-7a0b52011880",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-harvest-complete-1-bac31ae4-169f-4aaf-b06a-7a0b52011880.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.harvest.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:garden.harvest.complete.2",
+      "localVariantId": "garden.harvest.complete.2",
+      "version": 2,
+      "text": "헤헤, 수확 바구니가 채워졌네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Wait for a planted crop to mature and harvest it",
+          "preconditions": [
+            "own village member",
+            "mature crop",
+            "harvest operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "d09a4a26-af37-428a-99ac-87cf353af9e4",
+          "4177721f-ffe7-4490-8d05-b7e2a3ee612f",
+          "d98ea37f-ead1-468e-ac20-dc6635c4bf27",
+          "b15a5df3-d593-485f-af41-8f550effa977"
+        ],
+        "ui": [
+          {
+            "executionId": "d09a4a26-af37-428a-99ac-87cf353af9e4",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-plant-complete-2-d09a4a26-af37-428a-99ac-87cf353af9e4.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "4177721f-ffe7-4490-8d05-b7e2a3ee612f",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-plant-complete-2-4177721f-ffe7-4490-8d05-b7e2a3ee612f.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "d98ea37f-ead1-468e-ac20-dc6635c4bf27",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-harvest-complete-2-d98ea37f-ead1-468e-ac20-dc6635c4bf27.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "b15a5df3-d593-485f-af41-8f550effa977",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-harvest-complete-2-b15a5df3-d593-485f-af41-8f550effa977.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "garden.harvest.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:garden.harvest.complete.3",
+      "localVariantId": "garden.harvest.complete.3",
+      "version": 2,
+      "text": "헤헤, 작물의 향기가 좋네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Wait for a planted crop to mature and harvest it",
+          "preconditions": [
+            "own village member",
+            "mature crop",
+            "harvest operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "28a4feff-f654-4381-b9cb-a39f8dfaea10",
+          "0448906e-ee60-4a58-9db1-90cd03983cfa",
+          "e065488d-0f28-4845-979b-33ebbebc63a3"
+        ],
+        "ui": [
+          {
+            "executionId": "28a4feff-f654-4381-b9cb-a39f8dfaea10",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-plant-complete-1-28a4feff-f654-4381-b9cb-a39f8dfaea10.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "0448906e-ee60-4a58-9db1-90cd03983cfa",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-garden-harvest-complete-1-0448906e-ee60-4a58-9db1-90cd03983cfa.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "e065488d-0f28-4845-979b-33ebbebc63a3",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-garden-harvest-complete-3-e065488d-0f28-4845-979b-33ebbebc63a3.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "cooking.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:cooking.complete.1",
+      "localVariantId": "cooking.complete.1",
+      "version": 2,
+      "text": "헤헤, 요리가 완성됐네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the kitchen recipe control and finish cooking",
+          "preconditions": [
+            "own village member",
+            "recipe ingredients available",
+            "cook operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "a4892a8e-fe1d-4510-8d9f-b98aba603d15",
+          "764ffe77-dede-408f-9b62-02a0dacd1722"
+        ],
+        "ui": [
+          {
+            "executionId": "a4892a8e-fe1d-4510-8d9f-b98aba603d15",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-2-a4892a8e-fe1d-4510-8d9f-b98aba603d15.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "764ffe77-dede-408f-9b62-02a0dacd1722",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-1-764ffe77-dede-408f-9b62-02a0dacd1722.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "cooking.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:cooking.complete.2",
+      "localVariantId": "cooking.complete.2",
+      "version": 2,
+      "text": "헤헤, 따뜻한 냄새가 나네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the kitchen recipe control and finish cooking",
+          "preconditions": [
+            "own village member",
+            "recipe ingredients available",
+            "cook operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "e6c2c7f7-3265-4319-8162-20ad133c4fb7",
+          "e749f015-edff-4560-a4a0-ddefdf1a250d"
+        ],
+        "ui": [
+          {
+            "executionId": "e6c2c7f7-3265-4319-8162-20ad133c4fb7",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-1-e6c2c7f7-3265-4319-8162-20ad133c4fb7.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "e749f015-edff-4560-a4a0-ddefdf1a250d",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-2-e749f015-edff-4560-a4a0-ddefdf1a250d.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    },
+    {
+      "eventId": "cooking.complete",
+      "variantId": "8f5c9cff-9c48-4893-92fd-b9612c7178f9:5d399aa2-881e-437e-b630-e9a1c0f36983:2:cooking.complete.3",
+      "localVariantId": "cooking.complete.3",
+      "version": 2,
+      "text": "헤헤, 보관함에 음식이 생겼네!",
+      "valid": true,
+      "staticReachable": true,
+      "runtimeExecuted": true,
+      "uiDisplayed": true,
+      "forcedSelection": true,
+      "naturalSelection": true,
+      "evidence": {
+        "static": {
+          "trigger": "tick/gardening.complete",
+          "source": "server/life.mjs",
+          "playerAction": "Use the kitchen recipe control and finish cooking",
+          "preconditions": [
+            "own village member",
+            "recipe ingredients available",
+            "cook operation completed"
+          ],
+          "pipeline": "production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM",
+          "test": "scripts/verify-persona-scripts.mjs: gameplay cases from registry"
+        },
+        "executionIds": [
+          "f3cb4d77-77b6-4221-aa98-27f3cfb0ccea",
+          "368b0e6f-d461-450b-bcc9-e53f95482a4f"
+        ],
+        "ui": [
+          {
+            "executionId": "f3cb4d77-77b6-4221-aa98-27f3cfb0ccea",
+            "screenshot": "../../artifacts/pss/fixture/v2-natural-cooking-complete-3-f3cb4d77-77b6-4221-aa98-27f3cfb0ccea.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          },
+          {
+            "executionId": "368b0e6f-d461-450b-bcc9-e53f95482a4f",
+            "screenshot": "../../artifacts/pss/fixture/v2-forced-cooking-complete-3-368b0e6f-d461-450b-bcc9-e53f95482a4f.png",
+            "viewport": [
+              1365,
+              900
+            ]
+          }
+        ]
+      },
+      "status": "PASS"
+    }
+  ]
+}

@@ -1,5 +1,11 @@
 # ILLOVA — 3D 아바타 소셜 플레이테스트
 
+## 아바타 성향과 생활 이벤트 대사
+
+`Avatar Update`에서 대화 기반 성향 제안을 검토·승인하고, 낚시·씨앗 심기·수확·요리 반응 대사를 비교한 뒤 버전으로 적용합니다. 활동 중에는 저장된 대사만 선택하며 LLM을 호출하지 않습니다. 이전 버전 복구와 슬롯 분리를 지원합니다.
+
+[구조·지원 범위·사용법](docs/persona-script-system.md) · [Variant 전수 검증 결과](docs/pss-results/coverage.md) · [검증 요약 JSON](docs/pss-results/summary.json). 실제 Gemini가 생성한 두 버전의 대사 42개 모두 게임플레이·일반/강제 선택·UI 검증을 통과했습니다. 별도의 Fixture 대사 42개도 전수 검증했으며, 이전 HTTP 402는 결제 후 해소되었습니다.
+
 클라우드 자동 배포: main에 커밋·푸시하면 GitHub Actions가 테스트·빌드 후 Oracle에 반영합니다. [CI/CD 사용법·자동 복원·운영 경로](docs/cicd.md).
 
 운영 주소는 클라우드에서 유지합니다. PC 개발은 `start-local.bat`을 사용하며, 클라우드 전환 표식이 있는 PC에서는 기존 실행기도 운영 터널을 중복 연결하지 않습니다.
