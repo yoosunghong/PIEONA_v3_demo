@@ -20,7 +20,7 @@ import {villageBenches,nearestBench,benchExit,benchCameraView,benchInteractionKe
 import './bench.css';
 import {WALK_SPEED,MOTORCYCLE_SPEED,villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,villageJumpHeight} from './villageMovement.mjs';
 import {sceneMood,sceneView,avatarChatView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning,constrainScenePanning} from './sceneCamera.mjs';
-import {createSceneViewport,sceneGraphicsQuality} from './sceneViewport.mjs';
+import {createSceneViewport,sceneGraphicsQuality,sceneFrameDue} from './sceneViewport.mjs';
 import {isFoldViewport,villageFieldOfView} from './foldViewport.mjs';
 import {editorGridStyle} from './sceneGrid.mjs';
 import {canPlaceDecoration,snapPosition} from './villageEditorState.mjs';
@@ -416,7 +416,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
         bookOccluders.forEach((object,index)=>{object.visible=visibility[index];});
       }else{nextOcclusionCheck=0;renderWorld();}
     });}
-    const clock=new THREE.Clock();let lastPausedRender=-1;
+    const clock=new THREE.Clock();let lastPausedRender=-1,lastSceneRender=-1;
     function updateBenchPrompt(value){if(benchPromptRef.current!==value){benchPromptRef.current=value;setBenchPrompt(value);}}
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;
       // A covered scene must not compete with modal input or the foreground game.
@@ -426,7 +426,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
       const notice=pollNotice.current;if(notice){const point=pollBox.position.clone().add(new THREE.Vector3(0,1.9,0)).project(camera);notice.style.left=`${Math.max(90,Math.min(el.clientWidth-90,(point.x+1)*.5*el.clientWidth))}px`;notice.style.top=`${Math.max(50,(1-point.y)*.5*el.clientHeight)}px`;notice.style.visibility=pollBox.visible&&point.z>=-1&&point.z<=1&&['home','village'].includes(s.mode)&&!s.paused?'visible':'hidden';}
       lifeWorld.update(time,s.villageMembers,s.gardenData);if(!s.inputEnabled||s.mode!=='village')facilityDestination=null;
       if(!s.inputEnabled||!['home','village'].includes(s.mode)){groundDestination=null;walkMarker.visible=false;}
-      if(s.paused){clearKeys();updateBenchPrompt('');if(viewport.needsDraw||time-lastPausedRender>.1){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
+      if(s.paused){clearKeys();updateBenchPrompt('');if(viewport.needsDraw||time-lastPausedRender>(quality.software?.2:.1)){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
       if(s.mode==='home'&&s.inputEnabled&&ownerId===s.viewerId&&Math.hypot(callbacks.current.movementInput?.current?.x||0,callbacks.current.movementInput?.current?.y||0)>.01)callbacks.current.onWalk?.();
       const lifeFocused=isLifeFocus(s.mode);
       const modeChanged=s.mode!==previousMode,focus=s.mode==='guestbook'?callbacks.current.guestbook:callbacks.current.sign,signPose=lifeFocused?callbacks.current.lifeObjectId:[focus.x,focus.z,focus.rotation].join(',');
@@ -613,7 +613,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
 
       particles.rotation.y=time*.018;particles.position.y=Math.sin(time*.3)*.3;flame.scale.set(1+Math.sin(time*8)*.12,1+Math.sin(time*11)*.1,1);flameLight.intensity=3+Math.sin(time*9)*.5;
       fireCore.scale.y=1+Math.sin(time*13)*.17;embers.forEach((ember,i)=>{ember.position.y=.55+((time*.6+i/14)%1)*1.4;ember.position.x=Math.sin(time*2+i*2.4)*.23;ember.scale.setScalar(1-(ember.position.y-.55)/1.7);});
-      drawFrame();
+      if(sceneFrameDue(quality.software,lastSceneRender,time,viewport.needsDraw)){lastSceneRender=time;drawFrame();}
     }render();
     return()=>{const local=remoteCharacters.get(state.current?.viewerId);if(local?.seatId&&!local.seatId.startsWith('fishing:'))stand(local,false);facilityOutline.dispose();disposeObject(lifeWorld.root);lifeToggle.current=null;lifePromptRef.current='';setLifePrompt('');benchToggle.current=null;benchPromptRef.current='';setBenchPrompt('');if(captureRef)captureRef.current=null;disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',visibilityChanged);disposeObject(decorationRoot);disposeObject(signRoot);disposeObject(previewRoot);gardenDetailParts.forEach(disposeObject);disposeObject(gardenDetails);disposeObject(cafeTables);for(const [id,root] of sceneryRoots){if(id.includes('table-'))disposeObject(root);}grid.geometry.dispose();grid.material.dispose();disposeCharacter(avatarRoot);remoteCharacters.forEach(({root,mixer:remoteMixer})=>{world.remove(root);disposeCharacter(root);remoteMixer?.stopAllAction();remoteMixer?.uncacheRoot(remoteMixer.getRoot());});for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.removeEventListener(name,handler);mixer?.stopAllAction();mixer?.uncacheRoot(mixer.getRoot());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.dispose();renderer.renderLists.dispose();renderer.domElement.remove();state.current=null;worldRef.current=null;};
   },[theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),village.theme]);

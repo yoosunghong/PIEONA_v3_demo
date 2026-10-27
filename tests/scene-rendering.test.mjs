@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {createSceneViewport,sceneGraphicsQuality} from '../src/sceneViewport.mjs';
+import {createSceneViewport,sceneGraphicsQuality,sceneFrameDue} from '../src/sceneViewport.mjs';
 import {editorGridStyle} from '../src/sceneGrid.mjs';
 import {villageThemes} from '../shared/world.mjs';
 
@@ -9,6 +9,20 @@ function rig(){
   const events=[],renderer={setSize:(...size)=>events.push(['resize',...size])},camera={aspect:1,updateProjectionMatrix:()=>events.push(['projection'])};
   return{events,camera,viewport:createSceneViewport(renderer,camera)};
 }
+
+test('CPU rasterization has a frame budget while GPU frames and resize draws remain immediate',()=>{
+  for(const software of [false,true]){
+    let lastDraw=-1,draws=0,updates=0;
+    for(let frame=0;frame<60;frame++){
+      updates++;const time=frame/60;
+      if(sceneFrameDue(software,lastDraw,time)){lastDraw=time;draws++;}
+    }
+    assert.equal(updates,60);
+    assert.equal(draws,software?5:60);
+  }
+  assert.equal(sceneFrameDue(true,1,1.01,true),true);
+  assert.equal(sceneFrameDue(true,1,1.01),false);
+});
 
 test('CPU-only WebGL avoids expensive shadow passes while hardware rendering keeps its quality',()=>{
   const context=name=>({getExtension:()=>({UNMASKED_RENDERER_WEBGL:1}),getParameter:()=>name});

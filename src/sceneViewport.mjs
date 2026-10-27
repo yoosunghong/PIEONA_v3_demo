@@ -6,6 +6,11 @@ export function sceneGraphicsQuality(gl,pixelRatio=1){
   return {software,shadows:!software,pixelRatio:Math.min(Number.isFinite(pixelRatio)&&pixelRatio>0?pixelRatio:1,software?.65:1.75)};
 }
 
+// Keep simulation/input updates on RAF; only limit costly CPU rasterization.
+export function sceneFrameDue(software,lastDraw,time,needsDraw=false){
+  return !software||needsDraw||time-lastDraw>=.2;
+}
+
 // Defer buffer resizing until a draw so a cleared canvas is never presented.
 export function createSceneViewport(renderer,camera,{getFieldOfView}={}){
   let pending=null,current=null;

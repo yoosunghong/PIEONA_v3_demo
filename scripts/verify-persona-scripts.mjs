@@ -17,7 +17,7 @@ if(live){const env=dotenv.config({quiet:true}).parsed||{};for(const key of ['GEM
 let time=Date.parse('2026-10-27T00:00:00Z'),rolls=[],forced=null,generationCalls=0,analysisCalls=0,browser,h,page;
 const provider=live?createPersonaProvider():fixtureProvider(),generate=provider.generate,analyze=provider.analyze;
 provider.generate=async p=>{generationCalls++;return generate(p);};provider.analyze=async p=>{analysisCalls++;return analyze(p);};
-const uiEvidence=[],errors=[],versions=[],staticEvidence={},checkpoints=[],providerErrors=[],browserMessages=[];
+const uiEvidence=[],errors=[],versions=[],staticEvidence={},checkpoints=[],providerErrors=[],browserMessages=[],dialogueCaptures=new Map();
 let heldDialogueVerified=false;
 const source=readFileSync('server/life.mjs','utf8');
 for(const e of ACTIVE_EVENTS){assert.ok(source.includes(`'${e.id}'`),e.id);staticEvidence[e.id]={trigger:e.trigger,source:e.source,playerAction:e.action,preconditions:e.preconditions,pipeline:'production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM',test:'scripts/verify-persona-scripts.mjs: gameplay cases from registry'};}
@@ -56,11 +56,16 @@ try{
    const layout=await bubble.evaluate(el=>{const b=el.getBoundingClientRect(),p=el.querySelector('p');return {visible:b.width>0&&b.height>0&&b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight,unclipped:p.scrollWidth<=p.clientWidth+1&&p.scrollHeight<=p.clientHeight+1,viewport:[innerWidth,innerHeight]};});
    assert.ok(layout.visible,label+' offscreen');assert.ok(layout.unclipped,label+' clipped');
    await page.waitForFunction(async id=>{const r=await fetch('/api/me/pss/dialogues');const data=await r.json();return !data.lines.some(l=>l.id===id);},execution.id);
-   const screenshot=`${label.replaceAll('.','-')}-${execution.id}.png`;
-   // Capture the verified UI node, not an unrelated continuously rendered WebGL
-   // island. Position and viewport clipping are independently checked above.
-   await bubble.screenshot({path:join(directory,screenshot),animations:'disabled',timeout:60000});
-   uiEvidence.push({executionId:execution.id,variantId:execution.variantId,...layout,textMatches:true,screenshot,screenshotScope:'dialogue'});
+   // Every execution above is checked in the actual DOM. Capture each distinct
+   // rendered variant once, retaining the original capture's execution provenance.
+   const captureKey=JSON.stringify([u.id,u.activeSlot,execution.version,execution.variantId,execution.text,layout.viewport]);
+   let capture=dialogueCaptures.get(captureKey);const screenshotCaptured=!capture;
+   if(!capture){
+    capture={screenshot:`${label.replaceAll('.','-')}-${execution.id}.png`,screenshotExecutionId:execution.id};
+    await bubble.screenshot({path:join(directory,capture.screenshot),animations:'disabled',timeout:60000});
+    dialogueCaptures.set(captureKey,capture);
+   }
+   uiEvidence.push({executionId:execution.id,variantId:execution.variantId,...layout,textMatches:true,...capture,screenshotCaptured,screenshotScope:'dialogue'});
    await bubble.getByRole('button',{name:'다음 활동 대사'}).click();
    await bubble.waitFor({state:'hidden'});
   }
@@ -105,7 +110,7 @@ try{
  const automatic=page.locator('.pss-dialogue');await automatic.waitFor({state:'visible'});await automatic.waitFor({state:'hidden',timeout:15000});
  assert.deepEqual(errors,[]);
  const executions=h.runtime.store.all('SELECT line FROM pss_executions').map(r=>JSON.parse(r.line));
- const report={createdAt:new Date().toISOString(),provider:provider.name,seed:0,clockStart:'2026-10-27T00:00:00Z',browser:await browser.version(),mode,checkpoints,...scriptCoverage(versions,executions,uiEvidence,staticEvidence),errors,versions,executions,uiEvidence};
+ const report={createdAt:new Date().toISOString(),provider:provider.name,seed:0,clockStart:'2026-10-27T00:00:00Z',browser:await browser.version(),mode,checkpoints,dialogueScreenshotCount:dialogueCaptures.size,...scriptCoverage(versions,executions,uiEvidence,staticEvidence),errors,versions,executions,uiEvidence};
  writeFileSync(join(directory,'coverage.json'),JSON.stringify(report,null,2));
  const columns=['eventId','variantId','version','staticReachable','runtimeExecuted','uiDisplayed','forcedSelection','naturalSelection','status'];
  writeFileSync(join(directory,'coverage.csv'),[columns.join(','),...report.rows.map(r=>columns.map(k=>JSON.stringify(r[k])).join(','))].join('\n'));
