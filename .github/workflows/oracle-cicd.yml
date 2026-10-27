@@ -17,7 +17,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-24.04
-    # Cold Chromium setup plus full software-rendered UI coverage needs its own margin.
+    # Keep the total budget bounded; the UI step has a separate deadline below.
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -31,8 +31,10 @@ jobs:
       - run: npm run build
       - run: npm test
       - name: Install Chromium for PSS gameplay and UI coverage
-        run: npx playwright install --with-deps chromium
+        timeout-minutes: 8
+        run: npx playwright install --with-deps --only-shell chromium
       - name: Verify every persona script through gameplay and UI (no LLM calls)
+        timeout-minutes: 10
         env:
           PSS_SOFTWARE_GL: '1'
         run: npm run test:pss:ui

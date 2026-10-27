@@ -3,7 +3,7 @@ import {api} from './api';
 import AvatarPortrait from './AvatarPortrait';
 import './persona-scripts.css';
 
-export default function PersonaDialogue({me,socket,visible=true,onExpression=()=>{}}){
+export default function PersonaDialogue({me,socket,visible=true,onExpression=()=>{},onReadingChange}){
  const [queue,setQueue]=useState([]),[version,setVersion]=useState(null),[error,setError]=useState(''),[held,setHeld]=useState(false),[displayedId,setDisplayedId]=useState(null);
  const seen=useRef(new Set()),node=useRef(null),expression=useRef(onExpression);expression.current=onExpression;
  useEffect(()=>{
@@ -16,6 +16,7 @@ export default function PersonaDialogue({me,socket,visible=true,onExpression=()=
   return()=>{alive=false;socket?.off('pss:dialogue',add);socket?.off('pss:changed',changed);socket?.off('connect',load);};
  },[me?.id,me?.activeSlot,socket,visible]);
  const line=queue.find(l=>l.version===version);
+ useEffect(()=>{onReadingChange?.(!!line&&visible);return()=>onReadingChange?.(false);},[!!line,visible,onReadingChange]);
  useEffect(()=>{
   if(!line||!visible)return;let frame,second,alive=true;
   expression.current(line.expression);

@@ -51,6 +51,7 @@ try{
    // Keep the real message open as a reader would; screenshot capture can take
    // longer than its normal 6.5-second auto-dismiss period on a CPU-only runner.
    await bubble.hover();
+   if(process.env.PSS_SOFTWARE_GL==='1')await page.waitForFunction(()=>document.querySelector('.scene-canvas canvas')?.dataset.readingPaused==='true');
    if(!heldDialogueVerified){await page.waitForTimeout(6700);assert.equal(await bubble.isVisible(),true,'A message being read must not expire');heldDialogueVerified=true;}
    const actual=await bubble.locator('p').innerText();assert.equal(actual,execution.text);assert.ok(!actual.includes('{'));
    const layout=await bubble.evaluate(el=>{const b=el.getBoundingClientRect(),p=el.querySelector('p');return {visible:b.width>0&&b.height>0&&b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight,unclipped:p.scrollWidth<=p.clientWidth+1&&p.scrollHeight<=p.clientHeight+1,viewport:[innerWidth,innerHeight]};});
@@ -90,11 +91,12 @@ try{
   await updateThroughUI(text);const version=versions.at(-1).version;
   for(const event of ACTIVE_EVENTS){
    assert.equal(typeof paths.cases[event.id],'function',event.id);
+   const started=performance.now();
    for(const selection of ['natural','forced'])for(let index=0;index<3;index++){
     forced=selection==='forced'?{eventId:event.id,index}:null;
     await paths.cases[event.id]();await inspectPending(`v${version}-${selection}-${event.id}-${index+1}`);
    }forced=null;
-   console.log(`[${mode}] v${version} ${event.id}: 3 natural + 3 forced gameplay/UI paths`);
+   console.log(`[${mode}] v${version} ${event.id}: 3 natural + 3 forced gameplay/UI paths (${((performance.now()-started)/1000).toFixed(1)}s)`);
   }
   assert.equal(generationCalls,version);checkpoints.push({version,generationCalls,analysisCalls,noRuntimeLLMCalls:true});
  }
@@ -108,6 +110,7 @@ try{
  // Leaving the message alone still advances the queue automatically.
  await page.mouse.move(1,1);await page.evaluate(()=>document.activeElement?.blur());await paths.start();
  const automatic=page.locator('.pss-dialogue');await automatic.waitFor({state:'visible'});await automatic.waitFor({state:'hidden',timeout:15000});
+ if(process.env.PSS_SOFTWARE_GL==='1')await page.waitForFunction(()=>document.querySelector('.scene-canvas canvas')?.dataset.readingPaused==='false');
  assert.deepEqual(errors,[]);
  const executions=h.runtime.store.all('SELECT line FROM pss_executions').map(r=>JSON.parse(r.line));
  const report={createdAt:new Date().toISOString(),provider:provider.name,seed:0,clockStart:'2026-10-27T00:00:00Z',browser:await browser.version(),mode,checkpoints,dialogueScreenshotCount:dialogueCaptures.size,...scriptCoverage(versions,executions,uiEvidence,staticEvidence),errors,versions,executions,uiEvidence};

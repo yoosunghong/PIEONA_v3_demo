@@ -42,7 +42,7 @@ import {isLifeFocus,lifeFocusView,lifeFocusOccluders} from './lifeFocus.mjs';
 
 const themes={sage:{accent:0x70a9ad,flowers:0xce87bc},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false,onPollClick,villageSpeech=[],topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,editor=null}){
+export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false,onPollClick,villageSpeech=[],topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,readingDialogue=false,editor=null}){
   const humanoidPortrait=!petPreview;
   const community=communityPlacements(village),communityKey=JSON.stringify(community);
   const signData=villageSign(village),signKey=JSON.stringify(signData);
@@ -61,7 +61,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
   const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={village,topicGuest,topicLine,onInteract,onWalk,onReady,onPositionChange,movementInput,editor,benches:villageBenches(village),sign:signData,guestbook:guestbookData,items:[...villageScenery(village),...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData),...community]};
   callbacks.current.fishingDuel=fishingDuel;callbacks.current.pollActive=pollActive;callbacks.current.onPollClick=onPollClick;callbacks.current.villageSpeech=villageSpeech;callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;callbacks.current.avatarSelected=avatarSelected;
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
-  useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.gardenData=gardenData;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;}},[mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended]);
+  useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.gardenData=gardenData;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;state.current.readingDialogue=readingDialogue;}},[mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended,readingDialogue]);
   // Keep one WebGL context for this mounted scene, including all look previews.
   useEffect(()=>()=>{
     const renderer=rendererRef.current;rendererRef.current=null;
@@ -278,7 +278,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
     const initialView=isLifeFocus(mode)?lifeFocusView(mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village):mode==='guestbook'?guestbookCameraView(callbacks.current.guestbook):mode==='sign'?signCameraView(callbacks.current.sign):sceneView(mode,{portrait,petPreview,dragonRide:ownerAppearance.ride==='babyDragon',mood:mood.id});camera.position.fromArray(initialView.position);controls.target.fromArray(initialView.target);controls.update();
     controls.addEventListener('start',()=>{cameraTransition=null;});
-    state.current={mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended};
+    state.current={mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended,readingDialogue};
     function constrainCameraPan(){
       const entry=remoteCharacters.get(state.current?.viewerId),seat=entry?.seatId&&entry.seat;
       if(!cameraTransition&&state.current?.mode===previousMode)constrainScenePanning(camera,controls,state.current.mode,{portrait:portrait||callbacks.current.chatActive,mood:mood.id,panCenter:seat?benchCameraView(seat).target:undefined});
@@ -421,7 +421,10 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;
       // A covered scene must not compete with modal input or the foreground game.
       // Leave pending viewport changes intact so resuming draws the correct size.
-      if(s.renderSuspended){clearKeys();updateBenchPrompt('');return;}
+      // Honor reduced motion while reading on CPU renderers; DOM input and
+      // dialogue acknowledgement still use the browser's normal animation frames.
+      renderer.domElement.dataset.readingPaused=String(quality.software&&reducedMotion.matches&&!!s.readingDialogue);
+      if(s.renderSuspended||(quality.software&&reducedMotion.matches&&s.readingDialogue&&!viewport.needsDraw)){clearKeys();updateBenchPrompt('');return;}
       pollRing.visible=pollEdges.visible=!!callbacks.current.pollActive;pollOutlineMaterial.emissiveIntensity=1.5+Math.sin(time*3)*.5;
       const notice=pollNotice.current;if(notice){const point=pollBox.position.clone().add(new THREE.Vector3(0,1.9,0)).project(camera);notice.style.left=`${Math.max(90,Math.min(el.clientWidth-90,(point.x+1)*.5*el.clientWidth))}px`;notice.style.top=`${Math.max(50,(1-point.y)*.5*el.clientHeight)}px`;notice.style.visibility=pollBox.visible&&point.z>=-1&&point.z<=1&&['home','village'].includes(s.mode)&&!s.paused?'visible':'hidden';}
       lifeWorld.update(time,s.villageMembers,s.gardenData);if(!s.inputEnabled||s.mode!=='village')facilityDestination=null;
