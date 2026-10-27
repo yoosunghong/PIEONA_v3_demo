@@ -50,7 +50,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function publish(uid,results=[],notice){io.to(`user:${uid}`).emit('life:state',{...snapshot(uid),results,...(notice?{notice}:{})});}
   function petMembers(room){
     if(villageVisitors.get(room)?.size)ensurePet(room,`resident:${room}`,room);
-    return [...pets.values()].filter(m=>m.villageId===room&&(m.actorKind!=='MOUNT'||JSON.parse(owner(m.ownerId).appearance).ride!=='babyDragon')).map(m=>({...m,nickname:`${owner(m.ownerId).nickname} · ${m.actorKind==='MOUNT'?'아기용 탈것':'펫'}`,runnerBusy:true}));
+    return [...pets.values()].filter(m=>m.villageId===room&&(m.actorKind!=='MOUNT'||JSON.parse(owner(m.ownerId).appearance).ride!=='babyDragon')).map(m=>({...m,nickname:`${owner(m.ownerId).nickname} · ${m.actorKind==='MOUNT'?'아기용 탈것':JSON.parse(owner(m.ownerId).avatar_appearance||'{}').petName||'펫'}`,runnerBusy:true}));
   }
   function ensurePet(uid,key=uid,room=uid){if(!pets.has(key))pets.set(key,{userId:`pet:${uid}`,ownerId:uid,villageId:room,actorKind:'PET',x:1.1,z:0,rotation:0,moving:false,seatId:null,activityState:'Idle'});return pets.get(key);}
   function settle(uid,kind='PLAYER'){

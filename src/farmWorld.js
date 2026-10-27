@@ -1,23 +1,26 @@
 import * as T from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {createRunMotion} from './avatarMotion.mjs';
+import {WALK_SPEED,villageDirection,villageMovementKey} from './villageMovement.mjs';
+import {createVillageTapGesture} from './villageTapMovement.mjs';
+import {dressAvatar} from './worldAssets';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {GARDEN_BEDS,cropGrowth} from '../shared/garden.mjs';
 import {loadAsset} from './avatar';
 
-// Ground anchors match the nine independent beds in the reference environment.
-// Scenery is an art plate; crops, lighting, shadows and the player's avatar render live.
-export const FARM_ART='/images/farm/farm-reference-environment-v2.png';
-export const FARM_SIZE={width:1670,height:942};
-export const FARM_PLOTS=[[800,411],[885,453],[977,498],[709,447],[795,489],[885,539],[622,483],[700,530],[786,581]];
-export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,onReady}){
-  const {width,height}=FARM_SIZE,scene=new T.Scene();
-  const renderer=new T.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));renderer.setSize(width,height);renderer.setClearColor(0,0);renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;host.appendChild(renderer.domElement);
-  renderer.domElement.setAttribute('aria-label','참고 이미지의 농장 위에서 실제로 성장하는 3D 작물과 나의 캐릭터');
-  const unit=71,camera=new T.OrthographicCamera(-width/unit/2,width/unit/2,height/unit/2,-height/unit/2,.1,100);camera.position.set(8,11,10);camera.lookAt(0,0,0);camera.updateMatrixWorld();
+// Plot controls track their 3D ground anchors as the camera moves.
+export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,onReady,onAvatar,onPlayerProject,getInput=()=>({})}){
+  const scene=new T.Scene();scene.background=new T.Color('#c5e1ed');scene.fog=new T.Fog('#c5e1ed',28,65);
+  const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;host.appendChild(renderer.domElement);
+  renderer.domElement.setAttribute('aria-label','3D 농장 · 드래그로 회전, 오른쪽 드래그로 이동, 휠로 확대 · WASD 또는 바닥 터치로 걷기');renderer.domElement.tabIndex=0;
+  const camera=new T.PerspectiveCamera(42,1,.1,100);camera.position.set(11,14,17);
+  const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,0,0);controls.enableDamping=true;controls.minDistance=8;controls.maxDistance=32;controls.maxPolarAngle=Math.PI*.46;controls.minPolarAngle=.2;controls.update();
+  const resize=()=>{const width=host.clientWidth||1,height=host.clientHeight||1;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();};
+  const observer=new ResizeObserver(resize);observer.observe(host);resize();
   scene.add(new T.HemisphereLight('#fff6df','#8f997b',2.45));
   const sun=new T.DirectionalLight('#fff1db',2.5);sun.position.set(-8,17,5);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12});sun.shadow.normalBias=.03;sun.shadow.bias=-.0002;sun.shadow.intensity=.24;scene.add(sun);
   const geometries=[],materials=[],plants=[],cache=new Map(),ray=new T.Raycaster(),plane=new T.Plane(new T.Vector3(0,1,0),0);
-  function ground([x,y]){ray.setFromCamera(new T.Vector2(x/width*2-1,1-y/height*2),camera);return ray.ray.intersectPlane(plane,new T.Vector3());}
   function mat(color){if(!cache.has(color)){const m=new T.MeshStandardMaterial({color,roughness:.95});cache.set(color,m);materials.push(m);}return cache.get(color);}
   function mesh(g,color,x,y,z,parent){geometries.push(g);const o=new T.Mesh(g,mat(color));o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;parent.add(o);return o;}
   const ball=(c,x,y,z,r,p)=>mesh(new T.SphereGeometry(r,12,9),c,x,y,z,p);
@@ -48,24 +51,60 @@ export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,on
     return {root,fruit};
   }
   for(const [index,bed] of GARDEN_BEDS.entries()){
-    const anchor=ground(FARM_PLOTS[index]),group=new T.Group();group.position.copy(anchor);group.userData.plotId=bed.id;scene.add(group);
+    const anchor=new T.Vector3((index%3-1)*2.35,0,(Math.floor(index/3)-1)*2.1),group=new T.Group();group.position.copy(anchor);group.userData.plotId=bed.id;scene.add(group);
+    mesh(new T.BoxGeometry(1.95,.22,1.65),'#af825e',0,-.02,0,group);
+    for(const z of [-.8,.8])mesh(new T.BoxGeometry(2.05,.19,.08),'#d4b18b',0,.12,z,group);
     const hit=new T.Mesh(new T.PlaneGeometry(1.5,1.05),new T.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:T.DoubleSide}));hit.rotation.x=-Math.PI/2;group.add(hit);geometries.push(hit.geometry);materials.push(hit.material);
     plants.push({id:bed.id,index,group,anchor,model:null,cropId:null});
   }
-  const shadow=new T.Mesh(new T.PlaneGeometry(35,30),new T.ShadowMaterial({opacity:.14}));shadow.rotation.x=-Math.PI/2;shadow.position.y=-.015;shadow.receiveShadow=true;scene.add(shadow);geometries.push(shadow.geometry);materials.push(shadow.material);
-  const player=new T.Group();player.position.copy(ground([850,578]));player.rotation.y=3.6;scene.add(player);
-  let dead=false,frame,avatarMaterials=[];
+  mesh(new T.CylinderGeometry(14,14.5,.6,64),'#a8c58c',0,-.4,0,scene);
+  mesh(new T.BoxGeometry(3,.04,23),'#dfceb0',5,-.07,0,scene);
+  mesh(new T.BoxGeometry(22,.04,1.6),'#dfceb0',0,-.06,4.5,scene);
+  for(let i=-6;i<=6;i++)for(const z of [-11,11])mesh(new T.BoxGeometry(.16,1,.16),'#e7d4b3',i*1.65,.4,z,scene);
+  for(const z of [-11,11])for(const y of [.35,.75])mesh(new T.BoxGeometry(20,.13,.12),'#e7d4b3',0,y,z,scene);
+  for(const [x,z] of [[-8,-6],[-9,-1],[-8,6],[8,-7],[9,5]]){mesh(new T.CylinderGeometry(.16,.24,1.8,8),'#9a795d',x,.8,z,scene);ball('#7eac79',x,2.4,z,1.35,scene);ball('#a0bf80',x+.5,2.9,z,.9,scene);}
+  mesh(new T.BoxGeometry(3,2.5,2.8),'#e5d2aa',-5,1.15,-7,scene);
+  const roof=mesh(new T.ConeGeometry(2.7,1.6,4),'#879fac',-5,3.1,-7,scene);roof.rotation.y=Math.PI/4;
+  mesh(new T.BoxGeometry(.8,1.7,.1),'#9d8267',-5,.8,-5.55,scene);
+  const player=new T.Group();player.position.set(2,0,5);player.rotation.y=3.6;scene.add(player);
+  let dead=false,frame,avatarMaterials=[],motion,last=performance.now(),destination=null;
+  const keys=new Set(),direction=new T.Vector3(),gesture=createVillageTapGesture();
   loadAsset(appearance.character||'pio').then(asset=>{
-    if(dead)return;const avatar=clone(asset);const bounds=new T.Box3().setFromObject(avatar),size=bounds.getSize(new T.Vector3());avatar.scale.setScalar(2.05/size.y);const b=new T.Box3().setFromObject(avatar),center=b.getCenter(new T.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatar.traverse(o=>{if(o.isMesh){o.material=o.material.clone();avatarMaterials.push(o.material);}});player.add(avatar);onReady?.();
+    if(dead)return;const avatar=clone(asset);const bounds=new T.Box3().setFromObject(avatar),size=bounds.getSize(new T.Vector3());avatar.scale.setScalar(2.05/size.y);const b=new T.Box3().setFromObject(avatar),center=b.getCenter(new T.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatar.traverse(o=>{if(o.isMesh){o.material=o.material.clone();avatarMaterials.push(o.material);}});dressAvatar(avatar,appearance);player.add(avatar);motion=createRunMotion(avatar,{clip:'Walking'});onReady?.();
   }).catch(()=>{if(!dead){ball('#fff6e6',0,.72,0,.4,player);ball('#8e9b66',0,.23,0,.2,player);onReady?.();}});
   function plotAt(event){const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),camera);for(const hit of ray.intersectObjects(plants.map(p=>p.group),true)){for(let o=hit.object;o;o=o.parent)if(o.userData.plotId)return o.userData.plotId;}return null;}
-  const click=event=>{const id=plotAt(event);if(id)onPlot?.(id);},hover=event=>{renderer.domElement.style.cursor=plotAt(event)?'pointer':'default';};renderer.domElement.addEventListener('click',click);renderer.domElement.addEventListener('pointermove',hover);
-  function render(){if(dead)return;frame=requestAnimationFrame(render);const plots=getPlots(),time=performance.now()/1000;
+  function setRay(event){const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),camera);}
+  const pointerDown=event=>{gesture.down(event);renderer.domElement.focus({preventScroll:true});};
+  const pointerMove=event=>gesture.move(event);
+  const pointerCancel=event=>gesture.cancel(event);
+  const pointerUp=event=>{if(!gesture.up(event)||getInput().blocked)return;setRay(event);
+    if(ray.intersectObject(player,true).length){onAvatar?.();return;}
+    const id=plotAt(event);if(id){onPlot?.(id);return;}
+    const point=ray.ray.intersectPlane(plane,new T.Vector3());if(point){const radius=Math.hypot(point.x,point.z);if(radius>12)point.multiplyScalar(12/radius);destination=point;}
+  };
+  const keyDown=event=>{if(getInput().blocked||!host.closest('.farm-screen')?.contains(document.activeElement))return;const key=villageMovementKey(event);if(key){keys.add(key);destination=null;event.preventDefault();}};
+  const keyUp=event=>{keys.delete((event.code?.startsWith('Key')?event.code.slice(3):event.key).toLowerCase());};
+  const blur=()=>{keys.clear();gesture.reset();};
+  renderer.domElement.addEventListener('pointerdown',pointerDown);renderer.domElement.addEventListener('pointermove',pointerMove);renderer.domElement.addEventListener('pointerup',pointerUp);renderer.domElement.addEventListener('pointercancel',pointerCancel);renderer.domElement.addEventListener('contextmenu',event=>event.preventDefault());
+  window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('blur',blur);
+  const project=point=>{const p=point.clone().project(camera);return {left:(p.x+1)*50,top:(1-p.y)*50,visible:p.z>-1&&p.z<1&&Math.abs(p.x)<1&&Math.abs(p.y)<1};};
+  function render(){if(dead)return;frame=requestAnimationFrame(render);const stamp=performance.now(),dt=Math.min((stamp-last)/1000,.05);last=stamp;const plots=getPlots(),time=stamp/1000,input=getInput();
+    controls.enabled=!input.blocked;controls.update();
+    if(input.blocked){keys.clear();destination=null;}
+    villageDirection(keys,camera,direction,input.stick||{x:0,y:0});
+    if(!direction.lengthSq()&&destination){direction.subVectors(destination,player.position);direction.y=0;if(direction.length()<.12){destination=null;direction.set(0,0,0);}else direction.normalize();}
+    const moving=!input.blocked&&direction.lengthSq()>0;
+    if(moving){player.position.addScaledVector(direction,WALK_SPEED*dt);const radius=Math.hypot(player.position.x,player.position.z);if(radius>12)player.position.multiplyScalar(12/radius);player.rotation.y=Math.atan2(direction.x,direction.z);}
+    motion?.update(time,moving);
+    renderer.domElement.dataset.playerPosition=JSON.stringify({x:player.position.x,z:player.position.z});
+    renderer.domElement.dataset.cameraPosition=JSON.stringify(camera.position.toArray());
+    onPlayerProject?.(project(player.position.clone().add(new T.Vector3(0,2.5,0))));
+    renderer.domElement.dataset.playerScreen=JSON.stringify(project(player.position.clone().add(new T.Vector3(0,1,0))));
     for(const p of plants){const plot=plots.find(plot=>plot.id===p.id),growth=cropGrowth(plot||{},Date.now());
       if(p.cropId!==plot?.cropId){if(p.model)p.group.remove(p.model.root);p.model=plot?.cropId?cropModel(plot.cropId):null;if(p.model)p.group.add(p.model.root);p.cropId=plot?.cropId;}
       if(p.model){p.model.root.scale.setScalar([.38,.38,.68,1][growth.stage]);p.model.root.rotation.z=Math.sin(time*1.4+p.index)*.012;p.model.fruit.visible=growth.stage===3;p.model.fruit.traverse(o=>{if(o.userData.fruit)o.material=mat(growth.state==='Ready'?(plot.cropId==='APPLE'?'#dd897b':plot.cropId==='STRAWBERRY'?'#e17b83':plot.cropId==='FLOWER'?'#f5dba0':'#e7a15f'):plot.cropId==='TOMATO'?'#dfb46f':plot.cropId==='STRAWBERRY'?'#dfb68b':'#a4b779');});}
     }
-    onProject(Object.fromEntries(plants.map(p=>[p.id,{left:FARM_PLOTS[p.index][0]/width*100,top:FARM_PLOTS[p.index][1]/height*100}])));renderer.render(scene,camera);
+    onProject(Object.fromEntries(plants.map(p=>[p.id,project(p.anchor)])));renderer.render(scene,camera);
   }render();
-  return {capture(){renderer.render(scene,camera);return renderer.domElement;},dispose(){dead=true;cancelAnimationFrame(frame);renderer.domElement.removeEventListener('click',click);renderer.domElement.removeEventListener('pointermove',hover);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());avatarMaterials.forEach(m=>m.dispose());sun.shadow.map?.dispose();renderer.dispose();renderer.domElement.remove();}};
+  return {capture(){renderer.render(scene,camera);return renderer.domElement;},dispose(){dead=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',blur);renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointermove',pointerMove);renderer.domElement.removeEventListener('pointerup',pointerUp);renderer.domElement.removeEventListener('pointercancel',pointerCancel);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());avatarMaterials.forEach(m=>m.dispose());sun.shadow.map?.dispose();renderer.dispose();renderer.domElement.remove();}};
 }

@@ -1,3 +1,4 @@
+import {createPortal} from 'react-dom';
 import React,{useEffect,useRef,useState} from 'react';
 import {X,Lock,Sprout,Archive,ChefHat,Sparkles} from 'lucide-react';
 import {StoragePanel} from './Life';
@@ -18,7 +19,7 @@ export default function LifeStudio({context,onClose,...props}){
     const timer=setTimeout(()=>setDisplayed(null),300);return()=>clearTimeout(timer);
   },[context]);
   useEffect(()=>{
-    if(!context)return;
+    if(!context||context==='garden')return;
     const previous=document.activeElement,frame=requestAnimationFrame(()=>back.current?.focus());
     const trap=event=>{
       if(event.key!=='Tab')return;
@@ -32,7 +33,7 @@ export default function LifeStudio({context,onClose,...props}){
   },[context]);
   if(!displayed)return null;
   const Icon=facilityIcons[displayed];
-  if(displayed==='garden')return <GardenStudio {...props} dialog={dialog} back={back} leaving={!context} onClose={onClose}/>;
+  if(displayed==='garden')return createPortal(<GardenStudio {...props} dialog={dialog} back={back} leaving={!context} onClose={onClose}/>,document.querySelector('.world-panel'));
   if(displayed==='kitchen')return <KitchenStudio {...props} dialog={dialog} back={back} leaving={!context} onClose={onClose}/>;
   if(displayed==='storage')return <><InventoryWorldHud viewer={props.viewer} village={props.village} position={props.position}/><section ref={dialog} className={'life-studio life-studio-storage inventory-studio'+(!context?' is-leaving':'')} role="dialog" aria-modal="true" aria-labelledby="life-studio-title" inert={!context}>
     <header className="inventory-banner"><div className="inventory-clouds" aria-hidden="true"/><InventoryIcon id="chest" className="inventory-chest"/><div className="inventory-banner-copy"><h1 id="life-studio-title">마을 보관함</h1><p>마을에서 모은 소중한 아이템들을 보관하세요.</p></div><button ref={back} className="inventory-close" type="button" aria-label="마을로 돌아가기" onClick={onClose}><X size={31}/></button><span className="inventory-sparkle" aria-hidden="true">✦</span></header>

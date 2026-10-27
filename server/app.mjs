@@ -168,7 +168,7 @@ export function createApp(options = {}) {
   });
   function checkRewardPet(userId,look){if((look?.petType===DRAGON_PET||look?.ride===DRAGON_PET)&&!hasDragonReward(userId))fail(403,'설문을 완료하면 아기용 탈것을 받을 수 있어요.');}
   app.patch('/api/me/pet/appearance',auth,(req,res)=>{
-    const data=z.object({petType:z.enum(petTypes.map(p=>p.id)),petColor:z.enum(petColors.map(p=>p.id))}).strict().parse(req.body);
+    const data=z.object({petType:z.enum(petTypes.map(p=>p.id)),petColor:z.enum(petColors.map(p=>p.id)),petName:z.string().trim().max(20).optional()}).strict().parse(req.body);
     checkRewardPet(req.user.id,data);
     const user=userById(req.user.id),look={...profile(user,user.id).avatarAppearance,...data};
     store.run('UPDATE users SET avatar_appearance=? WHERE id=?',JSON.stringify(look),user.id);
@@ -178,7 +178,7 @@ export function createApp(options = {}) {
   app.patch('/api/me/world',auth,(req,res)=>{
     const item=z.object({hidden:z.boolean().optional(),id:z.string().uuid(),type:z.enum(decorations.map(d=>d.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict();
     const sceneryItem=z.object({hidden:z.boolean().optional(),id:z.enum(sceneryDefinitions.map(item=>item.id)),x:z.number().finite(),z:z.number().finite(),rotation:z.number().int().min(0).max(3)}).strict().refine(item=>Math.hypot(item.x,item.z)<=SCENERY_RADIUS,'마을 안에 놓아주세요.');
-    const lookSchema=z.object({petType:z.enum(petTypes.map(p=>p.id)).optional(),petColor:z.enum(petColors.map(p=>p.id)).optional(),character:z.enum(characters.map(c=>c.id)).optional(),ride:z.enum(rides.map(r=>r.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
+    const lookSchema=z.object({petType:z.enum(petTypes.map(p=>p.id)).optional(),petColor:z.enum(petColors.map(p=>p.id)).optional(),petName:z.string().trim().max(20).optional(),character:z.enum(characters.map(c=>c.id)).optional(),ride:z.enum(rides.map(r=>r.id)).optional(),hat:z.enum(hats.map(h=>h.id)),accessory:z.enum(accessories.map(a=>a.id)),color:z.enum(colors)}).strict();
     const point=z.tuple([z.number().finite().min(0).max(1),z.number().finite().min(0).max(1)]);
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.string().max(9).refine(isSignColor),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
     const signSchema=z.object({customColors:z.array(z.string().max(9).refine(isSignColor)).max(MAX_CUSTOM_SIGN_COLORS).optional(),hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
