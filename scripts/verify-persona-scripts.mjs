@@ -18,6 +18,7 @@ let time=Date.parse('2026-10-27T00:00:00Z'),rolls=[],forced=null,generationCalls
 const provider=live?createPersonaProvider():fixtureProvider(),generate=provider.generate,analyze=provider.analyze;
 provider.generate=async p=>{generationCalls++;return generate(p);};provider.analyze=async p=>{analysisCalls++;return analyze(p);};
 const uiEvidence=[],errors=[],versions=[],staticEvidence={},checkpoints=[],providerErrors=[],browserMessages=[];
+let heldDialogueVerified=false;
 const source=readFileSync('server/life.mjs','utf8');
 for(const e of ACTIVE_EVENTS){assert.ok(source.includes(`'${e.id}'`),e.id);staticEvidence[e.id]={trigger:e.trigger,source:e.source,playerAction:e.action,preconditions:e.preconditions,pipeline:'production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM',test:'scripts/verify-persona-scripts.mjs: gameplay cases from registry'};}
 try{
@@ -47,6 +48,10 @@ try{
   const expected=h.runtime.store.all('SELECT id,line FROM pss_executions WHERE displayed_at IS NULL ORDER BY rowid').map(r=>JSON.parse(r.line)).filter(l=>l.version===h.runtime.personaScripts.current(u.id).version);
   for(const execution of expected){
    const bubble=page.locator(`.pss-dialogue[data-execution-id="${execution.id}"]`);await bubble.waitFor({state:'visible'});
+   // Keep the real message open as a reader would; screenshot capture can take
+   // longer than its normal 6.5-second auto-dismiss period on a CPU-only runner.
+   await bubble.hover();
+   if(!heldDialogueVerified){await page.waitForTimeout(6700);assert.equal(await bubble.isVisible(),true,'A message being read must not expire');heldDialogueVerified=true;}
    const actual=await bubble.locator('p').innerText();assert.equal(actual,execution.text);assert.ok(!actual.includes('{'));
    const layout=await bubble.evaluate(el=>{const b=el.getBoundingClientRect(),p=el.querySelector('p');return {visible:b.width>0&&b.height>0&&b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight,unclipped:p.scrollWidth<=p.clientWidth+1&&p.scrollHeight<=p.clientHeight+1,viewport:[innerWidth,innerHeight]};});
    assert.ok(layout.visible,label+' offscreen');assert.ok(layout.unclipped,label+' clipped');
@@ -54,6 +59,7 @@ try{
    const screenshot=`${label.replaceAll('.','-')}-${execution.id}.png`;await page.screenshot({path:join(directory,screenshot)});
    uiEvidence.push({executionId:execution.id,variantId:execution.variantId,...layout,textMatches:true,screenshot});
    await bubble.getByRole('button',{name:'다음 활동 대사'}).click();
+   await bubble.waitFor({state:'hidden'});
   }
  }
  async function updateThroughUI(text){
@@ -91,6 +97,9 @@ try{
  // A real mobile viewport exercises the full UI with the restored version.
  await page.setViewportSize({width:390,height:844});await paths.start();await inspectPending('mobile-restored');
  await page.screenshot({path:join(directory,'mobile-village.png'),fullPage:true});
+ // Leaving the message alone still advances the queue automatically.
+ await page.mouse.move(1,1);await page.evaluate(()=>document.activeElement?.blur());await paths.start();
+ const automatic=page.locator('.pss-dialogue');await automatic.waitFor({state:'visible'});await automatic.waitFor({state:'hidden',timeout:15000});
  assert.deepEqual(errors,[]);
  const executions=h.runtime.store.all('SELECT line FROM pss_executions').map(r=>JSON.parse(r.line));
  const report={createdAt:new Date().toISOString(),provider:provider.name,seed:0,clockStart:'2026-10-27T00:00:00Z',browser:await browser.version(),mode,checkpoints,...scriptCoverage(versions,executions,uiEvidence,staticEvidence),errors,versions,executions,uiEvidence};
