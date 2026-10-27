@@ -3,7 +3,20 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {villageThemes} from '../shared/world.mjs';
-import {sceneMood,sceneView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning,constrainScenePanning,VILLAGE_CAMERA_PAN_RADIUS,VILLAGE_CAMERA_PAN_HEIGHT} from '../src/sceneCamera.mjs';
+import {sceneMood,sceneView,avatarChatView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning,constrainScenePanning,VILLAGE_CAMERA_PAN_RADIUS,VILLAGE_CAMERA_PAN_HEIGHT} from '../src/sceneCamera.mjs';
+
+test('chat camera faces the avatar at face height from its current position and rotation',()=>{
+  for(const rotation of [0,Math.PI/2,Math.PI,-Math.PI/2,.55]){
+    const position=new THREE.Vector3(-3,.39,4),view=avatarChatView(position,rotation);
+    const offset=new THREE.Vector3(...view.position).sub(new THREE.Vector3(...view.target));
+    const forward=new THREE.Vector3(Math.sin(rotation),0,Math.cos(rotation));
+    assert.ok(offset.clone().normalize().distanceTo(forward)<1e-10);
+    assert.ok(Math.abs(offset.length()-5.4)<1e-10);
+    assert.deepEqual(view.target,[-3,2.04,4]);
+    position.x=10;
+    assert.equal(view.target[0],-3,'opening captures the position instead of following movement');
+  }
+});
 
 function rig(){const camera=new THREE.PerspectiveCamera(),controls={target:new THREE.Vector3(1,1.6,-2)};camera.position.set(-6,5,11);return{camera,controls};}
 function villageRig(initialMode='village',options={}){

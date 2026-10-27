@@ -13,7 +13,7 @@ export const preferenceQuestions=[
 ];
 export const CARD_QUESTS=[
   {id:'first-chat',title:'아바타와 첫 대화하기',description:'내 아바타와 한 번 이야기를 나눠요.',goal:1,icon:'💬'},
-  {id:'garden',title:'텃밭 꾸미기',description:'내 텃밭에 씨앗을 심거나 텃밭 시설을 옮겨요.',goal:1,icon:'🌱'},
+  {id:'garden',title:'텃밭 꾸미기',description:'마을의 농장에 들어가 텃밭에 씨앗을 심어요.',goal:1,icon:'🌱'},
   {id:'village',title:'마을 꾸미기',description:'마을에 소품을 배치하고 저장해요.',goal:1,icon:'🏡'},
   {id:'neighbor',title:'다른 마을 아바타와 대화하기',description:'다른 마을을 방문해 아바타와 이야기해요.',goal:1,icon:'🧭'},
   {id:'social',title:'세 가지 새로운 이야기',description:'서로 다른 세 이웃의 아바타와 대화해요.',goal:3,icon:'🤝'},

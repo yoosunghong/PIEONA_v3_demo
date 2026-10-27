@@ -22,3 +22,9 @@
 .avatar-speech{left:64%;top:31%;transform:none;max-width:220px;right:25px}.avatar-speech i{left:16px}@media(max-width:960px){.avatar-speech{left:61%;max-width:185px;right:18px}}@media(max-width:570px){.avatar-speech{left:auto;right:18px;top:24%;max-width:190px;transform:none}.avatar-speech i{left:50%}}
 
 .village-footer .village-visitors{max-width:340px;line-height:1.5;color:#527592;font-size:12px}
+.avatar-chat-prompt{position:absolute;z-index:6;display:flex;align-items:center;gap:12px;transform:translate(-20%,-50%);padding:13px 22px 13px 12px;border:2px solid #fff;border-radius:32px;background:linear-gradient(135deg,#fff,#edf6ff);color:#285a93;font-size:18px;font-weight:800;white-space:nowrap;box-shadow:0 0 18px #a3ceffb0,0 5px 16px #44649b30;cursor:pointer}
+.avatar-chat-prompt::after{content:'';position:absolute;bottom:-9px;left:20px;width:16px;height:16px;background:#f3f8ff;transform:skewY(-30deg);border-radius:0 0 0 4px}
+.avatar-chat-prompt>span{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;background:#5a9ee8;color:#fff;letter-spacing:1px;font-size:14px}
+.avatar-chat-prompt:hover{background:#fff;box-shadow:0 0 24px #a3ceff,0 5px 16px #44649b40}
+.avatar-chat-prompt:focus-visible{outline:3px solid #508ed3;outline-offset:4px}
+@media(max-width:700px){.avatar-chat-prompt{font-size:14px;padding:9px 15px 9px 9px;gap:8px}.avatar-chat-prompt>span{width:29px;height:29px}}

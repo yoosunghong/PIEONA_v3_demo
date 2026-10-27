@@ -119,12 +119,12 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     try{
       if(active(uid,kind))stop(uid,kind,false);
       const member=player;
-      const start={x:member.x,z:member.z};if(action.intent==='COOK_FOOD')plan.target={...start};const distance=Math.hypot(plan.target.x-start.x,plan.target.z-start.z),arrived=clock()+Math.ceil(distance/2.4*1000);
-      const label=action.intent==='COOK_FOOD'?'요리':action.intent==='PLANT_SEED'?'씨앗 심기':'작물 수확';
+      const start={x:member.x,z:member.z};plan.target={...start};const distance=Math.hypot(plan.target.x-start.x,plan.target.z-start.z),arrived=clock()+Math.ceil(distance/2.4*1000);
+      const label=action.intent==='COOK_FOOD'?'요리':action.intent==='PLANT_SEED'?'씨앗 심기':action.intent==='WATER_CROP'?'물주기':'작물 수확';
       jobs.set(jobKey(uid,kind),{op,plan,start,started:clock(),arrived,ends:arrived+(plan.durationMs||2000),label});
       logAction(uid,'life_work_start',{actor:kind,intent:action.intent,operationId:op.id});
       Object.assign(member,{moving:true,seatId:null,jumpStarted:0,activityState:'Moving'});
-      publish(uid);emitVillage(uid);return {ok:true,intent:action.intent,operationId:op.id,reply:`${action.intent==='COOK_FOOD'?'조리대':'텃밭'}로 가서 ${label} 작업을 시작합니다. 완료하면 보관함에 반영됩니다.`,...snapshot(uid)};
+      publish(uid);emitVillage(uid);return {ok:true,intent:action.intent,operationId:op.id,reply:`${label} 작업을 시작합니다. 완료하면 보관함에 반영됩니다.`,...snapshot(uid)};
     }catch(e){gardening.cancel(op);throw e;}
   }
   function execute(uid,raw,requestId=id()){
@@ -143,7 +143,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
         let result;
         try{result=gardening.complete(job.op);}catch(e){gardening.cancel(job.op,'작업 저장에 실패했어. 재료와 작물은 그대로야. 다시 시도해 주세요.');result={ok:false,reply:'작업 저장에 실패했어. 재료와 작물은 그대로야. 다시 시도해 주세요.'};console.error('[life] garden operation failed',e.message);}
         logAction(uid,'life_work_complete',{actor:kind,intent:job.op.intent,operationId:job.op.id,ok:result.ok});
-        if(result.ok){const eventId={PLANT_SEED:'garden.plant.complete',HARVEST_CROP:'garden.harvest.complete',COOK_FOOD:'cooking.complete'}[job.op.intent];personaScripts?.emit(uid,eventId,{},job.op.id);}
+        if(result.ok){const eventId={PLANT_SEED:'garden.plant.complete',HARVEST_CROP:'garden.harvest.complete',COOK_FOOD:'cooking.complete'}[job.op.intent];if(eventId)personaScripts?.emit(uid,eventId,{},job.op.id);}
         for(const item of result.items||[])logAction(uid,'inventory_gain',{actor:kind,operationId:job.op.id,...item});
         for(const item of result.consumed||[])logAction(uid,'inventory_spend',{actor:kind,operationId:job.op.id,...item});
         jobs.delete(key);Object.assign(member,{moving:false,activityState:'Idle'});publish(uid,[],result.reply);changed.add(uid);
@@ -171,6 +171,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     return match.players.map((p,i)=>{const anchor=i===0?second:first,session=insertSession(p.userId,'PLAYER',anchor,false,false,room);Object.assign(people.get(p.userId),{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing',fishingCaught:0,fishingCatch:null});return session;});
   }});
   app.post('/api/me/life/actions',auth,(req,res)=>{const body=z.object({requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);const result=execute(req.user.id,body.action,body.requestId);res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});});
+  app.get('/api/me/farm',auth,(req,res)=>{gardening.ensureSeeds(req.user.id);res.json({ok:true});});
   app.get('/api/me/life',auth,(req,res)=>{res.json({...snapshot(req.user.id),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),inventoryAcquisitions:store.all(`SELECT i.item_id AS itemId,i.quantity,MAX(COALESCE((SELECT MAX(timestamp) FROM acquisition_events a WHERE a.owner_id=i.owner_id AND a.item_id=i.item_id),0),COALESCE((SELECT MAX(timestamp) FROM inventory_changes c WHERE c.owner_id=i.owner_id AND c.item_id=i.item_id AND c.quantity>0),0)) AS lastAcquiredAt FROM inventory_entries i WHERE i.owner_id=?`,req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
     COALESCE(NULLIF(s.actor_name,''),u.nickname) AS acquiredByName,COALESCE(s.actor_kind,'PLAYER') AS actor
     FROM fish_discoveries d JOIN users u ON u.id=d.acquired_by LEFT JOIN acquisition_events e ON e.rowid=(SELECT e2.rowid FROM acquisition_events e2 WHERE e2.owner_id=d.owner_id AND e2.item_id=d.item_id ORDER BY e2.timestamp,e2.rowid LIMIT 1) LEFT JOIN life_sessions s ON s.id=e.session_id WHERE d.owner_id=?`,req.user.id)});});

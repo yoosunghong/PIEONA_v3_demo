@@ -4,7 +4,7 @@ import {CROPS,RECIPES,GARDEN_BEDS} from '../shared/garden.mjs';
 
 // Validated requests from the player's garden and kitchen controls.
 export const lifeActionSchema=z.object({
-  intent:z.enum(['PLANT_SEED','HARVEST_CROP','COOK_FOOD']),
+  intent:z.enum(['PLANT_SEED','WATER_CROP','HARVEST_CROP','COOK_FOOD']),
   quantity:z.number().int().min(1).max(99).optional(),
   actor:z.literal('PLAYER').default('PLAYER'),
   crop:z.enum(CROPS.map(c=>c.id)).optional(),plot:z.enum(GARDEN_BEDS.map(p=>p.id)).optional(),

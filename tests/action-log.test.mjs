@@ -28,7 +28,7 @@ test('actual fishing, gardening, cooking receipts produce factual console action
     const advance=ms=>{time+=ms;runtime.life.tick();};
     socket.emit('village:move',{villageId:uid,x:-.6,z:5.5,rotation:0,moving:false,seatId:null});await new Promise(r=>socket.emit('village:join',{villageId:uid},r));
     assert.equal((await new Promise(r=>socket.emit('life:start',{anchorId:'fishing:1'},r))).ok,true);advance(45000);runtime.life.stop(uid);
-    action({intent:'PLANT_SEED',crop:'HERB'});advance(20000);advance(300000);
+    action({intent:'PLANT_SEED',crop:'HERB'});advance(20000);for(let i=0;i<3;i++){advance(300000);action({intent:'WATER_CROP',plot:'garden:0'});advance(3000);}
     action({intent:'HARVEST_CROP'});advance(20000);
     action({intent:'COOK_FOOD',recipe:'HERB_GRILLED_FISH'});advance(20000);
     await new Promise(r=>socket.emit('village:leave',r));advance(90000);

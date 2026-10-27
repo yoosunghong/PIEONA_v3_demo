@@ -1,10 +1,11 @@
+import {GARDEN_BEDS as FARM_BEDS} from '../shared/garden.mjs';
 import {villageLife} from '../shared/lifeLayout.mjs';
 import * as THREE from 'three';
 
 export const isLifeFocus=mode=>['storage','garden','kitchen'].includes(mode);
 export function lifeFocusView(mode,objectId,aspect=1,village={}){
   const {storage:STORAGE,beds:GARDEN_BEDS,kitchen:KITCHEN}=villageLife(village);
-  const object=mode==='storage'?STORAGE:mode==='kitchen'?KITCHEN:GARDEN_BEDS.find(bed=>bed.id===objectId)||GARDEN_BEDS[1];
+  const object=mode==='storage'?STORAGE:mode==='kitchen'?KITCHEN:FARM_BEDS.find(bed=>bed.id===objectId)||FARM_BEDS[4];
   const distance=Math.max(1,Math.min(2.4,.95/Math.max(.1,aspect)));
   const target=[object.x,mode==='kitchen'?.85:.55,object.z];
   return {position:[object.x+2.5*distance,target[1]+2.9*distance,object.z+4.1*distance],target};

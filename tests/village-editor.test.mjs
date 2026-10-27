@@ -101,7 +101,7 @@ test('pink pebbles can overlap facilities and furniture within the village and r
   assert.ok(pebbles.length>0);assert.equal(new Set(pebbles.map(item=>item.id)).size,pebbles.length);
   const pebble=pebbles[0],items=[...all,{id:'bench-test',type:'bench',x:0,z:0}];
   assert.equal(canPlaceDecoration(items,0,0,pebble.id),true);
-  const garden=all.find(item=>item.id==='scenery:life-garden-0');
+  const garden=all.find(item=>item.id==='scenery:life-fishing');
   assert.equal(canPlaceDecoration(items,garden.x,garden.z,pebble.id),true);
   assert.equal(canPlaceDecoration(items,100,0,pebble.id),false);
   assert.equal(canPlaceDecoration([{...pebble,x:0,z:0}],0,0),true);

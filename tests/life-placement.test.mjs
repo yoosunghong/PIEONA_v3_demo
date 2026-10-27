@@ -8,7 +8,7 @@ import {validSceneryPlacement} from '../shared/scenery.mjs';
 import {canPlaceDecoration} from '../src/villageEditorState.mjs';
 
 test('editor placement keeps fixed life facilities clear even when movable scenery is stored',()=>{
-  for(const point of [...GARDEN_BEDS,...FISHING_ANCHORS,...GARDEN_BEDS.map(b=>({...b.approach,id:b.id+' approach'}))]){
+  for(const point of FISHING_ANCHORS){
     assert.equal(validPlacement(point.x,point.z,[]),false,point.id);
     assert.equal(validSceneryPlacement(point.x,point.z),false,point.id);
     assert.equal(canPlaceDecoration([],point.x,point.z),false,point.id);
@@ -30,7 +30,7 @@ test('world API rejects new objects placed on life facilities and preserves lega
     assert.equal(registration.status,201);
     const cookie=registration.headers.get('set-cookie').split(';')[0],user=(await registration.json()).user;
     const save=async village=>fetch(url+'/api/me/world',{method:'PATCH',headers:{'Content-Type':'application/json',Cookie:cookie},body:JSON.stringify({village})});
-    for(const {x,z} of [...GARDEN_BEDS,...GARDEN_BEDS.map(b=>b.approach)]){
+    for(const {x,z} of FISHING_ANCHORS){
       for(const village of [
         {items:[{id:randomUUID(),type:'bench',x,z,rotation:0}]},
         {sign:{x,z}},

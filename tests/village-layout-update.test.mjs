@@ -28,8 +28,8 @@ test('API saves central signs, movable stage and steps, garden storage, fishing 
     await save({scenery});
     for(let rotation=0;rotation<4;rotation++)await save({scenery:scenery.map(item=>item.id==='life-fishing'?{...item,x:0,z:6.3,rotation,hidden:false}:item)});
     const saved=await save({scenery:scenery.map(item=>item.id==='life-garden-0'?{...item,x:-4,z:3,hidden:false}:item)});
-    assert.equal(villageLife(saved).beds[0].hidden,undefined);
+    assert.deepEqual(villageLife(saved).beds,[]);
     const stored=await save({scenery});
-    assert.equal(villageLife(stored).beds[0].hidden,true);
+    assert.deepEqual(villageLife(stored).beds,[]);
   }finally{await h.close();}
 });

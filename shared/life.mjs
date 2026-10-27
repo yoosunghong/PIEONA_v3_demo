@@ -1,4 +1,4 @@
-import {GARDEN_ITEMS,FOOD_ITEMS} from './garden.mjs';
+import {GARDEN_ITEMS,FOOD_ITEMS,SEED_ITEMS} from './garden.mjs';
 export const FISHING_PERIOD = 45_000;
 export const INTERACTION_REACH = 1.6;
 import {villageLife,lifeFootprint} from './lifeLayout.mjs';
@@ -22,7 +22,7 @@ export const ITEM_DEFINITIONS = [
   ['GOLDEN_BREAM','황금도미','rare','✨','황금빛 비늘을 만난 특별한 날을 기억해요.'],
   ['STAR_RAY','별빛가오리','special','🌟','밤하늘의 별을 닮은 바다의 선물.'],
 ].map(([itemId,name,rarity,icon,description])=>({itemId,name,rarity,icon,description,category:'fish',unit:'마리',stackable:true,usage:'생선구이 · 허브 생선구이 · 해산물 모둠 재료'}));
-export const ALL_ITEMS=[...ITEM_DEFINITIONS,...GARDEN_ITEMS,...FOOD_ITEMS];
+export const ALL_ITEMS=[...ITEM_DEFINITIONS,...GARDEN_ITEMS,...FOOD_ITEMS,...SEED_ITEMS];
 export function rollFish(random=Math.random){
   if(random()>=.7)return null;
   const roll=random(),rarity=roll<.72?'common':roll<.94?'uncommon':roll<.99?'rare':'special';

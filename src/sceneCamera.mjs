@@ -52,4 +52,4 @@ export function advanceCameraTransition(transition,camera,controls,dt){
 }
 
 // Take a single position snapshot; a moving owner never drags the chat camera.
-export function avatarChatView({x=0,y=.39,z=0}={}){return {position:[x+4,y+3.5,z+6],target:[x,y+1.3,z]};}
+export function avatarChatView({x=0,y=.39,z=0}={},rotation=0){return {position:[x+Math.sin(rotation)*5.4,y+1.65,z+Math.cos(rotation)*5.4],target:[x,y+1.65,z]};}

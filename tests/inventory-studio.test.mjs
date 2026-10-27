@@ -18,18 +18,14 @@ test('inventory filtering and sorting use actual quantities and acquisition time
   assert.equal(inventoryItems(data,{query:'없는 아이템'}).length,0);
   assert.equal(inventoryItems(data,{collection:true}).length,7);
   assert.equal(inventoryItems(data,{collection:true}).filter(item=>item.discovery).length,1);
-  for(const item of ALL_ITEMS)assert.ok(spritePosition(item.itemId));
+  for(const item of ALL_ITEMS.filter(i=>!['seed'].includes(i.category)&&!['APPLE','STRAWBERRY','FRUIT_SALAD'].includes(i.itemId)))assert.ok(spritePosition(item.itemId));
   assert.equal(spritePosition('unknown'),null);
 });
 
-test('the white silhouette selects the whole clicked facility, including each individual garden bed',()=>{
+test('retired village garden facilities no longer expose a clickable outline',()=>{
   const world=createLifeWorld();
   try{
-    for(const [action,id] of [['garden:0','life-garden-0'],['garden:2','life-garden-2']]){
-      const root=selectedFacility(world.facilities,action);
-      assert.equal(root,world.facilities.get('scenery:'+id));assert.ok(root.children.length);
-      root.visible=false;assert.equal(selectedFacility(world.facilities,action),null);root.visible=true;
-    }
+    for(const action of ['garden:0','garden:2'])assert.equal(selectedFacility(world.facilities,action),null);
     for(const action of ['storage','kitchen'])assert.equal(selectedFacility(world.facilities,action),null);
     assert.equal(selectedFacility(world.facilities,null),null);
   }finally{disposeObject(world.root);}

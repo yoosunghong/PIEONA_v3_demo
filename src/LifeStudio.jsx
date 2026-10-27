@@ -22,7 +22,7 @@ export default function LifeStudio({context,onClose,...props}){
     const previous=document.activeElement,frame=requestAnimationFrame(()=>back.current?.focus());
     const trap=event=>{
       if(event.key!=='Tab')return;
-      const buttons=[...dialog.current.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')];
+      const buttons=[...(dialog.current?.querySelectorAll('button:not(:disabled),input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex="0"]')||[])].filter(node=>!node.closest('[inert]'));
       const first=buttons[0],last=buttons.at(-1);
       if(event.shiftKey&&document.activeElement===first){event.preventDefault();last?.focus();}
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first?.focus();}

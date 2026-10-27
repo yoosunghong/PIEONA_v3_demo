@@ -8,6 +8,7 @@ import {createVillageTapGesture,villageTapDestination,villageTapStep} from './vi
 import {VILLAGE_SCALE,VILLAGE_RADIUS,WALK_RADIUS,SCENERY_RADIUS} from '../shared/villageSize.mjs';
 import {villageScenery,isScenery,isPinkPebble,pinkPebbles} from '../shared/scenery.mjs';
 import React, { useEffect, useRef, useState } from 'react';
+import {MessageCircle} from 'lucide-react';
 import * as THREE from 'three';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
@@ -49,13 +50,16 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
   const speechNodes=useRef(new Map()),pollNotice=useRef();
   const questionBubble=useRef(),petPromptRef=useRef(false),mountPromptRef=useRef('');
   const [petNearby,setPetNearby]=useState(false);
+  const [avatarSelected,setAvatarSelected]=useState(false);
+  const avatarPrompt=useRef();
+  useEffect(()=>{setAvatarSelected(false);},[mode,chatActive,ownerId,paused]);
   const [mountPrompt,setMountPrompt]=useState('');
   const topicBubble=useRef(),benchToggle=useRef(),benchPromptRef=useRef('');
   const [benchPrompt,setBenchPrompt]=useState('');
   const [lifePrompt,setLifePrompt]=useState('');
   const lifePromptRef=useRef(''),lifeToggle=useRef();
   const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={village,topicGuest,topicLine,onInteract,onWalk,onReady,onPositionChange,movementInput,editor,benches:villageBenches(village),sign:signData,guestbook:guestbookData,items:[...villageScenery(village),...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData),...community]};
-  callbacks.current.fishingDuel=fishingDuel;callbacks.current.pollActive=pollActive;callbacks.current.onPollClick=onPollClick;callbacks.current.villageSpeech=villageSpeech;callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;
+  callbacks.current.fishingDuel=fishingDuel;callbacks.current.pollActive=pollActive;callbacks.current.onPollClick=onPollClick;callbacks.current.villageSpeech=villageSpeech;callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;callbacks.current.avatarSelected=avatarSelected;
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.gardenData=gardenData;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;}},[mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended]);
   // Keep one WebGL context for this mounted scene, including all look previews.
@@ -72,7 +76,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     const world=new THREE.Scene();world.background=new THREE.Color(mood.sky);world.fog=new THREE.FogExp2(mood.sky,mood.id==='default'?.012:.021);
     renderer.domElement.dataset.worldId=crypto.randomUUID();renderer.domElement.dataset.villageTheme=mood.id;
     const camera=new THREE.PerspectiveCamera(38,1,.1,120);camera.position.set(...(portrait?(petPreview?[0,1.15,3.4]:[0,1.65,5.4]):mood.id==='cafe'?[1,4.5,9]:[4.7,3.25,8]));
-    const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.enableZoom=true;controls.minDistance=portrait?3:5;controls.maxDistance=26;controls.minPolarAngle=.18;controls.maxPolarAngle=Math.PI*.49;controls.target.set(...(portrait?(petPreview?[0,.9,0]:[0,1.65,0]):mood.id==='cafe'?[-1.9,1,0]:[0,1.45,0]));
+    const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.enablePan=false;controls.enableZoom=true;controls.minDistance=portrait||callbacks.current.chatActive?3:5;controls.maxDistance=26;controls.minPolarAngle=.18;controls.maxPolarAngle=Math.PI*.49;controls.target.set(...(portrait?(petPreview?[0,.9,0]:[0,1.65,0]):mood.id==='cafe'?[-1.9,1,0]:[0,1.45,0]));
     world.add(new THREE.HemisphereLight(mood.sky,0xabc0d0,mood.ambient));
     const sun=new THREE.DirectionalLight(0xfff3e6,2.8);sun.position.set(-5,12,7);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12,near:1,far:40});sun.shadow.normalBias=.025;sun.shadow.intensity=.55;world.add(sun);
     const rim=new THREE.DirectionalLight(0xcce5ff,mood.id==='default'?.75:1.5);rim.position.set(5,6,-5);world.add(rim);
@@ -168,7 +172,9 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
 
     const particleGeo=new THREE.BufferGeometry();const positions=new Float32Array(90*3);for(let i=0;i<90;i++){positions[i*3]=(rand()-.5)*20;positions[i*3+1]=rand()*8;positions[i*3+2]=(rand()-.5)*18;}particleGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));geometries.push(particleGeo);const particleMat=new THREE.PointsMaterial({color:0xf8e7ba,size:.045,transparent:true,opacity:.65,depthWrite:false});materials.push(particleMat);const particles=new THREE.Points(particleGeo,particleMat);world.add(particles);
     if(portrait){world.background=new THREE.Color(0xeaf5ff);world.fog=null;const pedestal=cyl(1.8,1.9,.12,mat(0xd6e9f9),0,.30,0);pedestal.userData.previewStage=true;}
-    const avatarRoot=new THREE.Group();avatarRoot.position.set(0,.39,0);avatarRoot.userData.action='avatar';world.add(avatarRoot);let mixer,action,characterAsset,hostTag,hostRide,hostPet;const remoteCharacters=new Map(),characterAssets=new Map(),pendingCharacters=new Set();
+    const avatarRoot=new THREE.Group();avatarRoot.position.set(0,.39,0);avatarRoot.userData.action='avatar';world.add(avatarRoot);
+    const selectionRing=mesh(new THREE.TorusGeometry(.65,.025,12,80),mat(0xffffff,{emissive:0x8dcfff,emissiveIntensity:3,transparent:true,opacity:.95,depthWrite:false}),0,.42,0);selectionRing.rotation.x=Math.PI/2;selectionRing.visible=false;
+    const selectionHalo=mesh(new THREE.RingGeometry(.66,.84,80),mat(0xa8d9ff,{emissive:0x80bfff,emissiveIntensity:1.5,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false}),0,.415,0);selectionHalo.rotation.x=-Math.PI/2;selectionHalo.visible=false;let mixer,action,characterAsset,hostTag,hostRide,hostPet;const remoteCharacters=new Map(),characterAssets=new Map(),pendingCharacters=new Set();
     function addNameTag(parent,name){
       const label=String(name||'이웃').slice(0,20),canvas=document.createElement('canvas');
       const ctx=canvas.getContext('2d');ctx.font='600 30px sans-serif';
@@ -244,7 +250,8 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
       if(e.button!==0||!pointerDown||!tapped)return;
       const edit=callbacks.current.editor;
       if(edit){if(edit.busy)return;const point=ground(e);if(edit.tool&&point)edit.onPlace(point);else if(isPinkPebble(edit.selected)&&point)edit.onMove(edit.selected,point);else edit.onSelect(null);return;}
-      ray(e);for(const hit of raycaster.intersectObjects(world.children,true)){let ancestor=hit.object,visible=true;while(ancestor){if(!ancestor.visible){visible=false;break;}ancestor=ancestor.parent;}if(!visible)continue;let obj=hit.object;while(obj){if(!obj.visible)break;if(obj.userData.action){if(obj.userData.action==='storage'||obj.userData.action==='kitchen'||obj.userData.action.startsWith('garden:')||obj.userData.action.startsWith('fishing:'))lifeToggle.current?.(obj.userData.action);else callbacks.current.onInteract?.(obj.userData.action);return;}obj=obj.parent;}}
+      ray(e);for(const hit of raycaster.intersectObjects(world.children,true)){let ancestor=hit.object,visible=true;while(ancestor){if(!ancestor.visible){visible=false;break;}ancestor=ancestor.parent;}if(!visible)continue;let obj=hit.object;while(obj){if(!obj.visible)break;if(obj.userData.action){if(obj.userData.action==='storage'||obj.userData.action==='kitchen'||obj.userData.action.startsWith('garden:')||obj.userData.action.startsWith('fishing:'))lifeToggle.current?.(obj.userData.action);else if(obj.userData.action==='avatar'&&['home','village','chat'].includes(state.current.mode)&&!callbacks.current.chatActive)setAvatarSelected(value=>!value);else callbacks.current.onInteract?.(obj.userData.action);return;}obj=obj.parent;}}
+      setAvatarSelected(false);
       const s=state.current;
       if(portrait||!['home','village'].includes(s.mode)||!(e.pointerType==='touch'||isFoldViewport(window.innerWidth,window.innerHeight)||window.matchMedia('(max-width: 800px), (pointer: coarse)').matches))return;
       if(s.mode!=='village'&&ownerId!==s.viewerId)return;
@@ -263,7 +270,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     function drop(e){const edit=callbacks.current.editor;if(!edit||edit.busy)return;e.preventDefault();const point=ground(e),type=e.dataTransfer.getData('application/pieona-decoration');if(point&&type)edit.onPlace(point,type);}
     const pointerEvents={pointerdown:down,pointermove:move,pointerup:click,pointercancel:cancel,pointerleave:leave,contextmenu:context,dragover,drop};
     for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.addEventListener(name,handler);
-    let focusedToken=callbacks.current.chatFocusToken;
+    let focusedToken=callbacks.current.chatFocusToken,wasChatActive=false,chatReturnPose=null;
     let previousMode=mode,previousSignPose='',cameraTransition=null,returnPose=null,gridOpacity=mode==='edit'?gridStyle.opacity:0,focusedDuel=null;
     worldRef.current.cancelCameraTransition=()=>{cameraTransition=null;};
     const reducedMotion=window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -272,7 +279,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     state.current={mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended};
     function constrainCameraPan(){
       const entry=remoteCharacters.get(state.current?.viewerId),seat=entry?.seatId&&entry.seat;
-      if(!cameraTransition&&state.current?.mode===previousMode)constrainScenePanning(camera,controls,state.current.mode,{portrait,mood:mood.id,panCenter:seat?benchCameraView(seat).target:undefined});
+      if(!cameraTransition&&state.current?.mode===previousMode)constrainScenePanning(camera,controls,state.current.mode,{portrait:portrait||callbacks.current.chatActive,mood:mood.id,panCenter:seat?benchCameraView(seat).target:undefined});
     }
     controls.addEventListener('change',constrainCameraPan);
     const heldKeys=new Set(),direction=new THREE.Vector3();let lastSent=0,jumpRequested=false,seatedReturnPose=null,facilityDestination=null,groundDestination=null;
@@ -353,7 +360,14 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     const resize=()=>{const {width,height}=el.getBoundingClientRect();viewport.resize(width,height);};
     const observer=new ResizeObserver(resize);observer.observe(el);resize();
     let bookOccluders=[],nextOcclusionCheck=0;
-    function renderWorld(){const selected=isLifeFocus(state.current?.mode)?callbacks.current.lifeObjectId:facilityDestination;facilityOutline.render(selectedFacility(lifeWorld.facilities,selected));}
+    function renderWorld(){
+      const selected=isLifeFocus(state.current?.mode)?callbacks.current.lifeObjectId:facilityDestination;
+      const host=remoteCharacters.get(ownerId)?.root||avatarRoot;
+      const selecting=callbacks.current.avatarSelected&&!callbacks.current.chatActive&&!state.current?.paused&&['home','village','chat'].includes(state.current?.mode);
+      selectionRing.visible=selectionHalo.visible=selecting&&host.visible;
+      if(selecting){selectionRing.position.set(host.position.x,.42,host.position.z);selectionHalo.position.copy(selectionRing.position);selectionHalo.position.y-=.005;}
+      facilityOutline.render(selecting?host:selectedFacility(lifeWorld.facilities,selected));
+    }
     function drawFrame(){viewport.draw(()=>{
       if(portrait)for(const child of world.children)child.visible=child===avatarRoot||child.isLight||!!child.userData.previewStage;
       // Home already identifies the avatar in its heading/card. A world-space
@@ -364,6 +378,8 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
       for(const entry of remoteCharacters.values())entry.nameTag.visible=showNames;
       if(state.current?.mode==='topic'&&!cameraTransition){camera.position.set(0,4.3,Math.max(10,6/camera.aspect));controls.target.set(0,1.8,0);controls.update();}
       const question=questionBubble.current,host=remoteCharacters.get(ownerId)?.root||avatarRoot;
+      const prompt=avatarPrompt.current;
+      if(prompt){const point=host.position.clone().add(new THREE.Vector3(1.15,2.1,0)).project(camera);prompt.style.left=`${Math.max(85,Math.min(el.clientWidth-85,(point.x+1)*.5*el.clientWidth))}px`;prompt.style.top=`${Math.max(45,Math.min(el.clientHeight-45,(1-point.y)*.5*el.clientHeight))}px`;prompt.style.visibility=host.visible&&point.z>=-1&&point.z<=1&&Math.abs(point.x)<1&&Math.abs(point.y)<1?'visible':'hidden';}
       if(question){
         const point=host.position.clone().add(new THREE.Vector3(0,3.5,0)).project(camera);
         question.style.visibility=point.z>=-1&&point.z<=1?'visible':'hidden';
@@ -421,14 +437,18 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
         cameraTransition=startCameraTransition(camera,controls,view,reducedMotion.matches?0:1.1);
         previousMode=s.mode;previousSignPose=signPose;if(s.mode!=='village')heldKeys.clear();
       }
+      if(wasChatActive&&!callbacks.current.chatActive){if(!modeChanged&&chatReturnPose)cameraTransition=startCameraTransition(camera,controls,chatReturnPose,reducedMotion.matches?0:.65);chatReturnPose=null;}
+      wasChatActive=callbacks.current.chatActive;
       if(callbacks.current.chatFocusToken!==focusedToken){
         focusedToken=callbacks.current.chatFocusToken;
         if(callbacks.current.chatActive&&!detail){
           const host=remoteCharacters.get(ownerId)?.root||avatarRoot;
-          cameraTransition=startCameraTransition(camera,controls,avatarChatView(host.position),reducedMotion.matches?0:.65);
+          if(!chatReturnPose)chatReturnPose=cameraPose(camera,controls);
+          controls.enableDamping=false;controls.update();controls.enableDamping=true;
+          cameraTransition=startCameraTransition(camera,controls,avatarChatView(host.position,host.rotation.y),reducedMotion.matches?0:.65);
         }
       }
-      const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&!detail&&!dragged&&!cameraTransition;controls.minDistance=detail?1:localEntry?.seatId||localEntry?.sitMotion.active?2.5:portrait?3:5;controls.maxDistance=editing?30:26;configureScenePanning(controls,s.mode,{portrait});
+      const editing=s.mode==='edit';controls.enabled=s.mode!=='topic'&&!detail&&!dragged&&!cameraTransition;controls.minDistance=detail?1:localEntry?.seatId||localEntry?.sitMotion.active?2.5:portrait||callbacks.current.chatActive?3:5;controls.maxDistance=editing?30:26;configureScenePanning(controls,s.mode,{portrait});
       if(cameraTransition&&lifeFocused){const view=lifeFocusView(s.mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village);cameraTransition.to.fromArray(view.position);cameraTransition.toTarget.fromArray(view.target);}
       if(cameraTransition&&advanceCameraTransition(cameraTransition,camera,controls,dt))cameraTransition=null;
       if(lifeFocused&&!cameraTransition){const view=lifeFocusView(s.mode,callbacks.current.lifeObjectId,camera.aspect,callbacks.current.village);camera.position.fromArray(view.position);controls.target.fromArray(view.target);}
@@ -648,5 +668,5 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     else{const offset=camera.position.clone().sub(controls.target),distance=THREE.MathUtils.clamp(offset.length()*(action.type==='in'?.8:1.25),controls.minDistance,controls.maxDistance);camera.position.copy(controls.target).add(offset.setLength(distance));}
     controls.update();
   },[editor?.cameraAction]);
-  return <div className="scene-wrap">{pollActive&&<button ref={pollNotice} className="poll-world-notice" onClick={onPollClick}>🗳️ 투표가 있습니다</button>}{villageSpeech.map(line=><div key={line.id} ref={node=>{if(node)speechNodes.current.set(line.id,node);else speechNodes.current.delete(line.id);}} className={"village-speech "+line.role} role="status"><strong>{line.speaker} · {line.role==='user'?'질문':'AI 답변'}</strong><p>{line.text}</p></div>)}{questionPending&&!paused&&!isLifeFocus(mode)&&mode!=='edit'&&<button ref={questionBubble} className="avatar-question-notice" onClick={onQuestionClick} aria-label="도착한 아바타 질문 보기"><b>!</b><span>질문이 도착했어요</span></button>}{mountPrompt&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="dragon-mount-prompt"><button type="button" onClick={()=>onInteract?.('mount:toggle')}><kbd>F</kbd> {mountPrompt==='dismount'?'아기용에서 내리기':'아기용 타고 비행'}</button></div>}<div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
+  return <div className="scene-wrap">{avatarSelected&&!chatActive&&!paused&&['home','village','chat'].includes(mode)&&<button ref={avatarPrompt} className="avatar-chat-prompt" onClick={()=>onInteract?.('avatar:chat')}><span aria-hidden="true"><MessageCircle size={20}/></span>대화하기</button>}{pollActive&&<button ref={pollNotice} className="poll-world-notice" onClick={onPollClick}>🗳️ 투표가 있습니다</button>}{villageSpeech.map(line=><div key={line.id} ref={node=>{if(node)speechNodes.current.set(line.id,node);else speechNodes.current.delete(line.id);}} className={"village-speech "+line.role} role="status"><strong>{line.speaker} · {line.role==='user'?'질문':'AI 답변'}</strong><p>{line.text}</p></div>)}{questionPending&&!paused&&!isLifeFocus(mode)&&mode!=='edit'&&<button ref={questionBubble} className="avatar-question-notice" onClick={onQuestionClick} aria-label="도착한 아바타 질문 보기"><b>!</b><span>질문이 도착했어요</span></button>}{mountPrompt&&inputEnabled&&!paused&&(mode==='home'||mode==='village')&&<div className="dragon-mount-prompt"><button type="button" onClick={()=>onInteract?.('mount:toggle')}><kbd>F</kbd> {mountPrompt==='dismount'?'아기용에서 내리기':'아기용 타고 비행'}</button></div>}<div className="scene-canvas" ref={mount}/><div className="scene-vignette"/>{lifePrompt&&mode==='village'&&inputEnabled&&!paused&&<div className="life-prompt"><button onClick={()=>lifeToggle.current?.(lifePrompt)}><kbd>E</kbd>{lifePrompt==='storage'?'보관함 열기':lifePrompt==='kitchen'?'요리하기':lifePrompt.startsWith('garden:')?'텃밭 살펴보기':'낚시하기'}</button></div>}{benchPrompt&&mode==='village'&&inputEnabled&&!paused&&<div className={'bench-prompt'+(benchPrompt==='stand'?' is-seated':'')} aria-live="polite"><button type="button" onClick={()=>benchToggle.current?.()}><kbd>C</kbd><span>{benchPrompt==='stand'?'일어나기':'눌러 앉기'}</span></button>{benchPrompt==='stand'&&<small>드래그로 둘러보기 · 휠로 거리 조절</small>}</div>}{mode==='topic'&&topicLine&&<div ref={topicBubble} className="topic-speech" role="status" aria-live="polite" key={topicLine.speakerId+topicLine.text}><strong>{topicLine.speaker} · AI</strong><p>{topicLine.text}</p></div>}{loading&&<div className="scene-loading"><span className="spinner"/>정원에 햇살을 들이는 중…</div>}{error&&<div className="scene-error">{error}</div>}</div>;
 }

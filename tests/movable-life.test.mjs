@@ -21,17 +21,17 @@ function layout(){
 test('facility layouts retain stable identities and transform interactions, work approaches and cameras',()=>{
   const village=layout(),life=villageLife(village);
   assert.deepEqual(life.storage,{id:'storage',x:-5,z:0,rotation:Math.PI/2});
-  assert.ok(Math.abs(life.beds[0].approach.x+4.35)<1e-8);assert.equal(life.beds[0].approach.z,-3.5);
+  assert.deepEqual(life.beds,[]);
   assert.ok(Math.abs(life.kitchen.approach.z+3.05)<1e-8);
   for(const object of [...life.beds,...life.anchors])assert.equal(nearestLifeInteraction(object,[],'me',village).id,object.id);
   assert.equal(nearestLifeInteraction(FISHING_ANCHORS[0],[],'me',village),null);
   assert.equal(inLifeArea(-5,0,village),false);assert.equal(inLifeArea(-1.75,4.65,village),false);
   assert.deepEqual(lifeFocusView('storage',null,1,village).target,[-5,.55,0]);
-  assert.deepEqual(lifeFocusView('garden','garden:0',1,village).target,[-3.5,.55,-3.5]);
+  assert.deepEqual(lifeFocusView('garden','garden:0',1,village).target,[-1.65,.55,-1.65]);
   const items=villageScenery(village);
   for(const def of lifeDefinitions.filter(def=>!['life-storage','life-kitchen'].includes(def.id)))assert.equal(canPlaceDecoration(items,items.find(i=>i.id==='scenery:'+def.id).x,items.find(i=>i.id==='scenery:'+def.id).z,'scenery:'+def.id),true,def.id);
   assert.equal(canPlaceDecoration(items,9,0,'scenery:life-kitchen'),false);
-  assert.equal(canPlaceDecoration(items,-5,0,'scenery:life-garden-0'),true);
+
   const state={past:[],present:villageScenery({}),future:[]},changed=editorHistory(state,{type:'change',items});
   assert.deepEqual(editorHistory(changed,{type:'undo'}).present,state.present);
   assert.deepEqual(editorHistory(editorHistory(changed,{type:'undo'}),{type:'redo'}).present,items);
@@ -47,8 +47,7 @@ test('facility meshes, crops, all four docks and fishing equipment share each ed
       assert.equal(deck.parent,world.facilities.get('scenery:life-fishing'));
       const point=rod.getWorldPosition(new Vector3());assert.ok(Math.hypot(point.x-anchor.x,point.z-anchor.z)<1e-8);
     }
-    let crop;world.root.traverse(part=>{if(part.userData.action==='garden:0')crop=part;});
-    const point=crop.getWorldPosition(new Vector3());assert.equal(point.x,life.beds[0].x);assert.equal(point.z,life.beds[0].z);
+    assert.equal([...world.facilities.keys()].some(id=>id.includes('life-garden')),false);
   }finally{disposeObject(world.root);}
 });
 
@@ -61,9 +60,6 @@ test('saved facilities reach visitors and server fishing, planting and cooking u
     const request=async(path,body,method=body?'POST':'GET')=>{const r=await fetch(url+'/api'+path,{method,headers:{'Content-Type':'application/json',Cookie:cookie},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json()};};
     const village=layout(),life=villageLife(village),save=body=>request('/me/world',{village:body},'PATCH');
     assert.equal((await save({scenery:[{id:'life-storage',x:-1.75,z:4.65,rotation:1}]})).status,200);
-    // Existing scenery suppressed by the original facilities must not block a small move.
-    assert.equal(canPlaceDecoration(villageScenery({}),-4.25,4,'scenery:life-garden-0'),true);
-    const smallMove=await save({scenery:[{id:'life-garden-0',x:-4.25,z:4,rotation:0}]});assert.equal(smallMove.status,200,JSON.stringify(smallMove.body));
     const saved=await save(village);assert.equal(saved.status,200,JSON.stringify(saved.body));assert.deepEqual((await request('/users/'+user.id)).body.user.village.scenery,village.scenery);
     socket=io(url,{transports:['websocket'],extraHeaders:{Cookie:cookie},forceNew:true});await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
     const emit=(event,data={})=>new Promise((resolve,reject)=>socket.timeout(3000).emit(event,data,(error,result)=>error?reject(error):resolve(result)));
@@ -78,7 +74,7 @@ test('saved facilities reach visitors and server fishing, planting and cooking u
     await emit('life:stop');
     const action=action=>request('/me/life/actions',{requestId:randomUUID(),action});
     let result=await action({intent:'PLANT_SEED',actor:'PLAYER',plot:'garden:0',crop:'HERB'});assert.equal(result.body.ok,true,JSON.stringify(result.body));
-    let plan=JSON.parse(runtime.store.one("SELECT plan FROM life_operations WHERE owner_id=? AND status='pending'",user.id).plan);assert.deepEqual(plan.target,life.beds[0].approach);
+    let plan=JSON.parse(runtime.store.one("SELECT plan FROM life_operations WHERE owner_id=? AND status='pending'",user.id).plan);assert.deepEqual(plan.target,{x:0,z:0});
     time+=15000;runtime.life.tick();assert.equal((await request('/me/life')).body.garden.plots.find(p=>p.id==='garden:0').cropId,'HERB');
     runtime.store.run('INSERT INTO inventory_entries VALUES(?,?,?)',user.id,'TOMATO',2);
     result=await action({intent:'COOK_FOOD',actor:'PLAYER',recipe:'TOMATO_SALAD'});assert.equal(result.body.ok,true,JSON.stringify(result.body));

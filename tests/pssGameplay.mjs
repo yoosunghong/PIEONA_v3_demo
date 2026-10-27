@@ -24,14 +24,15 @@ export function gameplay(h,u,socket,setRolls){
  async function job(action){const r=await h.request('/me/life/actions',u,{requestId:randomUUID(),action});assert.equal(r.status,200,JSON.stringify(r.body));h.advance(20000);assert.equal(h.runtime.life.snapshot(u.id).task,null);}
  async function stop(){if(h.runtime.life.active(u.id))await h.emit(socket,'life:stop',{});}
  const plot=()=>h.runtime.life.snapshot(u.id).garden.plots[0];
- async function clearPlot(){const p=plot();if(p.cropId){h.advance(20*60000);await job({intent:'HARVEST_CROP',plot:p.id});}}
+ async function waterPlot(){while(plot().waterCount<3){h.advance(5*60000);await job({intent:'WATER_CROP',plot:plot().id});}}
+ async function clearPlot(){const p=plot();if(p.cropId){await waterPlot();await job({intent:'HARVEST_CROP',plot:p.id});}}
  const cases={
   'fishing.start':start,
   'fishing.result.success':()=>catchFish([0,0,0]),
   'fishing.result.failure':()=>catchFish([.99]),
   'fishing.result.rare':()=>catchFish([0,.96,0]),
   'garden.plant.complete':async()=>{await stop();await clearPlot();await job({intent:'PLANT_SEED',crop:'HERB',plot:plot().id});},
-  'garden.harvest.complete':async()=>{await stop();if(!plot().cropId)await job({intent:'PLANT_SEED',crop:'HERB',plot:plot().id});h.advance(5*60000);await job({intent:'HARVEST_CROP',plot:plot().id});},
+  'garden.harvest.complete':async()=>{await stop();if(!plot().cropId)await job({intent:'PLANT_SEED',crop:'HERB',plot:plot().id});await waterPlot();await job({intent:'HARVEST_CROP',plot:plot().id});},
   'cooking.complete':async()=>{await stop();await start();await catchFish([0,0,0]);await stop();await job({intent:'COOK_FOOD',recipe:'GRILLED_FISH'});}
  };
  return {cases,start,stop,moveToSeat,job};

@@ -8,7 +8,7 @@ import {kitchenCategories,kitchenRecipes,kitchenPlan,recipeDetails} from './kitc
 import './kitchen-studio.css';
 
 const dishCells={GRILLED_FISH:0,HERB_GRILLED_FISH:1,SEAFOOD_PLATTER:2,TOMATO_SALAD:3};
-function KitchenDish({id}){const cell=dishCells[id]??0;return <span aria-hidden="true" className="kitchen-dish-sprite" style={{backgroundPosition:`${cell%2*100}% ${Math.floor(cell/2)*100}%`}}/>;}
+function KitchenDish({id}){if(id==='FRUIT_SALAD')return <span aria-hidden="true" style={{fontSize:72}}>🥣</span>;const cell=dishCells[id]??0;return <span aria-hidden="true" className="kitchen-dish-sprite" style={{backgroundPosition:`${cell%2*100}% ${Math.floor(cell/2)*100}%`}}/>;}
 
 export default function KitchenStudio({dialog,back,leaving,onClose,data,onRetry,onAction,pending,connected}){
   const [category,setCategory]=useState('all'),[query,setQuery]=useState(''),[selected,setSelected]=useState(RECIPES[0].id),[choices,setChoices]=useState({}),[quantity,setQuantity]=useState(1),[message,setMessage]=useState(''),[cookingSince,setCookingSince]=useState(0);

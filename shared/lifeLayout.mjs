@@ -1,11 +1,11 @@
-import {GARDEN_BEDS,KITCHEN} from './garden.mjs';
+import {KITCHEN} from './garden.mjs';
 import {WALK_RADIUS,SCENERY_RADIUS} from './villageSize.mjs';
 
 export const STORAGE={id:'storage',x:-1.75,z:4.65};
 export const FISHING_ANCHORS=[-1.35,-.45,.45,1.35].map((x,i)=>({id:`fishing:${i}`,x,z:6.3,height:.58,rotation:0}));
 export const lifeDefinitions=[
   {id:'life-storage',name:'보관함',x:STORAGE.x,z:STORAGE.z,action:STORAGE.id},
-  ...GARDEN_BEDS.map((bed,i)=>({id:`life-garden-${i}`,name:`텃밭 ${i+1}`,x:bed.x,z:bed.z,action:bed.id})),
+
   {id:'life-kitchen',name:'요리대',x:KITCHEN.x,z:KITCHEN.z,action:KITCHEN.id},
   {id:'life-fishing',name:'낚시터',x:0,z:6.3,action:'fishing'},
 ];
@@ -17,7 +17,7 @@ export function villageLife(village={}){
     const point=p=>({x:(saved?.x??def.x)+(p.x-def.x)*c+(p.z-def.z)*s,z:(saved?.z??def.z)-(p.x-def.x)*s+(p.z-def.z)*c});
     return {...object,...(saved?.hidden?{hidden:true}:{}),...point(object),rotation:(object.rotation||0)+rotation,...(object.approach?{approach:point(object.approach)}:{})};
   }
-  return {storage:transform(STORAGE,'life-storage'),beds:GARDEN_BEDS.map((bed,i)=>transform(bed,`life-garden-${i}`)),kitchen:transform(KITCHEN,'life-kitchen'),anchors:FISHING_ANCHORS.map(anchor=>({...transform(anchor,'life-fishing'),approach:transform({...anchor,z:5.1},'life-fishing')}))};
+  return {storage:transform(STORAGE,'life-storage'),beds:[],kitchen:transform(KITCHEN,'life-kitchen'),anchors:FISHING_ANCHORS.map(anchor=>({...transform(anchor,'life-fishing'),approach:transform({...anchor,z:5.1},'life-fishing')}))};
 }
 export function lifeInteractionObjects(village={}){const {storage,beds,kitchen,anchors}=villageLife(village);return [...beds,...anchors].filter(item=>!item.hidden);}
 

@@ -3,6 +3,7 @@ import {ITEM_DEFINITIONS} from '../shared/life.mjs';
 import {cookingInputs} from '../shared/cooking.mjs';
 
 export const recipeDetails={
+  FRUIT_SALAD:{category:'salad',type:'과일 요리',description:'농장에서 수확한 딸기와 사과를 한 그릇에 담은 달콤한 샐러드예요.'},
   GRILLED_FISH:{category:'grill',type:'생선 요리',description:'갓 잡은 신선한 생선을 노릇하게 구운 고소한 요리예요.'},
   HERB_GRILLED_FISH:{category:'grill',type:'생선 요리',description:'마을에서 자란 향긋한 허브를 곁들여 생선의 풍미를 더했어요.'},
   SEAFOOD_PLATTER:{category:'platter',type:'해산물 요리',description:'서로 다른 세 가지 바다의 맛을 한 접시에 정성껏 담았어요.'},
