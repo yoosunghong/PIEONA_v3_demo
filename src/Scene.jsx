@@ -20,7 +20,7 @@ import {villageBenches,nearestBench,benchExit,benchCameraView,benchInteractionKe
 import './bench.css';
 import {WALK_SPEED,MOTORCYCLE_SPEED,villageDirection,villageMovementKey,villagePlayers,showVillageStandIn,villageJumpHeight} from './villageMovement.mjs';
 import {sceneMood,sceneView,avatarChatView,cameraPose,startCameraTransition,advanceCameraTransition,configureScenePanning,constrainScenePanning} from './sceneCamera.mjs';
-import {createSceneViewport} from './sceneViewport.mjs';
+import {createSceneViewport,sceneGraphicsQuality} from './sceneViewport.mjs';
 import {isFoldViewport,villageFieldOfView} from './foldViewport.mjs';
 import {editorGridStyle} from './sceneGrid.mjs';
 import {canPlaceDecoration,snapPosition} from './villageEditorState.mjs';
@@ -72,7 +72,9 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     const palette=themes[theme]||themes.sage;
     const mood=sceneMood(village.theme);
     let renderer;try{renderer=rendererRef.current??new THREE.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});rendererRef.current=renderer;}catch{setError('3D 화면을 시작할 수 없어요. 브라우저의 하드웨어 가속을 켜주세요.');setLoading(false);return;}
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio,1.75));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=mood.id==='default'?1:1.12;el.appendChild(renderer.domElement);
+    const quality=sceneGraphicsQuality(renderer.getContext(),window.devicePixelRatio);
+    renderer.setPixelRatio(quality.pixelRatio);renderer.shadowMap.enabled=quality.shadows;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=mood.id==='default'?1:1.12;el.appendChild(renderer.domElement);
+    renderer.domElement.dataset.graphicsMode=quality.software?'software':'hardware';
     const world=new THREE.Scene();world.background=new THREE.Color(mood.sky);world.fog=new THREE.FogExp2(mood.sky,mood.id==='default'?.012:.021);
     renderer.domElement.dataset.worldId=crypto.randomUUID();renderer.domElement.dataset.villageTheme=mood.id;
     const camera=new THREE.PerspectiveCamera(38,1,.1,120);camera.position.set(...(portrait?(petPreview?[0,1.15,3.4]:[0,1.65,5.4]):mood.id==='cafe'?[1,4.5,9]:[4.7,3.25,8]));
@@ -417,11 +419,14 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     const clock=new THREE.Clock();let lastPausedRender=-1;
     function updateBenchPrompt(value){if(benchPromptRef.current!==value){benchPromptRef.current=value;setBenchPrompt(value);}}
     function render(){if(disposed)return;frame=requestAnimationFrame(render);const dt=Math.min(clock.getDelta(),.05),time=clock.elapsedTime;const s=state.current;
+      // A covered scene must not compete with modal input or the foreground game.
+      // Leave pending viewport changes intact so resuming draws the correct size.
+      if(s.renderSuspended){clearKeys();updateBenchPrompt('');return;}
       pollRing.visible=pollEdges.visible=!!callbacks.current.pollActive;pollOutlineMaterial.emissiveIntensity=1.5+Math.sin(time*3)*.5;
       const notice=pollNotice.current;if(notice){const point=pollBox.position.clone().add(new THREE.Vector3(0,1.9,0)).project(camera);notice.style.left=`${Math.max(90,Math.min(el.clientWidth-90,(point.x+1)*.5*el.clientWidth))}px`;notice.style.top=`${Math.max(50,(1-point.y)*.5*el.clientHeight)}px`;notice.style.visibility=pollBox.visible&&point.z>=-1&&point.z<=1&&['home','village'].includes(s.mode)&&!s.paused?'visible':'hidden';}
       lifeWorld.update(time,s.villageMembers,s.gardenData);if(!s.inputEnabled||s.mode!=='village')facilityDestination=null;
       if(!s.inputEnabled||!['home','village'].includes(s.mode)){groundDestination=null;walkMarker.visible=false;}
-      if(s.paused){clearKeys();updateBenchPrompt('');if(viewport.needsDraw||!s.renderSuspended&&time-lastPausedRender>.1){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
+      if(s.paused){clearKeys();updateBenchPrompt('');if(viewport.needsDraw||time-lastPausedRender>.1){lastPausedRender=time;controls.update();constrainCameraPan();drawFrame();}return;}
       if(s.mode==='home'&&s.inputEnabled&&ownerId===s.viewerId&&Math.hypot(callbacks.current.movementInput?.current?.x||0,callbacks.current.movementInput?.current?.y||0)>.01)callbacks.current.onWalk?.();
       const lifeFocused=isLifeFocus(s.mode);
       const modeChanged=s.mode!==previousMode,focus=s.mode==='guestbook'?callbacks.current.guestbook:callbacks.current.sign,signPose=lifeFocused?callbacks.current.lifeObjectId:[focus.x,focus.z,focus.rotation].join(',');

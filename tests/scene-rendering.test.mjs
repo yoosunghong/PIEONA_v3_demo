@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {createSceneViewport} from '../src/sceneViewport.mjs';
+import {createSceneViewport,sceneGraphicsQuality} from '../src/sceneViewport.mjs';
 import {editorGridStyle} from '../src/sceneGrid.mjs';
 import {villageThemes} from '../shared/world.mjs';
 
@@ -9,6 +9,19 @@ function rig(){
   const events=[],renderer={setSize:(...size)=>events.push(['resize',...size])},camera={aspect:1,updateProjectionMatrix:()=>events.push(['projection'])};
   return{events,camera,viewport:createSceneViewport(renderer,camera)};
 }
+
+test('CPU-only WebGL avoids expensive shadow passes while hardware rendering keeps its quality',()=>{
+  const context=name=>({getExtension:()=>({UNMASKED_RENDERER_WEBGL:1}),getParameter:()=>name});
+  for(const name of ['ANGLE (Google, Vulkan SwiftShader Device)','Mesa llvmpipe (LLVM 18)','softpipe','Software Rasterizer'])assert.deepEqual(sceneGraphicsQuality(context(name),2),{software:true,shadows:false,pixelRatio:.65});
+  for(const name of ['ANGLE (NVIDIA GeForce RTX)','AMD Radeon Graphics','Intel Iris Xe','Apple M3']){
+    assert.deepEqual(sceneGraphicsQuality(context(name),2),{software:false,shadows:true,pixelRatio:1.75});
+    assert.equal(sceneGraphicsQuality(context(name),1).pixelRatio,1);
+  }
+});
+
+test('restricted renderer metadata and invalid scale values retain a usable default',()=>{
+  for(const context of [{getExtension:()=>null},{getExtension(){throw Error('unavailable');}}])assert.deepEqual(sceneGraphicsQuality(context,NaN),{software:false,shadows:true,pixelRatio:1});
+});
 test('animated viewport notifications never clear a presented frame and coalesce before drawing',()=>{
   const {events,camera,viewport}=rig();
   viewport.resize(800,600);viewport.resize(860.2,620.2);viewport.resize(900,650);

@@ -1,5 +1,12 @@
-// Resizing a WebGL drawing buffer clears its contents. Defer resize notifications
-// until the next draw so the browser can never present that cleared buffer.
+// CPU renderers need a smaller buffer and no shadow pass to keep UI input responsive.
+export function sceneGraphicsQuality(gl,pixelRatio=1){
+  let renderer='';
+  try{const info=gl.getExtension('WEBGL_debug_renderer_info');if(info)renderer=String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL)||'');}catch{}
+  const software=/swiftshader|llvmpipe|softpipe|software rasterizer/i.test(renderer);
+  return {software,shadows:!software,pixelRatio:Math.min(Number.isFinite(pixelRatio)&&pixelRatio>0?pixelRatio:1,software?.65:1.75)};
+}
+
+// Defer buffer resizing until a draw so a cleared canvas is never presented.
 export function createSceneViewport(renderer,camera,{getFieldOfView}={}){
   let pending=null,current=null;
   return{

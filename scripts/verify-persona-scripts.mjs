@@ -17,7 +17,7 @@ if(live){const env=dotenv.config({quiet:true}).parsed||{};for(const key of ['GEM
 let time=Date.parse('2026-10-27T00:00:00Z'),rolls=[],forced=null,generationCalls=0,analysisCalls=0,browser,h,page;
 const provider=live?createPersonaProvider():fixtureProvider(),generate=provider.generate,analyze=provider.analyze;
 provider.generate=async p=>{generationCalls++;return generate(p);};provider.analyze=async p=>{analysisCalls++;return analyze(p);};
-const uiEvidence=[],errors=[],versions=[],staticEvidence={},checkpoints=[],providerErrors=[];
+const uiEvidence=[],errors=[],versions=[],staticEvidence={},checkpoints=[],providerErrors=[],browserMessages=[];
 const source=readFileSync('server/life.mjs','utf8');
 for(const e of ACTIVE_EVENTS){assert.ok(source.includes(`'${e.id}'`),e.id);staticEvidence[e.id]={trigger:e.trigger,source:e.source,playerAction:e.action,preconditions:e.preconditions,pipeline:'production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM',test:'scripts/verify-persona-scripts.mjs: gameplay cases from registry'};}
 try{
@@ -26,13 +26,23 @@ try{
  h.advance=ms=>{time+=ms;h.runtime.life.tick();};
  const u=await prepareAvatar(h,'pss_browser_'+mode),socket=await h.connect(u),paths=gameplay(h,u,socket,v=>rolls=v);
  const base=`http://127.0.0.1:${h.runtime.server.address().port}`;
- browser=await chromium.launch({headless:true,channel:process.env.PSS_BROWSER_CHANNEL||(process.platform==='win32'?'msedge':undefined)});
+ browser=await chromium.launch({headless:true,channel:process.env.PSS_BROWSER_CHANNEL||(process.platform==='win32'?'msedge':undefined),args:process.env.PSS_SOFTWARE_GL==='1'?['--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']:[]});
  const context=await browser.newContext({viewport:{width:1365,height:900},reducedMotion:'reduce'});
  await context.addCookies([{name:'pieona_session',value:u.cookie.split('=')[1],url:base}]);
  page=await context.newPage();page.setDefaultTimeout(20000);page.on('pageerror',e=>errors.push(e.message));
+ page.on('console',message=>{if(['warning','error'].includes(message.type()))browserMessages.push({type:message.type(),text:message.text()});});
+ page.on('crash',()=>browserMessages.push({type:'crash',text:'Browser page crashed'}));
  page.on('response',async r=>{if(r.url().includes('/pss')&&r.status()>=400){const error={status:r.status(),body:await r.text()};providerErrors.push(error);console.log('PSS API failure',error.status,error.body);}});
  await page.addInitScript(({uid,slot})=>{localStorage.setItem('pieona.tutorial.v1.'+uid,'seen');localStorage.setItem('illova.card.seen.'+uid+'.'+slot,slot+':1');localStorage.setItem('pieona.bgm.v1',JSON.stringify({enabled:false,volume:0}));},{uid:u.id,slot:u.activeSlot});
- await page.goto(base+'/?view=village');await page.getByRole('button',{name:'Avatar Update',exact:true}).waitFor();
+ async function villageReady(){
+  await page.getByRole('button',{name:'Avatar Update',exact:true}).waitFor();
+  await page.locator('.scene-canvas canvas').waitFor();
+  // The toolbar appears before FBX/texture decoding finishes on a cold CI runner.
+  await page.locator('.scene-loading').waitFor({state:'hidden',timeout:90000});
+  assert.equal(await page.locator('.scene-error').count(),0,'The village scene failed to load');
+  if(process.env.PSS_SOFTWARE_GL==='1')assert.equal(await page.locator('.scene-canvas canvas').getAttribute('data-graphics-mode'),'software','The software WebGL verification must exercise the CPU renderer');
+ }
+ await page.goto(base+'/?view=village');await villageReady();
  async function inspectPending(label){
   const expected=h.runtime.store.all('SELECT id,line FROM pss_executions WHERE displayed_at IS NULL ORDER BY rowid').map(r=>JSON.parse(r.line)).filter(l=>l.version===h.runtime.personaScripts.current(u.id).version);
   for(const execution of expected){
@@ -76,7 +86,7 @@ try{
  }
  assert.notDeepEqual(versions[0].persona,versions[1].persona);assert.notDeepEqual(versions[0].scripts,versions[1].scripts);
  // Reconnection uses saved active scripts; all unacknowledged lines are recovered by HTTP.
- await page.reload();await page.getByRole('button',{name:'Avatar Update',exact:true}).waitFor();await paths.start();await inspectPending('reconnect');
+ await page.reload();await villageReady();await paths.start();await inspectPending('reconnect');
  const rollback=await h.request('/me/pss/rollback',u,{version:1});assert.equal(rollback.status,200);await paths.start();await inspectPending('rollback');
  // A real mobile viewport exercises the full UI with the restored version.
  await page.setViewportSize({width:390,height:844});await paths.start();await inspectPending('mobile-restored');
@@ -92,7 +102,7 @@ try{
 }catch(e){
  await page?.screenshot({path:join(directory,'failure.png'),fullPage:true}).catch(()=>{});
  const executions=h?.runtime.store.all('SELECT line FROM pss_executions').map(r=>JSON.parse(r.line))||[];
- const failed={createdAt:new Date().toISOString(),mode,status:'FAILED',error:e.message,stack:e.stack,generationCalls,analysisCalls,providerErrors,versions,uiEvidence,errors,dom:await page?.locator('body').innerText().catch(()=>null)};
+ const failed={createdAt:new Date().toISOString(),mode,status:'FAILED',error:e.message,stack:e.stack,generationCalls,analysisCalls,providerErrors,versions,uiEvidence,errors,browserMessages,dom:await page?.locator('body').innerText().catch(()=>null)};
  writeFileSync(join(directory,'failure.json'),JSON.stringify(failed,null,2));
  writeFileSync(join(directory,'coverage.json'),JSON.stringify({...scriptCoverage(versions,executions,uiEvidence,staticEvidence),...failed,failedTests:1},null,2));throw e;
 }
