@@ -56,8 +56,11 @@ try{
    const layout=await bubble.evaluate(el=>{const b=el.getBoundingClientRect(),p=el.querySelector('p');return {visible:b.width>0&&b.height>0&&b.left>=0&&b.right<=innerWidth&&b.top>=0&&b.bottom<=innerHeight,unclipped:p.scrollWidth<=p.clientWidth+1&&p.scrollHeight<=p.clientHeight+1,viewport:[innerWidth,innerHeight]};});
    assert.ok(layout.visible,label+' offscreen');assert.ok(layout.unclipped,label+' clipped');
    await page.waitForFunction(async id=>{const r=await fetch('/api/me/pss/dialogues');const data=await r.json();return !data.lines.some(l=>l.id===id);},execution.id);
-   const screenshot=`${label.replaceAll('.','-')}-${execution.id}.png`;await page.screenshot({path:join(directory,screenshot)});
-   uiEvidence.push({executionId:execution.id,variantId:execution.variantId,...layout,textMatches:true,screenshot});
+   const screenshot=`${label.replaceAll('.','-')}-${execution.id}.png`;
+   // Capture the verified UI node, not an unrelated continuously rendered WebGL
+   // island. Position and viewport clipping are independently checked above.
+   await bubble.screenshot({path:join(directory,screenshot),animations:'disabled',timeout:60000});
+   uiEvidence.push({executionId:execution.id,variantId:execution.variantId,...layout,textMatches:true,screenshot,screenshotScope:'dialogue'});
    await bubble.getByRole('button',{name:'다음 활동 대사'}).click();
    await bubble.waitFor({state:'hidden'});
   }
@@ -68,10 +71,10 @@ try{
   await page.locator('.pss-consent input').check();await page.getByRole('button',{name:'대화로 성향 분석',exact:true}).click();
   const approval=page.getByRole('button',{name:'성향 승인 · 대사 생성',exact:true}),alert=page.locator('.pss-update [role="alert"]');
   await approval.or(alert).first().waitFor({timeout:120000});if(await alert.count())throw new Error(await alert.innerText());
-  await page.screenshot({path:join(directory,`persona-proposal-${versions.length+1}.png`)});
+  await page.screenshot({path:join(directory,`persona-proposal-${versions.length+1}.png`),timeout:60000});
   await page.getByRole('button',{name:'성향 승인 · 대사 생성',exact:true}).click();
   await page.getByRole('button',{name:'검증된 버전 적용',exact:true}).or(alert).first().waitFor({timeout:120000});if(await alert.count())throw new Error(await alert.innerText());
-  await page.screenshot({path:join(directory,`script-comparison-${versions.length+1}.png`),fullPage:true});
+  await page.screenshot({path:join(directory,`script-comparison-${versions.length+1}.png`),fullPage:true,timeout:60000});
   await page.getByRole('button',{name:'검증된 버전 적용',exact:true}).click();
   await page.waitForFunction(()=>!document.querySelector('.pss-comparison'));
   const active=(await h.request('/me/pss',u)).body;validateScripts(active.scripts);assert.ok(active.version>versions.length);
@@ -96,7 +99,7 @@ try{
  const rollback=await h.request('/me/pss/rollback',u,{version:1});assert.equal(rollback.status,200);await paths.start();await inspectPending('rollback');
  // A real mobile viewport exercises the full UI with the restored version.
  await page.setViewportSize({width:390,height:844});await paths.start();await inspectPending('mobile-restored');
- await page.screenshot({path:join(directory,'mobile-village.png'),fullPage:true});
+ await page.screenshot({path:join(directory,'mobile-village.png'),fullPage:true,timeout:60000});
  // Leaving the message alone still advances the queue automatically.
  await page.mouse.move(1,1);await page.evaluate(()=>document.activeElement?.blur());await paths.start();
  const automatic=page.locator('.pss-dialogue');await automatic.waitFor({state:'visible'});await automatic.waitFor({state:'hidden',timeout:15000});
