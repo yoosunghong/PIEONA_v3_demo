@@ -12,7 +12,7 @@ import {reconcileExplorationPosition,withinExplorationPrediction} from './explor
 
 // A live 3D field with reference-matched tree cutouts. Gatherable objects, water,
 // foliage and companions animate and remain independently selectable.
-export function createExplorationWorld(host,{getState,onMove,onTarget,onInteract,onProject,onReady,onError,getBlocked,appearance={}}){
+export function createExplorationWorld(host,{getState,onMove,onTarget,onFriend,onInteract,onProject,onReady,onError,getBlocked,appearance={}}){
  let dead=false,frame,last=performance.now(),clock=0,moveSent=0,selected='tree-1',goal=null,zoom=1;
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const scene=new T.Scene();scene.background=new T.Color('#a4c0a5');scene.fog=new T.Fog('#b6ceb6',32,65);
@@ -116,7 +116,13 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onInteract
  function sprout(color,slime=false){const g=new T.Group();const body=new T.Group();g.add(body);const coat=slime?mats.slime:mat(color);ball(coat,body,0,.48,0,.52,.5,.43);ball(coat,body,0,.25,.07,.55,.25,.43);
   for(const s of [-1,1]){ball(mats.dark,body,s*.17,.54,.39,.045,.065,.024);ball(mats.cream,body,s*.17-.012,.56,.414,.013,.018,.008);ball(mats.blush,body,s*.3,.4,.37,.065,.035,.018);if(!slime)ball(coat,body,s*.24,.1,.1,.13,.12,.16);const leaf=ball(mats.leaf,body,s*.17,1.02,0,.22,.07,.11);leaf.rotation.z=s*.4;}
   const mouth=new T.QuadraticBezierCurve3(new T.Vector3(-.055,.43,.425),new T.Vector3(0,.38,.44),new T.Vector3(.055,.43,.425));const geo=new T.TubeGeometry(mouth,10,.009,5,false);geometries.push(geo);mesh(geo,mats.dark,body);contact(g,.65);g.userData.body=body;return g;}
- const friend=sprout('#fff8eb');friend.scale.setScalar(1.3);scene.add(friend);friend.position.set(state.companion.x,0,state.companion.z);
+ const friend=new T.Group();scene.add(friend);friend.position.set(state.companion.x,0,state.companion.z);
+ let friendAvatar=null,friendMotion=null,friendKey='';
+ function syncFriend(s){const look=s.companion.profile?.appearance;if(!look)return;const key=JSON.stringify(look);if(key===friendKey)return;friendKey=key;
+  loadAsset(look.character||'pio').then(asset=>{if(dead||friendKey!==key)return;if(friendAvatar)friend.remove(friendAvatar);friendAvatar=clone(asset);const size=new T.Box3().setFromObject(friendAvatar).getSize(new T.Vector3());friendAvatar.scale.setScalar(3.55/size.y);const bounds=new T.Box3().setFromObject(friendAvatar),center=bounds.getCenter(new T.Vector3());friendAvatar.position.set(-center.x,-bounds.min.y,-center.z);friend.add(friendAvatar);dressAvatar(friendAvatar,look);friendMotion=createRunMotion(friendAvatar);}).catch(()=>{friendKey='';});
+ }
+ const friendTool=new T.Group();friendTool.position.set(.6,1.25,.5);friend.add(friendTool);cyl(mats.bark,friendTool,0,.1,0,.045,.8);box(mats.stone,friendTool,.13,.5,0,.4,.28,.11);friendTool.visible=false;let friendSwingAt=-10;
+ syncFriend(state);
  const slime=sprout('#f1d8d7',true);slime.userData.nodeId='slime-1';scene.add(slime);roots.set('slime-1',slime);
  const player=group(state.position.x,state.position.z);contact(player,.8);let motion=null,avatar=null,lastArea=state.area;
  const tool=new T.Group();tool.position.set(.6,1.25,.5);player.add(tool);tool.visible=false;const handle=cyl(mats.bark,tool,0,.1,0,.045,.8);handle.rotation.z=-.2;const blade=box(mats.stone,tool,.13,.5,0,.4,.28,.11);blade.rotation.z=-.15;
@@ -129,6 +135,7 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onInteract
  function keyDown(e){if(isTyping(e)||getBlocked())return;if(['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight'].includes(e.code)){e.preventDefault();keys.add(e.code);goal=null;}}
  function keyUp(e){keys.delete(e.code);}const blur=()=>{keys.clear();joystick={x:0,z:0};};
  function pointerDown(e){if(getBlocked())return;const r=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
+  if(getState().companion.enabled&&raycaster.intersectObject(friend,true).length){goal=null;onFriend?.();return;}
   const hit=raycaster.intersectObjects([...roots.values()],true).find(h=>{let o=h.object;while(o&&!o.userData.nodeId)o=o.parent;return o&&getState().nodes.find(n=>n.id===o.userData.nodeId&&n.hp>0);});
   if(hit){let o=hit.object;while(o&&!o.userData.nodeId)o=o.parent;selected=o.userData.nodeId;onTarget(selected);const n=getState().nodes.find(n=>n.id===selected);if(distance(player.position,n)<2.05)onInteract(selected);else goal={x:n.x,z:n.z,nodeId:n.id};}
   else{const p=new T.Vector3();if(raycaster.ray.intersectPlane(plane,p)&&walkable(p.x,p.z))goal={x:p.x,z:p.z};}
@@ -148,20 +155,21 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onInteract
   // The final resting position is also synchronized, not just movement frames.
   if(!moving&&now-moveSent>320&&distance(player.position,s.position)>.035){onMove({x:player.position.x,z:player.position.z});moveSent=now;}
   if(motion&&avatar)avatar.position.y=motion.update(clock,moving);else if(avatar&&!reduced)avatar.position.y=Math.sin(clock*2)*.025;
-  friend.visible=s.companion.enabled&&active;friend.position.x=T.MathUtils.damp(friend.position.x,s.companion.x,8,dt);friend.position.z=T.MathUtils.damp(friend.position.z,s.companion.z,8,dt);friend.userData.body.position.y=reduced?0:Math.abs(Math.sin(clock*3))*.06;
+  friend.visible=s.companion.enabled&&active;friend.position.x=T.MathUtils.damp(friend.position.x,s.companion.x,8,dt);friend.position.z=T.MathUtils.damp(friend.position.z,s.companion.z,8,dt);syncFriend(s);const friendMoving=Math.hypot(friend.position.x-s.companion.x,friend.position.z-s.companion.z)>.03;if(friendMoving)friend.rotation.y=Math.atan2(s.companion.x-friend.position.x,s.companion.z-friend.position.z);if(friendMotion&&friendAvatar)friendAvatar.position.y=friendMotion.update(clock,friendMoving);
   for(const n of s.nodes){const g=roots.get(n.id);if(!g)continue;g.visible=n.hp>0;if(n.type==='slime'){g.position.set(n.x,0,n.z);g.userData.body.scale.y=reduced?1:1+Math.sin(clock*2.4)*.055;g.userData.body.position.y=reduced?0:Math.max(0,Math.sin(clock*2.4))*.09;}}
   const target=s.nodes.find(n=>n.id===selected&&n.hp>0);ring.visible=!!target&&active;if(target)ring.position.set(target.x,.03,target.z);
   for(const {object,phase,base}of canopies){if(!reduced)object.position.x=base.x+Math.sin(clock*.7+phase)*.027;object.children.forEach(o=>{if(o.userData.outline){let p=object.parent;o.visible=p.userData.nodeId===selected;}});}
   for(const g of treeViews){if(g.userData.spriteOutline){g.userData.spriteOutline.visible=g.userData.nodeId===selected;const sway=reduced?0:Math.sin(clock*.65+g.id)*.018;g.userData.treeSprite.position.x=sway;g.userData.spriteOutline.position.x=sway;}}
   if(!reduced){for(const {object,speed,phase}of petals){object.position.y-=dt*speed;object.position.x+=Math.sin(clock*.6+phase)*dt*.15;object.rotation.z+=dt*.3;if(object.position.y<.05)object.position.y=6;}waters.forEach((o,i)=>{if(i)o.position.z+=Math.sin(clock*.7+i)*dt*.02;});}
-  const hit=s.events.filter(e=>e.kind==='hit').at(-1);if(hit&&hit.id!==lastHit){lastHit=hit.id;const g=roots.get(hit.target);if(g){effects.push({g,start:clock,rotation:g.rotation.z});for(let i=0;i<chips.length;i++){const o=chips[i];o.visible=true;o.position.set(g.position.x,.6,g.position.z);o.scale.setScalar(.025+(i%3)*.012);o.userData={start:clock,x:g.position.x,z:g.position.z};}}if(hit.actor==='PLAYER'&&avatar){avatar.rotation.z=-.17;swingAt=clock;}}
+  const hit=s.events.filter(e=>e.kind==='hit').at(-1);if(hit&&hit.id!==lastHit){lastHit=hit.id;const g=roots.get(hit.target);if(g){effects.push({g,start:clock,rotation:g.rotation.z});for(let i=0;i<chips.length;i++){const o=chips[i];o.visible=true;o.position.set(g.position.x,.6,g.position.z);o.scale.setScalar(.025+(i%3)*.012);o.userData={start:clock,x:g.position.x,z:g.position.z};}}if(hit.actor==='COMPANION'&&friendAvatar){friendAvatar.rotation.z=-.17;friendSwingAt=clock;}if(hit.actor==='PLAYER'&&avatar){avatar.rotation.z=-.17;swingAt=clock;}}
   tool.visible=clock-swingAt<.4;tool.rotation.z=-Math.sin((clock-swingAt)*Math.PI/.4)*1.5;
   for(let i=0;i<chips.length;i++){const o=chips[i],t=clock-(o.userData.start||-10);if(t>.6){o.visible=false;continue;}const a=i*2.399;o.position.set(o.userData.x+Math.cos(a)*t*2,.6+t*1.4-t*t*3,o.userData.z+Math.sin(a)*t*2);o.rotation.x+=dt*3;}
   for(let i=effects.length-1;i>=0;i--){const e=effects[i],t=clock-e.start;if(t>.4){e.g.rotation.z=e.rotation;effects.splice(i,1);}else if(!reduced){e.g.rotation.z=e.rotation+Math.sin(t*38)*.035*(1-t/.4);if(e.g.userData.treeSprite){e.g.userData.treeSprite.position.x+=Math.sin(t*38)*.08*(1-t/.4);e.g.userData.spriteOutline.position.x=e.g.userData.treeSprite.position.x;}}}
+  friendTool.visible=clock-friendSwingAt<.35;friendTool.rotation.z=Math.sin((clock-friendSwingAt)*12)*.5;if(friendAvatar)friendAvatar.rotation.z=T.MathUtils.damp(friendAvatar.rotation.z,0,8,dt);
   if(avatar)avatar.rotation.z=T.MathUtils.damp(avatar.rotation.z,0,8,dt);
   // Soft camera follow keeps the entire clearing composed like the reference.
   const cx=T.MathUtils.clamp(player.position.x*.3,-2,2),cz=T.MathUtils.clamp((player.position.z-2.9)*.25,-1.5,1.5);camera.position.x=T.MathUtils.damp(camera.position.x,cx,2,dt);camera.position.z=T.MathUtils.damp(camera.position.z,19+cz,2,dt);camera.lookAt(camera.position.x,.3,camera.position.z-21);
-  onProject({nodes:Object.fromEntries(s.nodes.map(n=>[n.id,{label:project(n.x+(n.type==='wood'?.7:0),n.type==='wood'?4.5:n.type==='stone'?2.5:n.type==='slime'?2:1.7,n.z),prompt:project(n.x+(n.type==='wood'?1.1:n.type==='stone'?1.8:.8),n.type==='wood'?1.7:n.type==='stone'?.25:.5,n.z+.1)}])),player:project(player.position.x,2.7,player.position.z),friend:project(friend.position.x,1.6,friend.position.z)});
+  onProject({nodes:Object.fromEntries(s.nodes.map(n=>[n.id,{label:project(n.x+(n.type==='wood'?.7:0),n.type==='wood'?4.5:n.type==='stone'?2.5:n.type==='slime'?2:1.7,n.z),prompt:project(n.x+(n.type==='wood'?1.1:n.type==='stone'?1.8:.8),n.type==='wood'?1.7:n.type==='stone'?.25:.5,n.z+.1)}])),player:project(player.position.x,2.7,player.position.z),friend:project(friend.position.x,3.8,friend.position.z)});
   composer.render();
  }
  frame=requestAnimationFrame(animate);

@@ -13,7 +13,7 @@ import {assembleContext} from '../server/ai.mjs';
 import {scriptCoverage} from '../shared/pssCoverage.mjs';
 
 const answer=async()=>({reply:'테스트 대화예요.',emotion:'calm',memories:[],provider:'fixture'});
-test('all active registry events have production source hooks, gameplay cases and UI wiring; paused companions remain unsupported',()=>{
+test('all active registry events have production source hooks, gameplay cases and UI wiring; exploration request templates remain outside generated activity coverage',()=>{
  const source=readFileSync(new URL('../server/life.mjs',import.meta.url),'utf8'),ui=readFileSync(new URL('../src/main.jsx',import.meta.url),'utf8');
  for(const e of ACTIVE_EVENTS){assert.ok(source.includes(`'${e.id}'`),e.id);assert.ok(e.preconditions.length);assert.ok(e.trigger);assert.equal(e.variants,3);}
  assert.equal(ACTIVE_EVENTS.length,7);assert.equal(EVENT_REGISTRY.find(e=>e.id==='request.follow.start').active,false);

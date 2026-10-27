@@ -18,5 +18,12 @@
 @media(prefers-reduced-motion:reduce){.word-chain-game *{animation:none!important;transition:none!important}}
 .chain-seat-pages{position:absolute;right:2%;bottom:20%;z-index:8;display:flex;align-items:center;gap:12px;padding:7px 12px;border-radius:20px;background:#fffffff2;color:#566994;font-size:14px;font-weight:700}.chain-seat-pages button{border:0;background:#e6ecff;border-radius:50%;width:28px;height:28px;color:#6575bf;font-size:23px;line-height:1}
 .chain-seat-bubble{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
+.chain-seat.is-me .chain-seat-name{border:2px solid #6977ff;background:#eef0ff}
+.chain-seat.active .chain-seat-avatar{filter:drop-shadow(0 0 16px #ffe06b)}
+.chain-seat.active .chain-seat-bubble{background:#fff1a6;color:#584011;border:2px solid #e5b846}
+.word-chain-game.my-turn .chain-turn-banner{color:#354aa6;font-weight:900;text-shadow:0 1px 5px white}
+.word-chain-game.my-turn .chain-game-form{box-shadow:0 0 0 4px #7f91ff,0 8px 35px #5869e455;animation:chain-turn-open .25s ease-out}
+.word-chain-game:not(.my-turn) .chain-input-wrap{opacity:.65}
+@keyframes chain-turn-open{from{transform:translateY(12px);opacity:.5}to{transform:translateY(0);opacity:1}}
 @media(max-width:700px){.chain-seat:nth-child(6n+5){--mobile-y:80%}.chain-seat-pages{right:3%;bottom:14.5%;gap:7px;padding:4px 8px;font-size:11px}.chain-seat-pages button{width:23px;height:23px;font-size:20px}}
 @media(max-width:700px){.chain-circle[data-count="2"] .chain-seat:first-child{--mobile-x:17%;--mobile-y:50%}.chain-circle[data-count="2"] .chain-seat:nth-child(2){--mobile-x:83%;--mobile-y:50%}}

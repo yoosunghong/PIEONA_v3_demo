@@ -463,7 +463,7 @@ export function createApp(options = {}) {
   const busy=(userId,exceptInvite)=>wordGames.busy(userId)||life.busy(userId)||crabs.busy(userId)||volleys.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started)||[...invites.values()].some(i=>i.id!==exceptInvite&&invitePlayers(i).some(p=>p.userId===userId));
   const personaScripts=installPersonaScripts({app,store,auth,limiter:aiLimiter,io,provider:options.personaProvider,testing:!!options.testing,forceVariant:options.pssForceVariant});
   const life=installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction,personaScripts,clock:options.lifeClock,random:options.lifeRandom});
-  installExploration({app,store,auth,logAction,clock:options.explorationClock,random:options.explorationRandom});
+  installExploration({app,store,auth,personaScripts,logAction,clock:options.explorationClock,random:options.explorationRandom});
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
   const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance:user=>profile(user,user.id).appearance,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
   const polls=installVillagePolls({app,io,store,auth,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,clock:options.socialClock});

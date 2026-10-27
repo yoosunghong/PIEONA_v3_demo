@@ -7,7 +7,7 @@ import {drawVolley,drawVolleyCourt} from './volleyCanvas';
 import GameReplay,{useGameRematch} from './GameReplay';
 import './volleyball.css';
 
-export default function Volleyball({target,me,notify,onReward,anonymous,socket,race,onSoloReplay,autoStart=false}){
+export default function Volleyball({target,me,notify,onReward,anonymous,socket,race,onSoloReplay,onHome,autoStart=false}){
   const canvas=useRef(),keys=useRef(new Set()),engine=useRef({active:false}),live=useRef({});
   const [status,setStatus]=useState('ready'),[snapshot,setSnapshot]=useState(()=>newVolleyGame(race?.players.map(p=>p.userId)||[me.id,'ai'])),[result,setResult]=useState(null),[error,setError]=useState(''),[connected,setConnected]=useState(!!socket?.connected);
   live.current={notify,onReward,status,me,race};
@@ -15,10 +15,11 @@ export default function Volleyball({target,me,notify,onReward,anonymous,socket,r
   const ownSide=snapshot.players.findIndex(p=>p.id===me.id);
   const rematch=useGameRematch({race,socket,gameId:engine.current.game?.id,notify});
   function input(){const k=keys.current;return {move:(k.has('KeyD')||k.has('ArrowRight')?1:0)-(k.has('KeyA')||k.has('ArrowLeft')?1:0),jump:k.has('KeyW')||k.has('ArrowUp'),spike:k.has('Space')||k.has('KeyZ')};}
-  function send(){const e=engine.current;if(!e.game||e.snapshot?.ended||e.interrupted||!socket?.connected)return;
+  function send(reliable=true){const e=engine.current;if(!e.game||e.snapshot?.ended||e.interrupted||!socket?.connected)return;
     const now=performance.now(),packet={id:e.game.id,...input(),seq:++e.seq};predictVolleyInput(e.client,packet,now);
-    if(now-(e.lastSync??-Infinity)>=250){e.lastSync=now;socket.emit('volley:input',packet,response=>{if(e.active&&e.game?.id===packet.id&&response?.ok)syncVolleyClock(e.client,response.elapsed,now,performance.now());});}
-    else socket.emit('volley:input',packet);
+    const channel=reliable?socket:socket.volatile;
+    if(now-(e.lastSync??-Infinity)>=250){e.lastSync=now;channel.timeout(1500).emit('volley:input',packet,(error,response)=>{if(!error&&e.active&&e.game?.id===packet.id&&response?.ok)syncVolleyClock(e.client,response.elapsed,now,performance.now());});}
+    else channel.emit('volley:input',packet);
   }
   function begin(g){const e=engine.current,now=performance.now();keys.current.clear();Object.assign(e,{game:g,snapshot:g.snapshot,client:newVolleyClient(g,me.id,now),received:now,seq:0,lastSync:-Infinity,lastHud:now,finishing:false,finished:false,interrupted:false});setSnapshot(g.snapshot);setResult(null);setError('');setStatus('playing');}
   async function start(){
@@ -53,21 +54,23 @@ export default function Volleyball({target,me,notify,onReward,anonymous,socket,r
     function up(event){if(supported.includes(event.code)){event.preventDefault();keys.current.delete(event.code);send();}}
     function clear(){keys.current.clear();send();}function hidden(){if(document.hidden)clear();}
     window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',clear);document.addEventListener('visibilitychange',hidden);
-    const heartbeat=setInterval(send,100);let polling=false;
+    const heartbeat=setInterval(()=>send(false),100);let polling=false;
     const poll=setInterval(async()=>{const e=engine.current;if(!e.game||e.finished||polling||performance.now()-e.received<1200)return;polling=true;try{const g=await api(`/volley-games/${e.game.id}/state`);receive({roomId:g.roomId,...g.snapshot});}catch(err){if(e.active)setError(err.message);}finally{polling=false;}},1500);
     return()=>{clear();clearInterval(heartbeat);clearInterval(poll);window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',clear);document.removeEventListener('visibilitychange',hidden);};
   },[status,socket]);
   useEffect(()=>{
-    let frame;const c=canvas.current.getContext('2d'),backdrop=document.createElement('canvas');backdrop.width=960;backdrop.height=540;drawVolleyCourt(backdrop.getContext('2d'));
+    let frame;const surface=canvas.current,c=surface.getContext('2d'),backdrop=document.createElement('canvas');backdrop.width=1920;backdrop.height=1080;const background=backdrop.getContext('2d');background.scale(2,2);drawVolleyCourt(background);
+    const resize=()=>{const rect=surface.getBoundingClientRect(),scale=Math.min(2,window.devicePixelRatio||1);surface.width=Math.max(960,Math.round(rect.width*scale));surface.height=Math.round(surface.width*540/960);};
+    const observer=new ResizeObserver(resize);observer.observe(surface);resize();
     const preview=newVolleyGame(participants.map(p=>p.userId));
-    function render(){const e=engine.current;if(!document.hidden){const s=e.client&&!e.interrupted?volleyFrame(e.client,performance.now()):e.snapshot||preview;drawVolley(c,s,{names,ownId:me.id,backdrop});}frame=requestAnimationFrame(render);}
-    render();return()=>cancelAnimationFrame(frame);
+    function render(){const e=engine.current;if(!document.hidden){c.setTransform(surface.width/960,0,0,surface.height/540,0,0);const s=e.client&&!e.interrupted?volleyFrame(e.client,performance.now()):e.snapshot||preview;drawVolley(c,s,{names,ownId:me.id,backdrop});}frame=requestAnimationFrame(render);}
+    render();return()=>{cancelAnimationFrame(frame);observer.disconnect();};
   },[me.id,participants.map(p=>`${p.userId}:${p.nickname}`).join('|')]);
   function touch(code,pressed,event){event.preventDefault();if(pressed){event.currentTarget.setPointerCapture(event.pointerId);keys.current.add(code);}else keys.current.delete(code);send();}
   function ready(){setStatus('waiting');setError('');socket?.timeout(5000).emit('runner:ready',{id:race.id},(err,r)=>{if(!engine.current.active)return;if(err||!r?.ok){setStatus('ready');setError(r?.error||'준비 연결을 확인해 주세요.');}});}
   const won=result?.winner===me.id;
   return <section className="volley-game" aria-label="몽글 배구">
-    <header className="volley-heading"><div><span className="volley-eyebrow">MONGLE VOLLEY · {race?'FRIEND MATCH':'VS AI'}</span><h3>몽글 배구 <span>작은 점프, 짜릿한 한 방!</span></h3></div><span className="volley-rule">7점 선승 · 최대 3분</span></header>
+    <header className="volley-heading"><button className="volley-back" onClick={onHome} aria-label="게임 목록으로"><ArrowLeft size={20}/>나가기</button><div><span className="volley-eyebrow">MONGLE VOLLEY · {race?'FRIEND MATCH':'VS AI'}</span><h3>몽글 배구 <span>작은 점프, 짜릿한 한 방!</span></h3></div><span className="volley-rule">7점 선승 · 최대 3분</span></header>
     <div className="volley-scoreboard" aria-label="현재 점수"><span className={ownSide===0?'is-me':''}>{names[0]}{ownSide===0?' · 나':''}</span><strong>{snapshot.scores[0]} <small>:</small> {snapshot.scores[1]}</strong><span className={ownSide===1?'is-me':''}>{names[1]}{ownSide===1?' · 나':''}</span></div>
     <div className="volley-court"><canvas ref={canvas} width="960" height="540" role="img" aria-label="해변 배구 코트. 왼쪽과 오른쪽 선수가 네트를 사이에 두고 공을 주고받아요."/>
       {status==='interrupted'&&<div className="volley-overlay"><div><WifiOff size={32}/><h4>잠시 연결이 끊겼어요</h4><p>현재 경기를 중단했어요.<br/>연결되면 새로운 경기를 시작할 수 있어요.</p>{!race&&<button className="primary" disabled={!connected} onClick={restart}><RotateCcw size={18}/>새 경기 시작</button>}</div></div>}

@@ -22,7 +22,7 @@ const GAMES = [
   {id:'volley',title:'몽글 배구',description:'점프와 스파이크로 즐기는 해변 배구!',cardDescription:<>작은 점프, 짜릿한 한 방!<br/>AI 또는 친구와 해변 한 판.</>,image:'/images/minigames/mongle-volley.svg',alt:'해변에서 네트를 사이에 두고 배구하는 노란 새싹과 보라색 새싹',category:'스포츠',players:'1–2명',detail:'7점 선승 · 이동 / 점프 / 스파이크',Icon:VolleyIcon},
   {id:'crab',title:'게 게 게',description:'해변의 게 행렬을 피해 오래 살아남으세요!',cardDescription:<>뒤를 조심해요! 끝없이<br/>길어지는 게들의 추격전.</>,image:'/images/minigames/crab-paradise.webp',alt:'햇살 가득한 해변에서 줄지어 달려오는 귀여운 게들',category:'생존',players:`1–${maxGamePlayers('crab')}명`,detail:'탑뷰 해변 · WASD / 방향키 / 터치',Icon:Shell},
   {id:'runner',title:'구름 달리기',description:'하늘을 달리며 결승선을 향해 달려요!',cardDescription:<>하늘을 달리며 결승선을<br/>향해 달려요!</>,image:'/images/minigames/cloud-run-card.webp',alt:'구름 위 정원에서 함께 달리는 두 친구',category:'달리기',players:`1–${maxGamePlayers('runner')}명`,detail:`${RUN_DISTANCE.toLocaleString()}m 하늘섬 레이스`,Icon:Footprints},
-  {id:'typing',title:'타자입력 게임',cardDescription:<>단어마다 반짝이는 별!<br/>다 같이 5라운드 타자 도전.</>,category:'말놀이',players:'다수 · 인원 제한 없음',Icon:Keyboard},
+  {id:'typing',title:'타자입력 게임',cardDescription:<>단어마다 반짝이는 별!<br/>60초 한 판, 빠르고 정확하게!</>,category:'말놀이',players:'다수 · 인원 제한 없음',Icon:Keyboard},
   {id:'wordchain',title:'끝말잇기 게임',cardDescription:<>동그랗게 모여 이어가는<br/>친구와의 우리말 놀이.</>,category:'말놀이',players:'다수 · 인원 제한 없음',Icon:MessagesSquare},
 ];
 
@@ -77,7 +77,7 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
   const reward=()=>{onReward();setRevision(value=>value+1);};
   const gameKey=race?.id||soloReplay?.key||'solo',replayProps={autoStart:!race&&!!soloReplay,onSoloReplay:replaySolo};
   if(wordKind)return <WordGames initialKind={wordKind} target={target} me={me} socket={socket} members={members} notify={notify} onBack={()=>{setWordKind(null);setSelected(null);setCategory('all');}} onReward={reward}/>;
-  if(game||race)return <><div className="game-back"><button className="text-button" onClick={back}><ArrowLeft size={16}/>게임 목록으로</button></div>{(game==='volley'||race?.kind==='volley')?<Volleyball key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>: (game==='crab'||race?.kind==='crab')?<CrabChase key={gameKey} {...replayProps} onHome={back} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>:<Runner key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>}</>;
+  if(game||race)return <><div className="game-back"><button className="text-button" onClick={back}><ArrowLeft size={16}/>게임 목록으로</button></div>{(game==='volley'||race?.kind==='volley')?<Volleyball key={gameKey} {...replayProps} onHome={back} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>: (game==='crab'||race?.kind==='crab')?<CrabChase key={gameKey} {...replayProps} onHome={back} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>:<Runner key={gameKey} {...replayProps} target={target} me={me} notify={notify} onReward={reward} anonymous={hideName} socket={socket} race={race}/>}</>;
 
   return <div className="panel-body game-hub">
     <section className="playground-catalog" aria-label="미니게임 선택">

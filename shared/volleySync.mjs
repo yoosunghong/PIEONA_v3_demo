@@ -29,7 +29,13 @@ export function reconcileVolley(client,snapshot,now){
   return true;
 }
 export function syncVolleyClock(client,elapsed,sent,received){
-  const origin=received-elapsed-(received-sent)/2;
+  const rtt=received-sent;
+  if(!Number.isFinite(rtt)||rtt<0||!Number.isFinite(elapsed))return;
+  // A congested round trip is a poor clock sample. Do not let a transient
+  // latency spike shift the simulation clock for subsequent healthy packets.
+  const reference=client.rtt??rtt;client.rtt=Math.min(rtt,reference*.98+rtt*.02);
+  if(rtt>Math.max(120,reference*1.8))return;
+  const origin=received-elapsed-rtt/2;
   client.origin+=(origin-client.origin)*.2;
 }
 export function volleyFrame(client,now){

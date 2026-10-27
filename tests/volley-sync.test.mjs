@@ -43,3 +43,11 @@ test('score changes snap to the next serve and terminal snapshots clear pending 
   next.ended=true;next.phase='ended';next.winner='friend';reconcileVolley(c,next,110);
   assert.equal(c.pending.length,0);assert.equal(volleyFrame(c,120).ended,true);
 });
+
+test('a transient round-trip spike cannot drag the clock away from healthy samples',()=>{
+  const c=newVolleyClient(game(),'me',0);
+  syncVolleyClock(c,100,80,120);const origin=c.origin;
+  syncVolleyClock(c,200,150,1150);assert.equal(c.origin,origin);
+  syncVolleyClock(c,1200,1180,1220);assert.equal(c.origin,origin);
+  syncVolleyClock(c,0,100,90);assert.equal(c.origin,origin);
+});

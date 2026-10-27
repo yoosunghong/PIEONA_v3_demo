@@ -2,7 +2,7 @@ import {validateChain,findChainHint} from './chainDictionary.mjs';
 import {randomInt} from 'node:crypto';
 import {z} from 'zod';
 import {id,now} from './store.mjs';
-import {TYPING_WORDS,TYPING_ROUNDS,TYPING_ROUND_MS,TYPING_WORD_POINTS,CHAIN_ROUNDS,CHAIN_TURN_MS,CHAIN_HINTS,CHAIN_REACTIONS,normalizeWord} from '../shared/wordGames.mjs';
+import {typingWordSequence,TYPING_TYPO_PENALTY,TYPING_ROUNDS,TYPING_ROUND_MS,TYPING_WORD_POINTS,CHAIN_ROUNDS,CHAIN_GAME_MS,CHAIN_HINTS,CHAIN_REACTIONS,chainWordPoints,normalizeWord} from '../shared/wordGames.mjs';
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance=user=>JSON.parse(user.appearance||'{}'),villageVisitors,emitWorld,emitVillage=()=>{},isBusy=()=>false,clock=Date.now}){
   const rooms=new Map();
@@ -32,19 +32,17 @@ export function installWordGames({app,io,store,auth,checkTarget,userById,playerA
   function tick(){for(const r of rooms.values()){
     if(r.status==='waiting'&&clock()-r.createdAt>120000)finish(r,null,'대기 시간이 끝났어요.');
     if(r.status==='playing'&&clock()>=r.deadline){
-      if(r.kind==='wordchain'){r.lastEvent={type:'timeout',playerId:r.players[r.turn].id,at:clock()};advanceChain(r);if(r.status!=='finished')publish(r);}
-      else {const ranked=active(r).sort((a,b)=>b.score-a.score);finish(r,ranked.length&&(!ranked[1]||ranked[0].score>ranked[1].score)?ranked[0].id:null,'다섯 라운드의 타자입력 게임이 끝났어요!');}
+      if(r.kind==='wordchain'){r.loser=r.players[r.turn].id;r.lastEvent={type:'timeout',playerId:r.loser,at:clock()};finish(r,chainWinner(r),`${r.players[r.turn].nickname}님이 제한 시간 안에 답하지 못했어요.`);}
+      else {const ranked=active(r).sort((a,b)=>b.score-a.score);finish(r,ranked.length&&(!ranked[1]||ranked[0].score>ranked[1].score)?ranked[0].id:null,'60초 타자입력 게임이 끝났어요!');}
     }
     if(r.finishedAt&&clock()-r.finishedAt>300000){rooms.delete(r.id);for(const key of hintHistory.keys())if(key.startsWith(r.id+':'))hintHistory.delete(key);}
   }}
-  function chainWinner(r){const ranked=active(r).sort((a,b)=>b.score-a.score);return ranked.length&&(!ranked[1]||ranked[0].score>ranked[1].score)?ranked[0].id:null;}
+  function chainWinner(r){const ranked=active(r).filter(p=>p.id!==r.loser).sort((a,b)=>b.score-a.score);return ranked.length&&(!ranked[1]||ranked[0].score>ranked[1].score)?ranked[0].id:null;}
   function advanceChain(r){
     const previous=r.turn;
     for(let step=1;step<=r.players.length;step++){
       const next=(previous+step)%r.players.length;if(r.players[next].left)continue;
-      if(next<=previous)r.chainRound++;
-      if(r.chainRound>CHAIN_ROUNDS){finish(r,chainWinner(r),'다섯 라운드의 끝말잇기를 함께 완성했어요!');return;}
-      r.turn=next;r.deadline=clock()+CHAIN_TURN_MS;return;
+      r.turn=next;r.turnStartedAt=clock();return;
     }
     finish(r,null,'모든 참가자가 게임을 떠났어요.');
   }
@@ -54,8 +52,7 @@ export function installWordGames({app,io,store,auth,checkTarget,userById,playerA
     checkTarget(req,req.params.id);tick();if(!present(req.user.id,req.params.id))fail(409,'마을에 연결한 뒤 시작해주세요.');
     if(busy(req.user.id)||isBusy(req.user.id))fail(409,'이미 참가한 게임이나 생활 활동을 먼저 마쳐주세요.');
     const {kind}=z.object({kind:z.enum(['typing','wordchain'])}).parse(req.body);
-    const words=kind==='typing'?[...TYPING_WORDS]:undefined;
-    if(words)for(let i=words.length-1;i>0;i--){const j=randomInt(i+1);[words[i],words[j]]=[words[j],words[i]];}
+    const words=kind==='typing'?typingWordSequence(randomInt):undefined;
     const r={id:id(),villageId:req.params.id,hostId:req.user.id,kind,status:'waiting',createdAt:clock(),players:[player(req.user)],words,used:[],turn:0,chainRound:1,log:[],reactions:{}};rooms.set(r.id,r);publish(r);emitVillage(r.villageId);res.status(201).json({room:snapshot(r)});
   });
   app.post('/api/duels/:id/join',auth,(req,res)=>{
@@ -70,7 +67,7 @@ export function installWordGames({app,io,store,auth,checkTarget,userById,playerA
     if(r.hostId!==req.user.id)fail(403,'방장만 게임을 시작할 수 있어요.');
     if(!present(req.user.id,r.villageId))fail(409,'마을에 연결한 뒤 시작해주세요.');
     if(active(r).length<2)fail(409,'친구가 한 명 이상 참가하면 시작할 수 있어요.');
-    r.status='playing';r.startedAt=clock()+3000;r.deadline=r.startedAt+(r.kind==='typing'?TYPING_ROUNDS*TYPING_ROUND_MS:CHAIN_TURN_MS);
+    r.status='playing';r.startedAt=clock()+3000;r.turnStartedAt=r.startedAt;r.deadline=r.startedAt+(r.kind==='typing'?TYPING_ROUNDS*TYPING_ROUND_MS:CHAIN_GAME_MS);
     publish(r);emitVillage(r.villageId);res.json({room:snapshot(r)});
   });
   app.post('/api/duels/:id/action',auth,(req,res)=>{
@@ -83,12 +80,13 @@ export function installWordGames({app,io,store,auth,checkTarget,userById,playerA
       const expected=r.words[p.index%r.words.length];
       if(clock()-Math.max(r.startedAt,p.lastInput)<Math.max(180,expected.length*45))fail(429,'입력이 너무 빨라요. 단어를 직접 입력해주세요.');
       p.attempted+=expected.length;p.lastInput=clock();
-      if(normalizeWord(text)!==expected){publish(r);return res.json({room:snapshot(r),error:'단어가 달라요. 다시 입력해 주세요.'});}
+      if(normalizeWord(text)!==expected){p.score=Math.max(0,p.score-TYPING_TYPO_PENALTY);p.typos=(p.typos||0)+1;publish(r);return res.json({room:snapshot(r),error:`오타! ${TYPING_TYPO_PENALTY}점 감점 (최저 0점). 다시 입력해 주세요.`});}
       p.correct+=expected.length;p.score+=TYPING_WORD_POINTS;p.index++;
     }else{
       if(r.players[r.turn].id!==req.user.id)fail(409,'상대의 차례예요.');
       const error=validateChain(text,r.used);if(error)fail(400,error);
-      r.used.push(normalizeWord(text));p.score++;r.log.push({playerId:p.id,nickname:p.nickname,text:normalizeWord(text),at:clock()});r.lastEvent={type:'word',playerId:p.id,at:clock()};advanceChain(r);
+      const elapsed=clock()-r.turnStartedAt,points=chainWordPoints(elapsed);
+      r.used.push(normalizeWord(text));p.score+=points;r.log.push({playerId:p.id,nickname:p.nickname,text:normalizeWord(text),at:clock(),points,elapsed});r.lastEvent={type:'word',playerId:p.id,at:clock(),points};advanceChain(r);
     }
     publish(r);res.json({room:snapshot(r)});
   });
@@ -116,7 +114,7 @@ export function installWordGames({app,io,store,auth,checkTarget,userById,playerA
     else if(r.kind==='wordchain'&&r.status==='playing'&&r.players[r.turn].id===uid){advanceChain(r);if(r.status!=='finished'){publish(r);emitVillage(r.villageId);}}
     else {publish(r);emitVillage(r.villageId);}
   }
-  app.post('/api/duels/:id/leave',auth,(req,res)=>{const r=roomFor(req);depart(r,req.user.id);res.json({ok:true});});
+  app.post('/api/duels/:id/leave',auth,(req,res)=>{tick();const r=roomFor(req);depart(r,req.user.id);res.json({ok:true});});
   const timer=setInterval(tick,500);timer.unref();
   function leave(uid,villageId){for(const r of rooms.values())if(r.villageId===villageId&&r.status!=='finished'&&r.players.some(p=>p.id===uid&&!p.left))depart(r,uid);}
   return {busy,tick,leave,close(){clearInterval(timer);}};

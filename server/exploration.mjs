@@ -1,16 +1,24 @@
+import {settingsOf,isBlocked,publicUser} from './store.mjs';
+import {companionReply} from '../shared/companionScripts.mjs';
 import {randomInt,randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {validPlacement} from '../shared/world.mjs';
 import {DECOR_RADIUS} from '../shared/villageSize.mjs';
 import {villageScenery} from '../shared/scenery.mjs';
 import {communityPlacements,objectClearance} from '../shared/communityObjects.mjs';
-import {EXPLORATION_COMPANION_AVAILABLE,createExploration,upgradeExploration,tickExploration,moveExploration,interactExploration,commandExploration,parseLocalCommand,craftExploration,returnExploration,enterExploration,RECIPES} from '../shared/exploration.mjs';
+import {createExploration,upgradeExploration,tickExploration,moveExploration,interactExploration,commandExploration,parseLocalCommand,craftExploration,returnExploration,enterExploration,RECIPES} from '../shared/exploration.mjs';
 const fail=(message,status=400)=>{throw Object.assign(new Error(message),{status});};
-const requestSchema=z.object({requestId:z.string().min(8).max(100),position:z.object({x:z.number().finite(),z:z.number().finite()}).optional(),targetId:z.string().max(50).optional(),recipeId:z.string().max(40).optional(),text:z.string().trim().min(1).max(300).optional(),enabled:z.boolean().optional()});
-export function installExploration({app,store,auth,clock=Date.now,random=()=>randomInt(0,0x100000000)/0x100000000,logAction=()=>{}}){
+const requestSchema=z.object({requestId:z.string().min(8).max(100),position:z.object({x:z.number().finite(),z:z.number().finite()}).optional(),targetId:z.string().max(50).optional(),recipeId:z.string().max(40).optional(),text:z.string().trim().min(1).max(300).optional(),enabled:z.boolean().optional(),companionId:z.string().max(100).nullable().optional()});
+export function installExploration({app,store,auth,clock=Date.now,personaScripts,random=()=>randomInt(0,0x100000000)/0x100000000,logAction=()=>{}}){
  store.db.exec(`CREATE TABLE IF NOT EXISTS exploration_progress(owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,state TEXT NOT NULL);
  CREATE TABLE IF NOT EXISTS exploration_requests(owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,request_id TEXT NOT NULL,result TEXT NOT NULL,created_at INTEGER NOT NULL,PRIMARY KEY(owner_id,request_id));`);
- const read=uid=>{const row=store.one('SELECT state FROM exploration_progress WHERE owner_id=?',uid);return upgradeExploration(row?JSON.parse(row.state):createExploration(clock()));};
+ const eligible=(uid,id)=>{const u=store.one('SELECT * FROM users WHERE id=?',id);return u&&uid!==id&&!isBlocked(store,uid,id)&&settingsOf(u).allowVisitors&&store.one("SELECT 1 FROM friendships WHERE owner_id=? AND friend_id=? AND status='accepted'",uid,id)?u:null;};
+ const profile=(u,viewer)=>{const p=publicUser(store,u,viewer);return {id:p.id,nickname:p.nickname,appearance:p.avatarAppearance,slot:u.active_slot};};
+ const read=uid=>{const row=store.one('SELECT state FROM exploration_progress WHERE owner_id=?',uid),s=upgradeExploration(row?JSON.parse(row.state):createExploration(clock()));
+  if(s.companion.profile){const u=eligible(uid,s.companion.profile.id);if(!u||u.active_slot!==s.companion.profile.slot){Object.assign(s.companion,{enabled:false,profile:null,mode:'IDLE',targetId:null,path:null});s.reply='동행할 수 없는 아바타예요. 다음 출발 때 친구를 다시 선택해 주세요.';}}
+  return s;
+ };
+ app.get('/api/exploration/companions',auth,(req,res)=>res.json({companions:store.all("SELECT u.* FROM users u JOIN friendships f ON f.friend_id=u.id WHERE f.owner_id=? AND f.status='accepted' ORDER BY u.nickname",req.user.id).filter(u=>eligible(req.user.id,u.id)).map(u=>profile(u,req.user.id))}));
  const save=(uid,s)=>store.run('INSERT INTO exploration_progress VALUES(?,?) ON CONFLICT(owner_id) DO UPDATE SET state=excluded.state',uid,JSON.stringify(s));
  app.get('/api/exploration',auth,(req,res)=>store.transaction(()=>{const state=tickExploration(read(req.user.id),clock(),random);save(req.user.id,state);res.json({state});}));
  const execute=(req,res,kind,fn)=>{
@@ -28,15 +36,20 @@ export function installExploration({app,store,auth,clock=Date.now,random=()=>ran
  // Structured, allowlisted actions are interpreted locally. No user text leaves this server.
  app.post('/api/exploration/command',auth,(req,res)=>execute(req,res,'command',(s,d)=>{
   if(!d.text)fail('친구에게 부탁할 내용을 적어 주세요.');const action=parseLocalCommand(d.text);if(!action)fail('무엇을 도와줄까? 나무, 돌, 버섯 또는 따라오기를 부탁해 줘.');
-  s.commandProvider='local';commandExploration(s,action,d.targetId,clock());
+  s.commandProvider='persona-script';commandExploration(s,action,d.targetId,clock());
+  const c=s.companion,active=personaScripts?.current(c.profile.id,c.profile.slot);const line=companionReply(action,active,c.dialogueHistory?.[action]);c.dialogueHistory||={};c.dialogueHistory[action]=line.history;delete line.history;s.dialogue={...line,id:randomUUID(),speaker:c.profile.nickname};s.reply=line.text;
  }));
- app.post('/api/exploration/companion',auth,(req,res)=>execute(req,res,'companion',(s,d)=>{if(typeof d.enabled!=='boolean')fail('동행 설정을 확인해 주세요.');if(d.enabled&&!EXPLORATION_COMPANION_AVAILABLE)fail('AI 친구는 잠시 쉬고 있어요.');s.companion.enabled=d.enabled;s.companion.mode=d.enabled?'FOLLOW':'IDLE';s.companion.targetId=null;s.reply=d.enabled?'좋아, 같이 가자!':'혼자서도 멋진 모험을 할 수 있을 거야.';}));
+ app.post('/api/exploration/companion',auth,(req,res)=>execute(req,res,'companion',(s,d)=>{if(d.enabled!==false)fail('친구는 숲 출발 전에 선택해 주세요.');Object.assign(s.companion,{enabled:false,profile:null,mode:'IDLE',targetId:null,path:null});}));
  app.post('/api/exploration/return',auth,(req,res)=>execute(req,res,'return',s=>{
   if(s.area!=='forest'){s.hp=100;s.fatigue=100;return;}returnExploration(s,clock());
   const activity=s.events.filter(e=>e.kind==='loot'&&e.actor==='PLAYER'&&e.time>=s.sessionStart);
-  if(EXPLORATION_COMPANION_AVAILABLE&&activity.length)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',randomUUID(),req.user.id,`숲 탐험에서 직접 ${activity.length}번 재료를 모았다. ${s.reply}`,'경험','private',0,'exploration',new Date(clock()).toISOString(),new Date(clock()).toISOString());
+  if(s.companion.enabled&&activity.length)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',randomUUID(),req.user.id,`숲 탐험에서 직접 ${activity.length}번 재료를 모았다. ${s.reply}`,'경험','private',0,'exploration',new Date(clock()).toISOString(),new Date(clock()).toISOString());
  }));
- app.post('/api/exploration/enter',auth,(req,res)=>execute(req,res,'enter',s=>{if(s.area==='forest')return;enterExploration(s,clock());}));
+ app.post('/api/exploration/enter',auth,(req,res)=>execute(req,res,'enter',(s,d)=>{
+  if(s.area==='forest'){if(d.companionId!==undefined)fail('마을에서 동행 친구를 선택해 주세요.');return;}
+  const u=d.companionId?eligible(req.user.id,d.companionId):null;if(d.companionId&&!u)fail('서로 수락한 친구의 공개 아바타만 동행할 수 있어요.',403);
+  Object.assign(s.companion,{enabled:!!u,profile:u?profile(u,req.user.id):null,dialogueHistory:{}});s.dialogue=null;enterExploration(s,clock());
+ }));
  app.post('/api/exploration/craft',auth,(req,res)=>execute(req,res,'craft',(s,d)=>craftExploration(s,d.recipeId,clock())));
  app.post('/api/exploration/place',auth,(req,res)=>execute(req,res,'place',(s,d)=>{
   if(s.area!=='village')fail('마을에서 배치해 주세요.');if(!(s.crafted[d.recipeId]>0))fail('먼저 소품을 제작해 주세요.');

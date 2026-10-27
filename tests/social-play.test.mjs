@@ -7,7 +7,7 @@ import {randomUUID} from 'node:crypto';
 import {mkdirSync,unlinkSync} from 'node:fs';
 import {resolve} from 'node:path';
 import {balanceQuestions} from '../shared/onboarding.mjs';
-import {TYPING_WORDS,TYPING_ROUNDS,TYPING_ROUND_MS,chainStarts} from '../shared/wordGames.mjs';
+import {TYPING_WORDS,TYPING_HARD_WORDS,TYPING_LONG_WORDS,TYPING_ROUNDS,TYPING_ROUND_MS,chainStarts} from '../shared/wordGames.mjs';
 const answers=balanceQuestions.map(q=>({id:q.id,choice:'a'}));
 const gold=(h,user)=>h.runtime.store.one('SELECT gold FROM users WHERE id=?',user.id).gold;
 
@@ -50,7 +50,7 @@ test('duel creation, joining and leaving refresh village participant availabilit
   }finally{await h.close();}
 });
 
-test('multiplayer typing supports eight players, host start, actual appearances and five authoritative rounds',async()=>{
+test('multiplayer typing supports eight players, host start, actual appearances and one authoritative 60-second round with typo penalties',async()=>{
   let time=Date.now();const h=await harness({socialClock:()=>time});
   try{
     const users=[];for(let i=0;i<8;i++){const user=await h.register('typing_'+i);h.runtime.store.run('UPDATE users SET nickname=?,appearance=? WHERE id=?','Player '+i,JSON.stringify({character:i%2?'luna':'moa',color:i%2?'#ffaabb':'#bbddaa',hat:'none',accessory:'none'}),user.id);users.push(user);}
@@ -66,7 +66,7 @@ test('multiplayer typing supports eight players, host start, actual appearances 
     assert.equal(started.body.room.players.length,8);assert.equal(started.body.room.status,'playing');
     assert.equal(started.body.room.deadline-started.body.room.startedAt,TYPING_ROUNDS*TYPING_ROUND_MS);
     assert.equal(started.body.room.players[0].nickname,'Player 0');assert.ok(started.body.room.players.every(p=>p.appearance?.character));assert.equal(started.body.room.players[0].appearance.character,'moa');assert.equal(started.body.room.players[1].appearance.color,'#ffaabb');
-    assert.ok(room.words.every(w=>TYPING_WORDS.includes(w)));
+    assert.ok(room.words.every(w=>[...TYPING_WORDS,...TYPING_HARD_WORDS,...TYPING_LONG_WORDS].includes(w)));
     assert.equal((await h.request(`/duels/${room.id}/join`,outsider,{})).status,409);
     assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:room.words[0],index:0})).status,409);
     time+=6000;
@@ -78,7 +78,7 @@ test('multiplayer typing supports eight players, host start, actual appearances 
     // A third player wins: winner calculation must consider the entire roster.
     for(let index=0;index<2;index++){time+=1000;assert.equal((await h.request(`/duels/${room.id}/action`,users[2],{text:room.words[index],index})).status,200);}
     time=started.body.room.startedAt+TYPING_ROUND_MS;
-    assert.equal((await h.request(`/villages/${a.id}/duels`,a)).body.rooms[0].round,2);
+    assert.equal((await h.request(`/villages/${a.id}/duels`,a)).body.rooms[0].round,1);
     time=started.body.room.deadline;h.runtime.wordGames.tick();
     const finished=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);
     assert.equal(finished.status,'finished');assert.equal(finished.winner,users[2].id);assert.equal(gold(h,users[2]),20);assert.equal(gold(h,a),10);
@@ -104,7 +104,7 @@ test('typing transfers the waiting host and one departure does not terminate the
   }finally{await h.close();}
 });
 
-test('word chain enforces vocabulary, duplicate words, turn ownership and timeout skips',async()=>{
+test('word chain enforces vocabulary, duplicate words, turn ownership and timeout defeat',async()=>{
   let time=Date.now();const h=await harness({socialClock:()=>time});
   try{
     const a=await h.register('chain_a'),b=await h.register('chain_b');await h.connect(a);await h.connect(b,a.id);
@@ -117,9 +117,9 @@ test('word chain enforces vocabulary, duplicate words, turn ownership and timeou
     assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:'사과'})).status,400);
     assert.equal((await h.request(`/duels/${room.id}/action`,a,{text:'일기'})).status,200);
     time+=16000;h.runtime.wordGames.tick();
-    const skipped=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);assert.equal(skipped.status,'playing');assert.equal(skipped.turn,0);assert.equal(skipped.lastEvent.type,'timeout');
+    const skipped=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);assert.equal(skipped.status,'playing');assert.equal(skipped.turn,1);assert.equal(skipped.lastEvent.type,'word');
     for(let i=0;i<10;i++){time+=16000;h.runtime.wordGames.tick();}
-    const ended=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);assert.equal(ended.winner,a.id);
+    const ended=(await h.request(`/villages/${a.id}/duels`,a)).body.rooms.find(r=>r.id===room.id);assert.equal(ended.winner,a.id);assert.equal(ended.loser,b.id);assert.equal(ended.status,'finished');assert.equal((await h.request(`/duels/${room.id}/action`,b,{text:'기차'})).status,409);
     assert.equal(validateChain('사과',['사과']), '이미 사용한 단어예요.');assert.ok(chainStarts('녀').includes('여'));assert.ok(chainStarts('림').includes('임'));
   }finally{await h.close();}
 });

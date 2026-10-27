@@ -1,4 +1,13 @@
 .volley-game{max-width:1050px;margin:auto;padding:8px 24px 24px;color:#304c70}
+.modal-backdrop:has(.volley-game){padding:0}
+.modal.playground-modal:has(.volley-game){position:fixed;inset:0;width:100vw;max-width:none;height:100dvh;max-height:none;padding:0;border:0;border-radius:0;overflow:auto;transform:none;background:#e7f4f5}
+.modal.playground-modal:has(.volley-game)>header,.modal.playground-modal:has(.volley-game) .game-back{display:none}
+.modal.playground-modal .volley-game{width:100%;max-width:none;height:100dvh;min-height:0;margin:0;background:#b5e0e8}
+.volley-back{display:flex;align-items:center;gap:6px;padding:9px 14px;border:1px solid #ccdfe5;border-radius:24px;background:#ffffffcc;color:#315871;cursor:pointer;flex-shrink:0;white-space:nowrap}
+.modal.playground-modal .volley-court{min-height:0;display:block;background:#b5e0e8}
+.modal.playground-modal .volley-court canvas{width:100%;height:100%;object-fit:contain}
+.modal.playground-modal .volley-overlay{position:absolute;inset:0;overflow:auto}
+.modal.playground-modal .volley-heading,.modal.playground-modal .volley-scoreboard,.modal.playground-modal .volley-controls{margin:0}
 .volley-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
 .volley-eyebrow{font-size:10px;font-weight:800;letter-spacing:2px;color:#508f9c}
 .volley-heading h3{margin:3px 0;font-size:26px;letter-spacing:-1px}.volley-heading h3 span{font-size:13px;font-weight:500;letter-spacing:0;margin-left:8px;color:#6a8195}
@@ -15,3 +24,19 @@
 .volley-help{text-align:center;font-size:12px;color:#4c637a;line-height:2.1;margin:0}.volley-help kbd{background:#f1f6fa;border:1px solid #d7e1e9;border-radius:5px;padding:2px 5px;font-family:inherit;font-size:11px}.volley-help b{margin:0 8px}.volley-help small{color:#6c8194}
 .game-hub .playground-categories{flex-wrap:wrap;gap:5px}.game-hub .playground-categories button{padding:7px 11px}.game-hub .playground-game-count{font-size:11px}
 @media(max-width:600px){.volley-game{padding:6px 8px 18px}.volley-heading h3{font-size:22px}.volley-heading h3 span{display:none}.volley-heading{gap:4px}.volley-rule{font-size:10px;padding:6px}.volley-scoreboard{gap:8px;padding:4px}.volley-scoreboard>span{font-size:11px}.volley-scoreboard strong{font-size:25px}.volley-court{border-width:2px;border-radius:14px}.volley-overlay>div{padding:10px 15px;border-radius:16px}.volley-overlay-icon{display:none}.volley-overlay h4{font-size:18px;margin:2px 0}.volley-overlay p{font-size:11px;line-height:1.5;margin:4px 0}.volley-overlay small{margin-top:5px;font-size:10px}.volley-overlay .primary{margin-top:7px;min-height:35px;font-size:12px;padding:7px 12px}.volley-overlay>div>svg{width:23px;height:23px}.volley-result{font-size:21px}.volley-controls{gap:7px}.volley-controls button{min-width:0;flex:1;max-width:105px;flex-direction:column;font-size:11px;gap:3px;min-height:60px}.volley-status{font-size:11px}.volley-help{font-size:10px}.volley-help b{margin:0 3px}.volley-help small{display:block;line-height:1.7}}
+/* The court uses the viewport; HUD and controls float over the beach. */
+.modal.playground-modal .volley-game{position:relative;padding:0;overflow:hidden}
+.modal.playground-modal .volley-court{position:absolute;inset:0;border:0;border-radius:0;box-shadow:none}
+.modal.playground-modal .volley-heading{position:absolute;top:max(10px,env(safe-area-inset-top));left:16px;right:16px;z-index:3;padding:8px 12px;border-radius:22px;background:#ffffffe8;backdrop-filter:blur(8px)}
+.modal.playground-modal .volley-scoreboard{position:absolute;top:88px;left:25%;right:25%;z-index:2;padding:4px 12px;background:#ffffffe0;backdrop-filter:blur(8px)}
+.modal.playground-modal .volley-controls{position:absolute;bottom:max(18px,env(safe-area-inset-bottom));left:24px;right:24px;z-index:3;justify-content:flex-start;pointer-events:none}
+.modal.playground-modal .volley-controls button{pointer-events:auto;background:#edf7f7dc;backdrop-filter:blur(6px);box-shadow:0 3px 12px #34576b18}
+.modal.playground-modal .volley-controls .volley-spike{margin-left:auto;background:#fff0dade}
+.modal.playground-modal .volley-status{position:absolute;bottom:90px;left:12%;right:12%;z-index:2;pointer-events:none;background:#ffffffd9;border-radius:22px;padding:6px 12px}
+.modal.playground-modal .volley-help{display:none}
+.modal.playground-modal .volley-error{position:absolute;top:155px;left:10%;right:10%;z-index:4;background:#fff3f4;padding:8px;border-radius:12px}
+.modal.playground-modal .volley-overlay{z-index:1}
+@media(max-width:600px){.modal.playground-modal .volley-heading{left:8px;right:8px;padding:6px;gap:8px}.volley-eyebrow{font-size:8px;letter-spacing:1px}.volley-back{padding:8px}.modal.playground-modal .volley-scoreboard{left:8px;right:8px;top:88px}.modal.playground-modal .volley-controls{left:12px;right:12px;gap:8px}.modal.playground-modal .volley-controls button{max-width:75px;min-height:54px}.modal.playground-modal .volley-status{left:8px;right:8px}}
+@media(max-height:600px) and (min-width:601px){.modal.playground-modal .volley-heading{top:6px;left:12px;right:auto;gap:12px;padding:4px 8px}.modal.playground-modal .volley-heading .volley-rule{display:none}.modal.playground-modal .volley-scoreboard{top:10px;left:auto;right:12px;width:38%;min-width:240px;gap:8px}.modal.playground-modal .volley-status{bottom:68px;min-height:0;font-size:11px}}
+
+@media(max-height:600px) and (min-width:601px){.modal.playground-modal .volley-controls{bottom:max(6px,env(safe-area-inset-bottom))}.modal.playground-modal .volley-controls button{min-width:60px;max-width:75px;min-height:42px;padding:4px 8px;flex-direction:column;gap:0;font-size:10px;white-space:nowrap}.modal.playground-modal .volley-controls button svg{width:18px;height:18px}.modal.playground-modal .volley-status{display:none}}
