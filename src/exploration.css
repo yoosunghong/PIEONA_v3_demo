@@ -43,3 +43,10 @@
 .expedition .exp-avatar-prompt{max-width:calc(100vw - 24px);font-size:14px}
 .expedition .exp-persona-line button{pointer-events:auto;margin-left:auto;padding:6px;border-radius:50%;flex-shrink:0}
 .exp-companion-menu{max-height:310px;overflow:auto}
+
+/* The command bubble follows the selected companion, like the village avatar prompt. */
+.exp-companion-anchor{transform:translate(-50%,-100%)}
+.exp-companion-menu{position:relative;top:auto;left:auto;transform:none;width:250px;max-height:min(310px,65dvh);overflow:visible;padding:14px;border:2px solid #fff;border-radius:22px;background:linear-gradient(135deg,#fff,#edf6ff);box-shadow:0 0 18px #a3ceffb0,0 5px 16px #44649b30;color:#285a93}
+.exp-companion-menu:after{content:'';position:absolute;bottom:-9px;left:calc(50% - 8px);width:16px;height:16px;background:#edf6ff;transform:rotate(45deg);border-radius:0 0 4px 0}
+.exp-companion-menu header{gap:8px}.exp-companion-menu header strong{font-size:15px}.expedition .exp-companion-menu header button{padding:4px;background:transparent;color:#527da6}.exp-companion-menu small{color:#6686a4}.exp-companion-commands{display:grid;grid-template-columns:1fr 1fr;gap:6px}.expedition .exp-companion-commands button{background:#e5f1fc;color:#285a93;font-weight:700;padding:9px 6px}.expedition .exp-companion-commands button:hover{background:#cfe5fa}.exp-companion-commands button:last-child{grid-column:1/-1}
+@media(max-width:700px){.exp-companion-menu{width:220px;padding:10px}.exp-companion-menu header strong{font-size:13px}.expedition .exp-companion-commands button{font-size:12px;padding:7px 4px}}

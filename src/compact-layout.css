@@ -56,3 +56,11 @@
   .modal > header .eyebrow { display: none; }
   .modal h2 { margin-top: 0; }
 }
+
+/* Keep the forest destination readable in the compact village toolbar. */
+@media (max-width: 800px), (min-width: 600px) and (max-width: 1100px) and (min-aspect-ratio: 4/5) and (max-aspect-ratio: 3/2), (max-height: 500px) and (pointer: coarse) {
+  .app-shell .world-actions { width: 112px; align-items: flex-end; pointer-events: none; }
+  .app-shell .world-actions button { pointer-events: auto; }
+  .app-shell .world-actions .exploration-entry { width: 112px; gap: 0; padding: 0 8px 0 0; border-radius: 22px; font-size: 12px; white-space: nowrap; }
+  .app-shell .world-actions .exploration-entry > svg { width: 20px; height: 20px; padding: 10px; }
+}

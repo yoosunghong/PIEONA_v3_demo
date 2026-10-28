@@ -4,6 +4,7 @@ import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {SSAOPass} from 'three/addons/postprocessing/SSAOPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+import {OutlinePass} from 'three/addons/postprocessing/OutlinePass.js';
 import {loadAsset} from './avatar';
 import {createRunMotion} from './avatarMotion.mjs';
 import {dressAvatar,createDecoration} from './worldAssets';
@@ -12,14 +13,14 @@ import {reconcileExplorationPosition,withinExplorationPrediction} from './explor
 
 // A live 3D field with reference-matched tree cutouts. Gatherable objects, water,
 // foliage and companions animate and remain independently selectable.
-export function createExplorationWorld(host,{getState,onMove,onTarget,onFriend,onInteract,onProject,onReady,onError,getBlocked,appearance={}}){
+export function createExplorationWorld(host,{getState,onMove,onTarget,onFriend,onFriendDismiss,onInteract,onProject,onReady,onError,getBlocked,appearance={}}){
  let dead=false,frame,last=performance.now(),clock=0,moveSent=0,selected='tree-1',goal=null,zoom=1;
  const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
  const scene=new T.Scene();scene.background=new T.Color('#a4c0a5');scene.fog=new T.Fog('#b6ceb6',32,65);
  const renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});renderer.setPixelRatio(Math.min(devicePixelRatio,1.75));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.0;host.appendChild(renderer.domElement);
  renderer.domElement.setAttribute('aria-label','분홍 나무와 물길이 있는 초록 숲 3D 탐험');
  const camera=new T.OrthographicCamera(-12,12,6.75,-6.75,.1,100);camera.position.set(0,13,19);camera.lookAt(0,.3,-2);
- const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const ao=new SSAOPass(scene,camera,640,360);ao.ssaoMaterial.defines.PERSPECTIVE_CAMERA=0;ao.depthRenderMaterial.defines.PERSPECTIVE_CAMERA=0;ao.kernelRadius=.55;ao.minDistance=.0005;ao.maxDistance=.03;composer.addPass(ao);composer.addPass(new OutputPass());
+ const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const ao=new SSAOPass(scene,camera,640,360);ao.ssaoMaterial.defines.PERSPECTIVE_CAMERA=0;ao.depthRenderMaterial.defines.PERSPECTIVE_CAMERA=0;ao.kernelRadius=.55;ao.minDistance=.0005;ao.maxDistance=.03;composer.addPass(ao);const friendOutline=new OutlinePass(new T.Vector2(1,1),scene,camera);friendOutline.visibleEdgeColor.set('#ffffff');friendOutline.hiddenEdgeColor.set('#ffffff');friendOutline.edgeStrength=5;friendOutline.edgeThickness=2;friendOutline.edgeGlow=0;friendOutline.enabled=false;composer.addPass(friendOutline);composer.addPass(new OutputPass());
  scene.add(new T.HemisphereLight('#fff4e4','#758e82',1.55));
  const sun=new T.DirectionalLight('#fff1db',2.6);sun.position.set(-8,16,-3);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-18,right:18,top:18,bottom:-18,near:1,far:45});sun.shadow.bias=-.00035;sun.shadow.normalBias=.035;sun.shadow.radius=4;sun.shadow.intensity=.45;scene.add(sun);
  const fill=new T.DirectionalLight('#d5eafb',.9);fill.position.set(6,9,9);scene.add(fill);
@@ -136,6 +137,7 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onFriend,o
  function keyUp(e){keys.delete(e.code);}const blur=()=>{keys.clear();joystick={x:0,z:0};};
  function pointerDown(e){if(getBlocked())return;const r=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1);raycaster.setFromCamera(pointer,camera);
   if(getState().companion.enabled&&raycaster.intersectObject(friend,true).length){goal=null;onFriend?.();return;}
+  onFriendDismiss?.();
   const hit=raycaster.intersectObjects([...roots.values()],true).find(h=>{let o=h.object;while(o&&!o.userData.nodeId)o=o.parent;return o&&getState().nodes.find(n=>n.id===o.userData.nodeId&&n.hp>0);});
   if(hit){let o=hit.object;while(o&&!o.userData.nodeId)o=o.parent;selected=o.userData.nodeId;onTarget(selected);const n=getState().nodes.find(n=>n.id===selected);if(distance(player.position,n)<2.05)onInteract(selected);else goal={x:n.x,z:n.z,nodeId:n.id};}
   else{const p=new T.Vector3();if(raycaster.ray.intersectPlane(plane,p)&&walkable(p.x,p.z))goal={x:p.x,z:p.z};}
@@ -173,5 +175,5 @@ export function createExplorationWorld(host,{getState,onMove,onTarget,onFriend,o
   composer.render();
  }
  frame=requestAnimationFrame(animate);
- return {reconcileMove(requested,confirmed){const corrected=reconcileExplorationPosition(player.position,requested,confirmed);player.position.x=corrected.x;player.position.z=corrected.z;},resetPosition(confirmed){player.position.x=confirmed.x;player.position.z=confirmed.z;goal=null;},setTarget(id){selected=id;},setGoal(node){selected=node.id;goal={...node,nodeId:node.id};},setZoom(value){zoom=value;resize();},setJoystick(x,z){joystick={x,z};goal=null;},position:()=>({x:player.position.x,z:player.position.z}),dispose(){dead=true;cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',blur);renderer.domElement.removeEventListener('pointerdown',pointerDown);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());ao.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}};
+ return {reconcileMove(requested,confirmed){const corrected=reconcileExplorationPosition(player.position,requested,confirmed);player.position.x=corrected.x;player.position.z=corrected.z;},resetPosition(confirmed){player.position.x=confirmed.x;player.position.z=confirmed.z;goal=null;},setFriendSelected(value){friendOutline.selectedObjects=value?[friend]:[];friendOutline.enabled=!!value;},setTarget(id){selected=id;},setGoal(node){selected=node.id;goal={...node,nodeId:node.id};},setZoom(value){zoom=value;resize();},setJoystick(x,z){joystick={x,z};goal=null;},position:()=>({x:player.position.x,z:player.position.z}),dispose(){dead=true;cancelAnimationFrame(frame);observer.disconnect();window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',blur);renderer.domElement.removeEventListener('pointerdown',pointerDown);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());textures.forEach(t=>t.dispose());ao.dispose();friendOutline.dispose();composer.dispose();renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();}};
 }
