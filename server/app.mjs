@@ -54,7 +54,7 @@ export function createApp(options = {}) {
   const logAction=createActionLogger(options.logWriter||(options.testing?()=>{}:undefined));
   const store = options.store || openStore(process.env.DATABASE_PATH);
   const app = express(); const server = createServer(app);
-  const origins = new Set([options.publicOrigin || process.env.PUBLIC_ORIGIN || 'https://pieona.yoosung.dev', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173']);
+  const origins = new Set([options.publicOrigin || process.env.PUBLIC_ORIGIN || 'https://play.illova.app', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173']);
   const io = new Server(server, { maxHttpBufferSize: 16384, allowRequest: (req, done) => done(null, !req.headers.origin || origins.has(req.headers.origin)) });
   const invites=new Map(), races=new Map(), raceByGame=new Map();
   const online = new Map(); const locks = new Set(); const villageVisitors = new Map();

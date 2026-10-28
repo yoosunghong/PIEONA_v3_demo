@@ -1,5 +1,10 @@
 # Replace this hostname, and use the same HTTPS origin in /etc/pieona/pieona.env.
-play.example.com {
+play.illova.app {
     encode zstd gzip
     reverse_proxy 127.0.0.1:3000
+}
+
+# Direct-Caddy deployments only. Production Tunnel redirects at Cloudflare.
+pieona.yoosung.dev {
+    redir https://play.illova.app{uri} 301
 }

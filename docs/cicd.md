@@ -2,6 +2,16 @@
 
 저장소: `yoosunghong/PIEONA_v3_demo`. 운영 브랜치: `main`. 워크플로: `.github/workflows/oracle-cicd.yml`.
 
+## 운영 도메인
+
+새 운영 주소는 `https://play.illova.app`이다. 등록 기관은 Porkbun이며 DNS는 Cloudflare 무료 플랜을 사용한다. `illova.app` 네임서버는 `lilith.ns.cloudflare.com`, `rommy.ns.cloudflare.com`이다. `play`는 프록시된 CNAME으로 기존 터널 `0339e6c9-1d85-46c4-8b78-c4aecd4ef7fe.cfargotunnel.com`을 가리킨다.
+
+`/etc/pieona/tunnel.yml`에는 새 호스트와 기존 `pieona.yoosung.dev`를 모두 유지한다. 운영 환경의 `PUBLIC_ORIGIN`과 GitHub variable `ORACLE_PUBLIC_URL`은 `https://play.illova.app`을 사용한다. 계정·SQLite·릴리스·터널 UUID는 그대로 사용하며, 서로 다른 도메인 간 로그인 쿠키와 브라우저 로컬 설정은 이전되지 않아 한 번 다시 로그인해야 한다.
+
+기존 주소의 이동은 **yoosung.dev → Rules → Redirect Rules → PIEONA to ILLOVA play**에서 관리한다. 조건은 `(http.host eq "pieona.yoosung.dev")`, 대상은 `concat("https://play.illova.app", http.request.uri.path)`, 상태 코드는 301이며 Preserve query string을 켠다. 다른 yoosung.dev 서비스에는 적용하지 않는다. 2026-10-28 새 주소의 HTTPS 인증서·health·Socket.IO를 확인한 후 규칙을 활성화했다. HTTP와 HTTPS의 `/village?invite=domain-migration` 요청이 모두 `https://play.illova.app/village?invite=domain-migration`으로 301 이동함을 확인했고, 앱 내 브라우저에서도 기존 주소에서 새 로그인 화면으로 이동하는 것을 확인했다. 기존 도메인의 DNS와 인증서도 유지해야 이전 HTTPS 링크가 정상 이동한다.
+
+2026-10-28 이전 설정 백업은 Oracle의 `/etc/pieona/tunnel.yml.before-illova-20261028`, `/etc/pieona/pieona.env.before-illova-20261028`에 보관한다. env 백업은 비밀값을 포함하므로 공개하거나 Git에 추가하지 않는다. `deploy/Caddyfile`은 직접 Caddy로 배포할 때의 예제이며 현재 운영 터널에서는 사용하지 않는다.
+
 ## 평소 작업
 
 1. 로컬에서 개발하고 변경 내용을 확인한다.

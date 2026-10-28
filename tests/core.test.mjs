@@ -24,8 +24,17 @@ test('authentication, hashed sessions, CSRF origin and validation',async()=>{
   assert.equal((await request('/auth/register',{method:'POST',body:{username:'alice',password:'test-only-password-283!'}})).status,409);
   assert.equal((await request('/me',{method:'PATCH',cookie:alice.cookie,body:{nickname:'a'.repeat(21)}})).status,400);
   assert.equal((await request('/me',{method:'PATCH',cookie:alice.cookie,headers:{Origin:'https://evil.example'},body:{nickname:'stolen'}})).status,403);
+  assert.equal((await request('/me',{method:'PATCH',cookie:alice.cookie,headers:{Origin:'https://play.illova.app'},body:{nickname:'alice'}})).status,200);
   const session=runtime.store.one('SELECT * FROM sessions WHERE user_id=?',alice.id);assert.ok(!alice.cookie.includes(session.token));
   const users=await request('/users',{cookie:bob.cookie});assert.ok(users.body.users.every(u=>!('password'in u)&&!('settings'in u)||u.id===bob.id));
+});
+
+test('production domain permits realtime handshakes and rejects foreign origins',async()=>{
+  const path=url+'/socket.io/?EIO=4&transport=polling';
+  const allowed=await fetch(path,{headers:{Origin:'https://play.illova.app'}});
+  assert.equal(allowed.status,200);assert.match(await allowed.text(),/^0\{"sid":/);
+  const denied=await fetch(path,{headers:{Origin:'https://evil.example'}});
+  assert.equal(denied.status,403);
 });
 
 test('memory scopes are enforced before RAG, pending public drafts stay private',async()=>{

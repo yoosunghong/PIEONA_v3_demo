@@ -2,6 +2,8 @@
 tunnel: TUNNEL_UUID
 metrics: 127.0.0.1:20241
 ingress:
+  - hostname: play.illova.app
+    service: http://127.0.0.1:3000
   - hostname: pieona.yoosung.dev
     service: http://127.0.0.1:3000
   - service: http_status:404

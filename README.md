@@ -24,7 +24,7 @@ Oracle Cloud Ubuntu 배포 준비: [설치·데이터 이전·HTTPS·멀티플�
 
 **보관함·도감**에서 실제 수량과 최초 발견 기록을 확인합니다. 보관함은 계정의 자아 슬롯 간에 공유됩니다. [생활 콘텐츠 구조와 검증](docs/village-life.md).
 
-[게임 열기](https://pieona.yoosung.dev) · 로컬 주소: http://127.0.0.1:3000
+[게임 열기](https://play.illova.app) · 로컬 주소: http://127.0.0.1:3000
 
 `pieona_Avatar.md`의 핵심 재미를 검증하는 개인 PC 호스팅 웹 프로토타입입니다. React + Three.js, Node.js/Express + Socket.IO, SQLite로 구성했습니다. 모바일 온디바이스 추론과 UE5 렌더러 대신 웹 3D 및 서버 Gemini 추론을 사용합니다.
 
@@ -71,7 +71,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts/start.ps1 -NoTunnel
 
 ## Cloudflare 연결
 
-전용 터널 `pieona-avatar-prototype`을 만들고 `pieona.yoosung.dev`의 DNS를 연결했습니다. `cloudflare/config.yml`은 `http://127.0.0.1:3000`으로 전달하며, 나머지 호스트는 404를 반환합니다. 외부에서 노출하는 서비스는 이 호스트 하나입니다. 서버는 기본적으로 루프백에만 바인딩합니다.
+전용 터널 `pieona-avatar-prototype`에 `play.illova.app`과 기존 `pieona.yoosung.dev`의 DNS를 연결했습니다. `cloudflare/config.yml`은 `http://127.0.0.1:3000`으로 전달하며, 나머지 호스트는 404를 반환합니다. 새 운영 주소는 `play.illova.app`이며 기존 `pieona.yoosung.dev`는 이전 링크의 리디렉션을 위해 유지합니다. 서버는 기본적으로 루프백에만 바인딩합니다.
 
 - 터널 자격 증명: `data/cloudflare/credentials.json` (비밀, Git 제외)
 - 터널 UUID: `0339e6c9-1d85-46c4-8b78-c4aecd4ef7fe`
