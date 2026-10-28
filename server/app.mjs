@@ -466,7 +466,7 @@ export function createApp(options = {}) {
   installExploration({app,store,auth,personaScripts,logAction,clock:options.explorationClock,random:options.explorationRandom});
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
   const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance:user=>profile(user,user.id).appearance,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
-  const polls=installVillagePolls({app,io,store,auth,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,clock:options.socialClock});
+  const polls=installVillagePolls({app,io,store,auth,limiter:aiLimiter,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,personaScripts,generate:options.generatePollAnswer,clock:options.socialClock});
   function raceEmit(r,name,data){for(const player of r.players)io.to(player.socketId).emit(name,data);}
   const invitePlayers=invite=>[{userId:invite.from,socketId:invite.fromSocket,anonymous:invite.anonymous},...invite.guests];
   function cancelInvite(invite,reason){invites.delete(invite.id);for(const p of invitePlayers(invite))io.to(p.socketId).emit('runner:invite-ended',{id:invite.id,reason});}
