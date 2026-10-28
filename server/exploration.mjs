@@ -15,7 +15,7 @@ export function installExploration({app,store,auth,clock=Date.now,personaScripts
  const eligible=(uid,id)=>{const u=store.one('SELECT * FROM users WHERE id=?',id);return u&&uid!==id&&!isBlocked(store,uid,id)&&settingsOf(u).allowVisitors&&store.one("SELECT 1 FROM friendships WHERE owner_id=? AND friend_id=? AND status='accepted'",uid,id)?u:null;};
  const profile=(u,viewer)=>{const p=publicUser(store,u,viewer);return {id:p.id,nickname:p.nickname,appearance:p.avatarAppearance,slot:u.active_slot};};
  const read=uid=>{const row=store.one('SELECT state FROM exploration_progress WHERE owner_id=?',uid),s=upgradeExploration(row?JSON.parse(row.state):createExploration(clock()));
-  if(s.companion.profile){const u=eligible(uid,s.companion.profile.id);if(!u||u.active_slot!==s.companion.profile.slot){Object.assign(s.companion,{enabled:false,profile:null,mode:'IDLE',targetId:null,path:null});s.reply='동행할 수 없는 아바타예요. 다음 출발 때 친구를 다시 선택해 주세요.';}}
+  if(s.companion.profile){const u=eligible(uid,s.companion.profile.id);if(!u||u.active_slot!==s.companion.profile.slot){Object.assign(s.companion,{enabled:false,profile:null,mode:'IDLE',targetId:null,path:null});s.reply='동행할 수 없는 아바타예요. 다음 출발 때 친구를 다시 선택해 주세요.';}else{s.companion.profile=profile(u,uid);}}
   return s;
  };
  app.get('/api/exploration/companions',auth,(req,res)=>res.json({companions:store.all("SELECT u.* FROM users u JOIN friendships f ON f.friend_id=u.id WHERE f.owner_id=? AND f.status='accepted' ORDER BY u.nickname",req.user.id).filter(u=>eligible(req.user.id,u.id)).map(u=>profile(u,req.user.id))}));

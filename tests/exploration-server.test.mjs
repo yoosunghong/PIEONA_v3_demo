@@ -36,3 +36,26 @@ test('departure selects exactly one accepted friend; validates privacy and persi
  await h.request('/blocks/'+a.id,b,{});time+=1000;const revoked=await h.request('/exploration',a);assert.equal(revoked.body.state.companion.enabled,false);assert.equal(revoked.body.state.companion.targetId,null);assert.equal((await h.request('/exploration/companions',a)).body.companions.length,0);
  }finally{await h.close();}
 });
+
+
+test('a forest companion refreshes the friend avatar appearance during and between trips',async()=>{
+ const h=await harness();try{
+  const a=await h.register('forest_look_owner'),b=await h.register('forest_look_friend');
+  await h.request('/friends/'+b.id,a,{});await h.request('/friends/'+a.id,b,{});
+  const first={character:'pio',hat:'none',accessory:'none',color:'#88b5d7'};
+  const changed={character:'tori',hat:'beret',accessory:'bow',color:'#d994b6'};
+  assert.equal((await h.request('/me/world',b,{avatarAppearance:first},'PATCH')).status,200);
+  await h.request('/exploration/return',a,{requestId:'look-initial-return'});
+  const entered=await h.request('/exploration/enter',a,{requestId:'look-enter-0001',companionId:b.id});
+  assert.equal(entered.body.state.companion.profile.appearance.character,'pio');
+  assert.equal((await h.request('/me/world',b,{avatarAppearance:changed},'PATCH')).status,200);
+  const refreshed=await h.request('/exploration',a);
+  for(const [key,value] of Object.entries(changed))assert.equal(refreshed.body.state.companion.profile.appearance[key],value);
+  assert.equal(refreshed.body.state.companion.enabled,true);
+  const command=await h.request('/exploration/command',a,{requestId:'look-command-001',text:'중단'});
+  assert.equal(command.body.state.companion.profile.appearance.character,'tori');
+  await h.request('/exploration/return',a,{requestId:'look-return-0001'});
+  const again=await h.request('/exploration/enter',a,{requestId:'look-enter-0002',companionId:b.id});
+  assert.equal(again.body.state.companion.profile.appearance.character,'tori');
+ }finally{await h.close();}
+});
