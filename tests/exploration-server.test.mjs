@@ -24,6 +24,14 @@ test('departure selects exactly one accepted friend; validates privacy and persi
  const started=await h.request('/exploration/enter',a,{requestId:'enter-with-friend',companionId:b.id});assert.equal(started.status,200);assert.equal(started.body.state.companion.profile.id,b.id);
  const slot=h.runtime.store.one('SELECT active_slot FROM users WHERE id=?',b.id).active_slot;h.runtime.store.run('INSERT INTO pss_versions VALUES(?,?,?,?,?,?,?)',b.id,slot,7,JSON.stringify(PERSONA_A),JSON.stringify(fixtureScripts(PERSONA_A)),'fixture',new Date().toISOString());h.runtime.store.run('INSERT INTO pss_active VALUES(?,?,?)',b.id,slot,7);
  const data={requestId:'persona-command-01',text:'돌 캐 줘'};const command=await h.request('/exploration/command',a,data);assert.equal(command.status,200);assert.equal(command.body.state.companion.mode,'MINE_STONE');assert.equal(command.body.state.dialogue.eventId,'request.mining.accept');assert.equal(command.body.state.dialogue.speaker,started.body.state.companion.profile.nickname);assert.ok(command.body.state.reply.includes('바위'));assert.ok(command.body.state.reply.includes('캘게요'));assert.equal(command.body.state.dialogue.personaVersion,7);assert.deepEqual((await h.request('/exploration/command',a,data)).body,command.body);
+ for(const [task,text] of [['logging','나무'],['mining','돌'],['gathering','버섯'],['follow','따라와'],['return','복귀'],['rest','중단'],['attack','슬라임 공격']]){
+  const variants=new Set();for(let i=0;i<3;i++){
+   const body={requestId:`saved-${task}-${i}`,text},r=await h.request('/exploration/command',a,body);assert.equal(r.status,200,JSON.stringify(r.body));
+   const line=r.body.state.dialogue,saved=fixtureScripts(PERSONA_A).events.find(e=>e.eventId===`request.${task}.accept`);
+   assert.equal(line.eventId,saved.eventId);assert.ok(saved.variants.some(v=>v.id===line.variantId&&v.text===line.text));variants.add(line.variantId);
+   assert.equal(line.personaVersion,7);assert.deepEqual((await h.request('/exploration/command',a,body)).body,r.body);
+  }assert.equal(variants.size,3);
+ }
  assert.equal((await h.request('/exploration/enter',a,{requestId:'replace-in-forest',companionId:c.id})).status,400);
  await h.request('/blocks/'+a.id,b,{});time+=1000;const revoked=await h.request('/exploration',a);assert.equal(revoked.body.state.companion.enabled,false);assert.equal(revoked.body.state.companion.targetId,null);assert.equal((await h.request('/exploration/companions',a)).body.companions.length,0);
  }finally{await h.close();}

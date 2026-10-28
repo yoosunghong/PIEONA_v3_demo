@@ -3,6 +3,8 @@ import {z} from 'zod';
 export const EXPRESSIONS=['happy','curious','calm','thinking','excited'];
 export const EMOTIONS=['neutral','happy','sad','angry','tired','excited'];
 const entry=(id,trigger,preconditions,variables,outcome,action)=>({id,trigger,source:'server/life.mjs',preconditions,variables,outcome,action,active:true,runtimeState:'PLAYER life activity; owner avatar reacts privately',variants:3,output:'PersonaDialogue owner avatar bubble',reachability:'bound; verification is recorded separately'});
+export const COMPANION_REQUESTS={GATHER_WOOD:['logging','나무를 계속 모을게'],MINE_STONE:['mining','바위를 계속 캘게'],FORAGE:['gathering','숲의 재료를 계속 채집할게'],FOLLOW:['follow','네 곁으로 따라갈게'],RETURN:['return','네 곁으로 돌아갈게'],IDLE:['rest','작업을 멈추고 여기서 기다릴게'],ATTACK:['attack','슬라임을 막을게']};
+export const REQUEST_EVENTS=Object.entries(COMPANION_REQUESTS).map(([action,[task]])=>({id:`request.${task}.accept`,trigger:'exploration/command',source:'server/exploration.mjs',preconditions:['authenticated explorer','eligible selected companion','accepted command'],variables:[],outcome:'accept',action,active:true,runtimeState:'Selected companion accepts a forest task; does not claim completion',variants:3,output:'Exploration companion dialogue bubble',reachability:'bound; verification is recorded separately'}));
 export const EVENT_REGISTRY=[
  entry('fishing.start','insertSession',['authenticated village member','reachable free fishing seat'],[],'start','Walk to a fishing seat and press E'),
  entry('fishing.result.success','settle',['active fishing session','45 seconds elapsed','common or uncommon catch'],['fishName'],'success','Keep fishing until a common or uncommon catch'),
@@ -11,15 +13,17 @@ export const EVENT_REGISTRY=[
  entry('garden.plant.complete','tick/gardening.complete',['own village member','plant operation completed'],[],'plant','Use the garden seed control and finish the activity'),
  entry('garden.harvest.complete','tick/gardening.complete',['own village member','mature crop','harvest operation completed'],[],'harvest','Wait for a planted crop to mature and harvest it'),
  entry('cooking.complete','tick/gardening.complete',['own village member','recipe ingredients available','cook operation completed'],[],'cook','Use the kitchen recipe control and finish cooking'),
- ...['request.follow.accept','request.follow.reject','request.follow.start','request.gathering.accept','request.gathering.reject','request.gathering.working','request.mining.accept','request.mining.reject','request.mining.working','request.logging.accept','request.logging.reject','request.logging.working','request.fishing.accept','request.fishing.reject','request.fishing.working','request.rest.accept','request.rest.reject','emotion.affection.positive','emotion.affection.neutral','emotion.anger.mild','emotion.anger.strong','emotion.sadness.mild','emotion.sadness.strong','emotion.fatigue.mild','emotion.fatigue.exhausted','reaction.task.success','reaction.task.failure','reaction.discovery.common','reaction.discovery.rare','social.visit.greeting','social.visit.farewell','social.avatar.propose','social.avatar.accept','social.avatar.reject'].map(id=>({id,active:false,trigger:null,source:null,preconditions:[],variables:[],runtimeState:null,variants:0,output:null,reachability:'unsupported',reason:id.startsWith('request.')?'Generated request scripts are not enabled; exploration acceptance uses applied-persona templates':id.startsWith('emotion.')?'No normal avatar emotion state transition producer is implemented':'No PSS binding for this gameplay path'}))
+ ...['request.follow.accept','request.follow.reject','request.follow.start','request.gathering.accept','request.gathering.reject','request.gathering.working','request.mining.accept','request.mining.reject','request.mining.working','request.logging.accept','request.logging.reject','request.logging.working','request.fishing.accept','request.fishing.reject','request.fishing.working','request.rest.accept','request.rest.reject','emotion.affection.positive','emotion.affection.neutral','emotion.anger.mild','emotion.anger.strong','emotion.sadness.mild','emotion.sadness.strong','emotion.fatigue.mild','emotion.fatigue.exhausted','reaction.task.success','reaction.task.failure','reaction.discovery.common','reaction.discovery.rare','social.visit.greeting','social.visit.farewell','social.avatar.propose','social.avatar.accept','social.avatar.reject'].map(id=>({id,active:false,trigger:null,source:null,preconditions:[],variables:[],runtimeState:null,variants:0,output:null,reachability:'unsupported',reason:id.startsWith('request.')?'No runtime binding for this request phase; forest acceptance events are supported':id.startsWith('emotion.')?'No normal avatar emotion state transition producer is implemented':'No PSS binding for this gameplay path'}))
 ];
+for(const event of REQUEST_EVENTS){const i=EVENT_REGISTRY.findIndex(e=>e.id===event.id);if(i<0)EVENT_REGISTRY.push(event);else EVENT_REGISTRY[i]=event;}
 export const ACTIVE_EVENTS=EVENT_REGISTRY.filter(e=>e.active);
+export const LIFE_EVENTS=ACTIVE_EVENTS.filter(e=>!e.id.startsWith('request.'));
 export const TRAITS=['sociability','kindness','curiosity','playfulness','sensitivity','activity'];
 export const personaSchema=z.object({...Object.fromEntries(TRAITS.map(k=>[k,z.number().min(0).max(1)])),speechStyle:z.string().trim().min(1).max(160),preferences:z.array(z.string().trim().min(1).max(80)).max(8)}).strict();
 export const proposalSchema=z.object({persona:personaSchema,summary:z.string().trim().min(1).max(600),evidenceIds:z.array(z.string().min(1)).min(1).max(20)}).strict();
 const variantSchema=z.object({id:z.string().regex(/^[a-z0-9._-]{1,100}$/),text:z.string().trim().min(1).max(100),expression:z.enum(EXPRESSIONS),outcome:z.string(),mood:z.enum(['any',...EMOTIONS]),affinity:z.enum(['any','familiar','trusted'])}).strict();
-const scriptsSchema=z.object({events:z.array(z.object({eventId:z.string(),variants:z.array(variantSchema).length(3)}).strict()).length(ACTIVE_EVENTS.length)}).strict();
-export function validateScripts(raw){
+const scriptsSchema=z.object({events:z.array(z.object({eventId:z.string(),variants:z.array(variantSchema).length(3)}).strict()).min(LIFE_EVENTS.length).max(ACTIVE_EVENTS.length)}).strict();
+export function validateScripts(raw,{requireAll=false}={}){
  const data=scriptsSchema.parse(raw),ids=new Set(),events=new Set();
  for(const group of data.events){
   const event=ACTIVE_EVENTS.find(e=>e.id===group.eventId);
@@ -34,6 +38,8 @@ export function validateScripts(raw){
    renderVariant(v,event,Object.fromEntries(event.variables.map(key=>[key,'가'.repeat(24)])));
   }
  }
+ // Saved village-only versions remain readable and can be rolled back to.
+ for(const event of requireAll?ACTIVE_EVENTS:LIFE_EVENTS)if(!events.has(event.id))throw new Error('PSS_EVENT_MISSING');
  return data;
 }
 export function renderVariant(variant,event,context){

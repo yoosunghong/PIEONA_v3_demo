@@ -5,7 +5,7 @@ import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {harness} from './runtimeHarness.mjs';
 import {openStore} from '../server/store.mjs';
-import {ACTIVE_EVENTS,EVENT_REGISTRY,validateScripts,selectVariant,renderVariant} from '../shared/personaScripts.mjs';
+import {ACTIVE_EVENTS,LIFE_EVENTS,REQUEST_EVENTS,EVENT_REGISTRY,validateScripts,selectVariant,renderVariant} from '../shared/personaScripts.mjs';
 import {PERSONA_A,PERSONA_B,fixtureScripts,fixtureProvider} from './pssFixtures.mjs';
 import {prepareAvatar,say,update,gameplay} from './pssGameplay.mjs';
 import {createPersonaProvider} from '../server/pssProvider.mjs';
@@ -13,15 +13,15 @@ import {assembleContext} from '../server/ai.mjs';
 import {scriptCoverage} from '../shared/pssCoverage.mjs';
 
 const answer=async()=>({reply:'테스트 대화예요.',emotion:'calm',memories:[],provider:'fixture'});
-test('all active registry events have production source hooks, gameplay cases and UI wiring; exploration request templates remain outside generated activity coverage',()=>{
+test('all active registry events have production source hooks, gameplay cases and UI wiring; forest requests are bound to saved scripts',()=>{
  const source=readFileSync(new URL('../server/life.mjs',import.meta.url),'utf8'),ui=readFileSync(new URL('../src/main.jsx',import.meta.url),'utf8');
- for(const e of ACTIVE_EVENTS){assert.ok(source.includes(`'${e.id}'`),e.id);assert.ok(e.preconditions.length);assert.ok(e.trigger);assert.equal(e.variants,3);}
- assert.equal(ACTIVE_EVENTS.length,7);assert.equal(EVENT_REGISTRY.find(e=>e.id==='request.follow.start').active,false);
+ for(const e of LIFE_EVENTS){assert.ok(source.includes(`'${e.id}'`),e.id);assert.ok(e.preconditions.length);assert.ok(e.trigger);assert.equal(e.variants,3);}
+ assert.equal(ACTIVE_EVENTS.length,14);assert.equal(REQUEST_EVENTS.length,7);assert.equal(EVENT_REGISTRY.find(e=>e.id==='request.logging.accept').active,true);assert.equal(EVENT_REGISTRY.find(e=>e.id==='request.follow.start').active,false);
  assert.ok(ui.includes('<PersonaDialogue'));assert.ok(ui.includes('<PersonaUpdate'));assert.ok(!source.includes('NODE_ENV'));assert.ok(!source.includes('generateAnswer'));
 });
 test('strict validation rejects missing/unsupported/duplicate events, IDs, malformed variables, expressions and contradictory outcomes',()=>{
  validateScripts(fixtureScripts(PERSONA_A));
- for(const mutate of [s=>s.events.pop(),s=>s.events[0].eventId='request.follow.start',s=>s.events[1].eventId=s.events[0].eventId,s=>s.events[0].variants[0].id=s.events[1].variants[0].id,s=>s.events[0].variants[0].text='',s=>s.events[0].variants[0].text='x'.repeat(101),s=>s.events[0].variants[0].text='{fishName}',s=>s.events[1].variants[0].text='{bad}',s=>s.events[0].variants[0].text='안녕 {',s=>s.events[0].variants[0].expression='angry-animation',s=>s.events[0].variants[0].outcome='success',s=>s.events[2].variants[0].text='물고기를 잡았어!',s=>s.events[1].variants[0].text='실패했어',s=>s.events[0].variants[0].weight=0]){const s=fixtureScripts(PERSONA_A);mutate(s);assert.throws(()=>validateScripts(s));}
+ for(const mutate of [s=>s.events.pop(),s=>s.events[0].eventId='request.follow.start',s=>s.events[1].eventId=s.events[0].eventId,s=>s.events[0].variants[0].id=s.events[1].variants[0].id,s=>s.events[0].variants[0].text='',s=>s.events[0].variants[0].text='x'.repeat(101),s=>s.events[0].variants[0].text='{fishName}',s=>s.events[1].variants[0].text='{bad}',s=>s.events[0].variants[0].text='안녕 {',s=>s.events[0].variants[0].expression='angry-animation',s=>s.events[0].variants[0].outcome='success',s=>s.events[2].variants[0].text='물고기를 잡았어!',s=>s.events[1].variants[0].text='실패했어',s=>s.events[0].variants[0].weight=0]){const s=fixtureScripts(PERSONA_A);mutate(s);assert.throws(()=>validateScripts(s,{requireAll:true}));}
  assert.throws(()=>renderVariant({text:'{fishName}'},ACTIVE_EVENTS[1],{fishName:'<script>'}));
  const expanded=fixtureScripts(PERSONA_A);expanded.events[1].variants[0].text='{fishName}'.repeat(9);assert.throws(()=>validateScripts(expanded),/PSS_RENDER_TOO_LONG/);
 });
@@ -37,8 +37,8 @@ test('both personas traverse every production gameplay event and every natural/f
  const h=await harness({generateAnswer:answer,personaProvider:provider,lifeRandom:()=>rolls.shift()??0,pssForceVariant:({eventId,variants})=>forced?.eventId===eventId?variants[forced.index].id:null});
  try{const u=await prepareAvatar(h),socket=await h.connect(u),paths=gameplay(h,u,socket,v=>rolls=v);
   for(const [version,text] of [[1,'조용한 존댓말을 좋아해요'],[2,'다정하고 장난스러운 반말을 좋아해요']]){
-   const r=await update(h,u,text);assert.equal(r.active.version,version);assert.equal(r.active.scripts.events.length,7);
-   for(const e of ACTIVE_EVENTS){assert.equal(typeof paths.cases[e.id],'function',e.id);
+   const r=await update(h,u,text);assert.equal(r.active.version,version);assert.equal(r.active.scripts.events.length,14);
+   for(const e of LIFE_EVENTS){assert.equal(typeof paths.cases[e.id],'function',e.id);
     const before=h.runtime.store.all('SELECT id FROM pss_executions').length;
     for(let i=0;i<3;i++)await paths.cases[e.id]();
     const rows=h.runtime.store.all('SELECT * FROM pss_executions WHERE owner_id=? AND version=? AND event_id=?',u.id,version,e.id).filter(r=>!JSON.parse(r.line).forced);
@@ -112,10 +112,10 @@ test('approved persona enters owner chat only; an in-flight evidence change is r
   let release,started;const ready=new Promise(r=>started=r);provider.analyze=()=>{started();return new Promise(r=>release=r);};const pending=h.request('/me/pss/propose',u,{consent:true});await ready;
   h.runtime.store.run('UPDATE users SET revision=revision+1 WHERE id=?',u.id);release({persona:PERSONA_B,summary:'합성 제안',evidenceIds:[h.runtime.store.one("SELECT id FROM messages WHERE role='user' ORDER BY rowid DESC LIMIT 1").id]});assert.equal((await pending).status,409);assert.equal((await h.request('/me/pss',u)).body.version,1);
   provider.analyze=fixtureProvider().analyze;provider.generate=async()=>fixtureScripts(PERSONA_A);const p=await h.request('/me/pss/propose',u,{consent:true});provider.generate=async()=>({events:[{eventId:'missing',variants:[{id:'rejected-line'}]}]});assert.equal((await h.request('/me/pss/generate',u,{proposalId:p.body.proposalId})).status,400);
-  const report=(await h.request('/me/pss/coverage',u)).body;assert.equal(report.generatedScriptVariants,21);assert.equal(report.rejectedGenerationCandidates.length,1);assert.equal(report.rejectedGenerationCandidates[0].outputRetained,true);
+  const report=(await h.request('/me/pss/coverage',u)).body;assert.equal(report.generatedScriptVariants,42);assert.equal(report.rejectedGenerationCandidates.length,1);assert.equal(report.rejectedGenerationCandidates[0].outputRetained,true);
  }finally{await h.close();}
 });
 test('coverage never removes generated unreachable variants from the denominator and never equates socket delivery with UI display',()=>{
  const scripts=fixtureScripts(PERSONA_A);scripts.events.push({eventId:'unsupported',variants:[{...scripts.events[0].variants[0],id:'orphan'}]});
- const v={ownerId:'owner',slot:'slot',version:1,scripts},report=scriptCoverage([v],[]);assert.equal(report.generatedScriptVariants,22);assert.equal(report.uiDisplayCoverage,0);assert.equal(report.unreachableScripts.length,22);assert.equal(report.invalidScripts.length,22);assert.equal(report.failedScripts.length,22);
+ const v={ownerId:'owner',slot:'slot',version:1,scripts},report=scriptCoverage([v],[]);assert.equal(report.generatedScriptVariants,43);assert.equal(report.uiDisplayCoverage,0);assert.equal(report.unreachableScripts.length,43);assert.equal(report.invalidScripts.length,43);assert.equal(report.failedScripts.length,43);
 });

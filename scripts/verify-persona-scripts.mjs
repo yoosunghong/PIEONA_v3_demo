@@ -8,7 +8,7 @@ import {harness} from '../tests/runtimeHarness.mjs';
 import {prepareAvatar,say,gameplay} from '../tests/pssGameplay.mjs';
 import {fixtureProvider} from '../tests/pssFixtures.mjs';
 import {createPersonaProvider} from '../server/pssProvider.mjs';
-import {ACTIVE_EVENTS,validateScripts} from '../shared/personaScripts.mjs';
+import {LIFE_EVENTS as ACTIVE_EVENTS,validateScripts} from '../shared/personaScripts.mjs';
 import {scriptCoverage} from '../shared/pssCoverage.mjs';
 
 const require=createRequire(import.meta.url),{chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
@@ -19,6 +19,7 @@ const provider=live?createPersonaProvider():fixtureProvider(),generate=provider.
 provider.generate=async p=>{generationCalls++;return generate(p);};provider.analyze=async p=>{analysisCalls++;return analyze(p);};
 const uiEvidence=[],errors=[],versions=[],staticEvidence={},checkpoints=[],providerErrors=[],browserMessages=[],dialogueCaptures=new Map();
 let heldDialogueVerified=false;
+const villageVersions=()=>versions.map(v=>({...v,scripts:{events:v.scripts.events.filter(e=>!e.eventId.startsWith('request.'))}}));
 const source=readFileSync('server/life.mjs','utf8');
 for(const e of ACTIVE_EVENTS){assert.ok(source.includes(`'${e.id}'`),e.id);staticEvidence[e.id]={trigger:e.trigger,source:e.source,playerAction:e.action,preconditions:e.preconditions,pipeline:'production life action -> PSS persisted selection -> owner socket -> main.jsx PersonaDialogue -> rendered DOM',test:'scripts/verify-persona-scripts.mjs: gameplay cases from registry'};}
 try{
@@ -113,7 +114,7 @@ try{
  if(process.env.PSS_SOFTWARE_GL==='1')await page.waitForFunction(()=>document.querySelector('.scene-canvas canvas')?.dataset.readingPaused==='false');
  assert.deepEqual(errors,[]);
  const executions=h.runtime.store.all('SELECT line FROM pss_executions').map(r=>JSON.parse(r.line));
- const report={createdAt:new Date().toISOString(),provider:provider.name,seed:0,clockStart:'2026-10-27T00:00:00Z',browser:await browser.version(),mode,checkpoints,dialogueScreenshotCount:dialogueCaptures.size,...scriptCoverage(versions,executions,uiEvidence,staticEvidence),errors,versions,executions,uiEvidence};
+ const report={verificationScope:'Village activity UI only; forest request API coverage is tested separately',createdAt:new Date().toISOString(),provider:provider.name,seed:0,clockStart:'2026-10-27T00:00:00Z',browser:await browser.version(),mode,checkpoints,dialogueScreenshotCount:dialogueCaptures.size,...scriptCoverage(villageVersions(),executions,uiEvidence,staticEvidence),errors,versions,executions,uiEvidence};
  writeFileSync(join(directory,'coverage.json'),JSON.stringify(report,null,2));
  const columns=['eventId','variantId','version','staticReachable','runtimeExecuted','uiDisplayed','forcedSelection','naturalSelection','status'];
  writeFileSync(join(directory,'coverage.csv'),[columns.join(','),...report.rows.map(r=>columns.map(k=>JSON.stringify(r[k])).join(','))].join('\n'));
@@ -124,6 +125,6 @@ try{
  const executions=h?.runtime.store.all('SELECT line FROM pss_executions').map(r=>JSON.parse(r.line))||[];
  const failed={createdAt:new Date().toISOString(),mode,status:'FAILED',error:e.message,stack:e.stack,generationCalls,analysisCalls,providerErrors,versions,uiEvidence,errors,browserMessages,dom:await page?.locator('body').innerText().catch(()=>null)};
  writeFileSync(join(directory,'failure.json'),JSON.stringify(failed,null,2));
- writeFileSync(join(directory,'coverage.json'),JSON.stringify({...scriptCoverage(versions,executions,uiEvidence,staticEvidence),...failed,failedTests:1},null,2));throw e;
+ writeFileSync(join(directory,'coverage.json'),JSON.stringify({...scriptCoverage(villageVersions(),executions,uiEvidence,staticEvidence),...failed,failedTests:1},null,2));throw e;
 }
 finally{await browser?.close();await h?.close();}

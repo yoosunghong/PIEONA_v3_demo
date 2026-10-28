@@ -55,7 +55,7 @@ export function installPersonaScripts({app,store,auth,limiter,io,provider=create
   try{
    const raw=await provider.generate(JSON.parse(p.proposal).persona);fresh(p);
    store.run('UPDATE pss_proposals SET scripts=? WHERE id=?',JSON.stringify(raw),p.id);
-   const scripts=validateScripts(raw);
+   const scripts=validateScripts(raw,{requireAll:true});
    store.run("UPDATE pss_proposals SET scripts=?,status='validated' WHERE id=?",JSON.stringify(scripts),p.id);
    res.json({proposalId:p.id,before:current(uid,p.slot).scripts,after:scripts,provider:provider.name});
   }catch(e){store.run("UPDATE pss_proposals SET status='failed' WHERE id=?",p.id);throw e;}finally{locks.delete(k);}
