@@ -66,7 +66,7 @@ export function tickExploration(s,time=Date.now(),random=Math.random){companionA
  }
  const slime=s.nodes.find(n=>n.type==='slime');
  if(slime?.hp>0){const d=distance(slime,s.position);if(d<4.4&&d>1.15)moveToward(slime,s.position,elapsed*.75,s);else if(d>=4.4){const phase=(time-s.sessionStart)/1000;moveToward(slime,{x:-4.1+Math.sin(phase*.28)*.7,z:-6.4+Math.cos(phase*.28)*.5},elapsed*.3,s);}if(d<1.4&&time>=s.slimeAttackAt){s.hp=Math.max(0,s.hp-7);s.slimeAttackAt=time+2200;note(s,'슬라임에게 피해를 받았어요 · HP -7',time,{kind:'damage'});if(s.hp===0){for(const k of Object.keys(s.inventory))s.inventory[k]=Math.floor(s.inventory[k]*.9);returnExploration(s,time,true);}}
-  if(c.enabled&&c.mode==='FOLLOW'&&d<2.2&&distance(c,slime)<2.2&&time>=c.nextAction&&s.fatigue>=ATTACK_FATIGUE_COST){interactExploration(s,slime.id,'COMPANION',time,random);c.nextAction=time+1800;}
+  if(c.enabled&&c.mode==='FOLLOW'&&d<2.2&&distance(c,slime)<=REACH&&time>=c.nextAction&&s.fatigue>=ATTACK_FATIGUE_COST){interactExploration(s,slime.id,'COMPANION',time,random);c.nextAction=time+1800;}
  }
  if(s.position.x<-7&&s.position.z<-5&&!s.visited.includes('hidden')){s.visited.push('hidden');xp(s,'place:hidden',20,time);note(s,'숨겨진 반딧불 쉼터를 발견했어요',time,{kind:'discovery'});}
  return s;

@@ -5,6 +5,20 @@ import {experienceOf} from '../server/store.mjs';
 import {createExploration} from '../shared/exploration.mjs';
 import {PERSONA_A,fixtureScripts} from './pssFixtures.mjs';
 
+test('saved companion just outside attack range does not prevent forest loading or return',async()=>{
+ const time=1000,h=await harness({explorationClock:()=>time});try{
+  const owner=await h.register('forest_range_owner'),friend=await h.register('forest_range_friend');
+  await h.request('/friends/'+friend.id,owner,{});await h.request('/friends/'+owner.id,friend,{});
+  const slot=h.runtime.store.one('SELECT active_slot FROM users WHERE id=?',friend.id).active_slot;
+  const s=createExploration(time),slime=s.nodes.find(n=>n.type==='slime');
+  s.position={x:slime.x,z:slime.z+1.5};
+  Object.assign(s.companion,{enabled:true,mode:'FOLLOW',profile:{id:friend.id,slot},x:slime.x,z:slime.z+2.1,nextAction:0});
+  h.runtime.store.run('INSERT INTO exploration_progress VALUES(?,?)',owner.id,JSON.stringify(s));
+  const loaded=await h.request('/exploration',owner);assert.equal(loaded.status,200);assert.equal(loaded.body.state.nodes.find(n=>n.type==='slime').hp,3);
+  const returned=await h.request('/exploration/return',owner,{requestId:'return-range-regression'});assert.equal(returned.status,200);assert.equal(returned.body.state.area,'village');
+ }finally{await h.close();}
+});
+
 test('returning restores fatigue to 100 and reentering preserves the recovery',async()=>{const h=await harness();try{const u=await h.register('forest_rest'),s=createExploration();s.fatigue=1;s.hp=30;h.runtime.store.run('INSERT INTO exploration_progress VALUES(?,?)',u.id,JSON.stringify(s));const returned=await h.request('/exploration/return',u,{requestId:'return-and-rest-001'});assert.equal(returned.status,200);assert.equal(returned.body.state.area,'village');assert.equal(returned.body.state.fatigue,100);assert.equal(returned.body.state.hp,100);const entered=await h.request('/exploration/enter',u,{requestId:'reenter-rested-001'});assert.equal(entered.status,200);assert.equal(entered.body.state.area,'forest');assert.equal(entered.body.state.fatigue,100);assert.equal(entered.body.state.companion.enabled,false);assert.equal((await h.request('/exploration',u)).body.state.fatigue,100);}finally{await h.close();}});
 test('paused companions migrate saved jobs and cannot be reenabled through the API',async()=>{const h=await harness();try{const u=await h.register('forest_solo'),s=createExploration();s.fatigue=45;Object.assign(s.companion,{enabled:true,mode:'GATHER_WOOD',targetId:'tree-1',x:3,z:.6});h.runtime.store.run('INSERT INTO exploration_progress VALUES(?,?)',u.id,JSON.stringify(s));const paused=await h.request('/exploration',u);assert.equal(paused.body.state.companion.enabled,false);assert.equal(paused.body.state.companion.targetId,null);assert.equal(paused.body.state.inventory.wood,0);assert.equal(paused.body.state.fatigue,45);assert.equal((await h.request('/exploration/companion',u,{requestId:'reenable-ai-00001',enabled:true})).status,400);assert.equal((await h.request('/exploration/command',u,{requestId:'paused-command-001',text:'나무 캐 와'})).status,400);const saved=JSON.parse(h.runtime.store.one('SELECT state FROM exploration_progress WHERE owner_id=?',u.id).state);assert.equal(saved.companion.enabled,false);assert.equal(saved.fatigue,45);}finally{await h.close();}});
 
