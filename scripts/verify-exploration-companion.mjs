@@ -15,11 +15,11 @@ try{
  await page.goto(base+'/explore?depart=1');await page.getByRole('dialog',{name:'숲 동행 친구 선택'}).waitFor({timeout:15000}).catch(async e=>{console.log('BODY',await page.locator('body').innerText());await page.screenshot({path:'tmp/exploration-companion/error.png'});throw e;});
  await page.getByRole('button',{name:'숲친구 아바타와 동행'}).click();await page.screenshot({path:'tmp/exploration-companion/departure.png'});
  await page.getByRole('button',{name:'숲으로 출발',exact:true}).click();await page.locator('.exp-world canvas').waitFor();await page.locator('.exp-loading').waitFor({state:'detached',timeout:90000});
- await page.getByRole('button',{name:'숲친구 · 부탁하기'}).click();await page.getByRole('button',{name:'나무 벌목',exact:true}).click();
+ await page.getByRole('button',{name:'동행 친구 P'}).click();await page.getByRole('button',{name:'부탁하기',exact:true}).click();await page.screenshot({path:'tmp/exploration-companion/menu.png'});await page.getByRole('button',{name:'벌목 요청하기',exact:true}).click();
  await page.getByRole('status').filter({hasText:'나무를 계속 모을게'}).waitFor();assert.equal((await h.request('/exploration',a)).body.state.companion.mode,'GATHER_WOOD');
  await page.screenshot({path:'tmp/exploration-companion/logging.png'});
- await page.getByRole('button',{name:'숲친구 · 부탁하기'}).click();await page.getByRole('button',{name:'바위 캐기',exact:true}).click();assert.equal((await h.request('/exploration',a)).body.state.companion.mode,'MINE_STONE');
- await page.getByRole('button',{name:'숲친구 · 부탁하기'}).click();await page.getByRole('button',{name:'중단',exact:true}).click();assert.equal((await h.request('/exploration',a)).body.state.companion.mode,'IDLE');
+ await page.getByRole('button',{name:'동행 친구 P'}).click();await page.getByRole('button',{name:'부탁하기',exact:true}).click();await page.getByRole('button',{name:'채광 요청하기',exact:true}).click();assert.equal((await h.request('/exploration',a)).body.state.companion.mode,'MINE_STONE');
+ await page.getByRole('button',{name:'동행 친구 P'}).click();await page.getByRole('button',{name:'부탁하기',exact:true}).click();await page.getByRole('button',{name:'중단하기',exact:true}).click();assert.equal((await h.request('/exploration',a)).body.state.companion.mode,'IDLE');
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'tmp/exploration-companion/mobile.png'});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
  await page.getByRole('button',{name:'마을로 귀환',exact:true}).click();await page.waitForURL('**/?view=village');
