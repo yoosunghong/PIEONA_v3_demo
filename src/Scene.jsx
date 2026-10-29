@@ -178,7 +178,7 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
     const selectionRing=mesh(new THREE.TorusGeometry(.65,.025,12,80),mat(0xffffff,{emissive:0x8dcfff,emissiveIntensity:3,transparent:true,opacity:.95,depthWrite:false}),0,.42,0);selectionRing.rotation.x=Math.PI/2;selectionRing.visible=false;
     const selectionHalo=mesh(new THREE.RingGeometry(.66,.84,80),mat(0xa8d9ff,{emissive:0x80bfff,emissiveIntensity:1.5,transparent:true,opacity:.24,side:THREE.DoubleSide,depthWrite:false}),0,.415,0);selectionHalo.rotation.x=-Math.PI/2;selectionHalo.visible=false;let mixer,action,characterAsset,hostTag,hostRide,hostPet;const remoteCharacters=new Map(),characterAssets=new Map(),pendingCharacters=new Set();
     function addNameTag(parent,name){
-      const label=String(name||'이웃').slice(0,20),canvas=document.createElement('canvas');
+      const label=String(name??'').trim().slice(0,20),canvas=document.createElement('canvas');
       const ctx=canvas.getContext('2d');ctx.font='600 30px sans-serif';
       canvas.width=Math.min(768,Math.max(100,Math.ceil(ctx.measureText(label).width)+32));canvas.height=80;
       ctx.font='600 30px sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
@@ -186,17 +186,17 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
       ctx.fillText(label,canvas.width/2,40,canvas.width-24);
       const texture=new THREE.CanvasTexture(canvas);
       const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,transparent:true,depthTest:false,toneMapped:false,fog:false}));
-      sprite.scale.set(canvas.width/200,.4,1);sprite.position.y=2.95;parent.add(sprite);return sprite;
+      sprite.scale.set(canvas.width/200,.4,1);sprite.position.y=2.95;sprite.userData.hasName=!!label;parent.add(sprite);return sprite;
     }
     function disposeCharacter(root){root.traverse(o=>{if(o.isSprite){o.material.map?.dispose();o.material.dispose();}if(o.userData.generated)disposeObject(o);});}
     function buildRemote(member,asset){
       if(['PET','MOUNT'].includes(member.actorKind)){
         const pet=createCompanionPet(member.appearance),root=new THREE.Group();root.position.set(member.x??0,.39,member.z??0);root.rotation.y=member.rotation||0;root.add(pet.root);
-        const nameTag=addNameTag(root,member.nickname);nameTag.position.y=pet.flight?3:1.35;root.userData.look=JSON.stringify(member.appearance||appearance);world.add(root);
+        const nameTag=addNameTag(root,member.actorKind==='PET'?member.appearance?.petName:member.nickname);nameTag.position.y=pet.flight?3:1.35;root.userData.look=JSON.stringify(member.appearance||appearance);world.add(root);
         return {root,nameTag,pet,runMotion:pet.runMotion,sitMotion:pet.sitMotion,moving:false,seatId:member.seatId||null};
       }
       const root=new THREE.Group();root.position.set(member.x??0,.39,member.z??0);root.rotation.y=member.rotation||0;const avatar=clone(asset);const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);root.add(avatar);dressAvatar(avatar,member.appearance||appearance);const nameTag=addNameTag(root,member.nickname);root.userData.look=JSON.stringify(member.appearance||appearance);const runMotion=createRunMotion(avatar,{clip:'Walking',idle:false}),sitMotion=createSitMotion(avatar),ride=createAvatarRide(avatar,member.appearance||appearance),fishingMotion=createFishingMotion(avatar);let mixer,idleAction;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);idleAction=mixer.clipAction(asset.animations.find(clip=>clip.name==='Mirror_Viewing'));idleAction.play();idleAction.timeScale=1;}world.add(root);return{root,nameTag,mixer,idleAction,runMotion,sitMotion,ride,fishingMotion,moving:false,seatId:member.userId===state.current?.viewerId?null:member.seatId||null};}
-    (humanoidPortrait?loadAsset(ownerAppearance.character):Promise.resolve({animations:[]})).then(asset=>{if(disposed)return;characterAsset=asset;if(humanoidPortrait)characterAssets.set(ownerAppearance.character||'pio',asset);const avatar=humanoidPortrait?clone(asset):(hostPet=createCompanionPet(ownerAppearance)).root;const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());if(humanoidPortrait)avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatarRoot.add(avatar);if(humanoidPortrait)dressAvatar(avatar,ownerAppearance);hostRide=humanoidPortrait?createAvatarRide(avatar,ownerAppearance):null;if(hostRide?.flight)hostRide.dragon.root.userData.action=`mount:${ownerId}`;hostTag=addNameTag(avatarRoot,portrait?'꾸미기 미리보기':`${ownerNickname||viewerNickname||'피오'} · AI`);if(!humanoidPortrait)hostTag.position.y=1.35;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);action=mixer.clipAction(asset.animations.find(clip=>clip.name==='Mirror_Viewing'));action.play();action.timeScale=1;}setLoading(false);if(captureRef)captureRef.current=()=>{drawFrame();return renderer.domElement.toDataURL('image/png');};callbacks.current.onReady?.();}).catch(()=>{if(!disposed){setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');setLoading(false);}});
+    (humanoidPortrait?loadAsset(ownerAppearance.character):Promise.resolve({animations:[]})).then(asset=>{if(disposed)return;characterAsset=asset;if(humanoidPortrait)characterAssets.set(ownerAppearance.character||'pio',asset);const avatar=humanoidPortrait?clone(asset):(hostPet=createCompanionPet(ownerAppearance)).root;const bounds=new THREE.Box3().setFromObject(avatar);const size=bounds.getSize(new THREE.Vector3());if(humanoidPortrait)avatar.scale.setScalar(2.65/Math.max(size.y,.001));const b=new THREE.Box3().setFromObject(avatar);const center=b.getCenter(new THREE.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatarRoot.add(avatar);if(humanoidPortrait)dressAvatar(avatar,ownerAppearance);hostRide=humanoidPortrait?createAvatarRide(avatar,ownerAppearance):null;if(hostRide?.flight)hostRide.dragon.root.userData.action=`mount:${ownerId}`;hostTag=addNameTag(avatarRoot,portrait?'꾸미기 미리보기':humanoidPortrait?`${ownerNickname||viewerNickname||'피오'} · AI`:ownerAppearance.petName);if(!humanoidPortrait)hostTag.position.y=1.35;if(asset.animations.length){mixer=new THREE.AnimationMixer(avatar);action=mixer.clipAction(asset.animations.find(clip=>clip.name==='Mirror_Viewing'));action.play();action.timeScale=1;}setLoading(false);if(captureRef)captureRef.current=()=>{drawFrame();return renderer.domElement.toDataURL('image/png');};callbacks.current.onReady?.();}).catch(()=>{if(!disposed){setError('캐릭터를 불러오지 못했어요. 새로고침으로 다시 시도해주세요.');setLoading(false);}});
     const decorationRoot=new THREE.Group();world.add(decorationRoot);
     const signRoot=new THREE.Group();world.add(signRoot);
     const previewRoot=new THREE.Group();world.add(previewRoot);
@@ -376,8 +376,8 @@ export default function Scene({fishingDuel=null,chalkStrokes=[],pollActive=false
       // nickname can drift under the toolbar after walking or camera changes.
       // Apply on paused and capture draws too, so old labels cannot return.
       const showNames=state.current?.mode==='village'||state.current?.mode==='topic';
-      if(hostTag)hostTag.visible=showNames;
-      for(const entry of remoteCharacters.values())entry.nameTag.visible=showNames;
+      if(hostTag)hostTag.visible=showNames&&hostTag.userData.hasName;
+      for(const entry of remoteCharacters.values())entry.nameTag.visible=showNames&&entry.nameTag.userData.hasName;
       if(state.current?.mode==='topic'&&!cameraTransition){camera.position.set(0,4.3,Math.max(10,6/camera.aspect));controls.target.set(0,1.8,0);controls.update();}
       const question=questionBubble.current,host=remoteCharacters.get(ownerId)?.root||avatarRoot;
       const prompt=avatarPrompt.current;

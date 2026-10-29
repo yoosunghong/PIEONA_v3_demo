@@ -28,7 +28,9 @@ test('pet species and colors persist independently of the player and reach visit
   assert.equal((await request('/users/'+user.id,visitor)).body.user.avatarAppearance.petName,'콩이');
   assert.equal((await request('/me/pet/appearance',user,{petType:'cat',petColor:petColors[0].id,petName:'가'.repeat(21)},'PATCH')).status,400);
   const socket=await new Promise(resolve=>{import('socket.io-client').then(({io})=>{const socket=io(url,{transports:['websocket'],extraHeaders:{Cookie:user.cookie}});socket.once('connect',()=>socket.emit('village:join',{villageId:user.id},()=>resolve(socket)));});});
-  assert.ok(runtime.life.petMembers(user.id).some(p=>p.nickname.endsWith('콩이')));socket.disconnect();
+  assert.equal(runtime.life.petMembers(user.id).find(p=>p.actorKind==='PET').nickname,'콩이');
+  await request('/me/pet/appearance',user,{petType:'cat',petColor:petColors[0].id,petName:''},'PATCH');
+  assert.equal(runtime.life.petMembers(user.id).find(p=>p.actorKind==='PET').nickname,'');socket.disconnect();
   const valid=(await request('/me',user)).body.user.avatarAppearance;
   for(const invalid of [{petType:'dragon'},{petType:'rabbit'},{petColor:'#ffffff'}])assert.equal((await request('/me/pet/appearance',user,{petType:valid.petType,petColor:valid.petColor,...invalid},'PATCH')).status,400);
   assert.deepEqual((await request('/me',user)).body.user.avatarAppearance,valid);
