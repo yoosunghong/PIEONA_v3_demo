@@ -102,6 +102,8 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     if(!villageId||!villageVisitors.get(villageId)?.has(uid))fail(403,'마을에 입장한 뒤 낚시해 주세요.');
     if(active(uid)){if(playerVillage(uid)!==villageId)fail(409,'다른 마을에서 진행 중인 낚시를 먼저 중단해 주세요.');return snapshot(uid);}
     const member=villageVisitors.get(villageId)?.get(uid),anchor=anchors(villageId).find(a=>a.id===anchorId);
+    // Older clients omit starId; space clients can fish only on the fishing star.
+    if(member?.starId&&member.starId!=='fishing')fail(409,'낚시별로 이동한 뒤 낚시해 주세요.');
     if(!member||!anchor)fail(400,'낚시 자리 가까이에서 다시 시도해 주세요.');
     if(busy(uid)||member.seatId||member.jumpStarted&&clock()-member.jumpStarted<720)fail(409,'진행 중인 활동을 마친 뒤 낚시해 주세요.');
     if(Math.hypot(member.x-anchor.x,member.z-anchor.z)>INTERACTION_REACH)fail(409,'낚시 자리 가까이로 이동해 주세요.');

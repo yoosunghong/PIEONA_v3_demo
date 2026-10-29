@@ -1,0 +1,68 @@
+.space-world{background:#22345d;color:#edf3ff}
+.space-world .scene-vignette{background:radial-gradient(ellipse at 50% 45%,transparent 40%,#17244932 100%)}
+.space-world .breadcrumbs,.space-world .breadcrumbs>span:last-child{color:#e4ecff;text-shadow:0 2px 7px #10182c80}
+.space-world .village-footer{color:#e5edff}
+.space-world .world-welcome,.space-world .village-avatar-progress,.space-world .stage-capture-button,.space-world .village-theme-button{box-shadow:0 8px 28px #0d1b3926}
+.space-world .star-overview-button{background:linear-gradient(120deg,#dcecff,#eef3ff);border-color:#b4d6ff}
+.star-atlas{position:fixed;inset:0;z-index:100;overflow:hidden;background:#243662 url('/images/space/blue-nebula-soft.png') center/cover;isolation:isolate}
+.star-atlas-canvas,.star-atlas-canvas canvas,.star-atlas-haze,.star-atlas-destinations{position:absolute;inset:0;width:100%;height:100%}
+.star-atlas-canvas canvas{display:block;touch-action:none}
+.star-atlas-canvas{animation:star-map-reveal .7s cubic-bezier(.2,.6,.3,1)}
+@keyframes star-map-reveal{from{opacity:0;transform:scale(1.045)}to{opacity:1;transform:scale(1)}}
+.star-atlas-haze{pointer-events:none;background:linear-gradient(180deg,#27376415,#4663a21f 65%,#21335308)}
+.star-atlas-destinations{pointer-events:none}
+.star-destination{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;gap:9px;pointer-events:auto;z-index:2}
+.star-destination:nth-child(1){left:50%;top:62%}.star-destination:nth-child(2){left:22%;top:42%}.star-destination:nth-child(3){left:76%;top:36%}
+.star-marker{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 12px;background:none;border:0;color:#e9f4ff;font:inherit;cursor:pointer;text-shadow:0 2px 9px #172540}
+.star-marker>span{width:13px;height:13px;background:var(--star-color);border:2px solid #e9f5ff;border-radius:50%;box-shadow:0 0 16px var(--star-color)}
+.star-marker>svg{filter:drop-shadow(0 0 10px #bde4ff);fill:#eaf6ff;color:#6299cd}
+.star-marker strong{font-size:12px;letter-spacing:.05em;background:#1b2d566b;padding:5px 10px;border-radius:30px;border:1px solid #c1ddff35;backdrop-filter:blur(8px)}
+.is-selected .star-marker strong{background:#f1f8ff;color:#315b8a;border-color:#fff;text-shadow:none}
+.star-travel-prompt.avatar-chat-prompt{position:absolute!important;left:calc(100% + 5px)!important;top:35%!important;transform:translateY(-50%)!important;display:flex;align-items:center;gap:8px;min-width:100px;white-space:nowrap;background:#f5fbff;color:#315f85;border:1px solid #b9d9ff;border-radius:17px;padding:13px 20px;box-shadow:0 5px 26px #101b4645;visibility:visible!important;cursor:pointer}
+.star-travel-prompt:before{content:'';position:absolute;left:-5px;top:40%;width:9px;height:9px;background:#f5fbff;transform:rotate(45deg);border-left:1px solid #b9d9ff;border-bottom:1px solid #b9d9ff}
+.star-travel-prompt.avatar-chat-prompt:after{display:none}
+.star-travel-prompt.avatar-chat-prompt>span{width:auto;height:auto;background:none;color:inherit;letter-spacing:0}
+.star-destination:last-child .star-travel-prompt{left:auto!important;right:calc(100% + 5px)!important}
+.star-destination:last-child .star-travel-prompt:before{left:auto;right:-5px;border:0;border-right:1px solid #b9d9ff;border-top:1px solid #b9d9ff}
+.app-shell .star-marker strong{color:#f0f7ff}.app-shell .is-selected .star-marker strong{color:#315b8a}
+.star-atlas-caption strong{color:#f2f6ff!important}
+.app-shell:has(.star-atlas) .survey-reward-hint{display:none}
+.app-shell .space-world .breadcrumbs,.app-shell .space-world .breadcrumbs>span:last-child{color:#e4ecff}
+.app-shell.is-life-focused.is-farm-focused>.rail{opacity:1;pointer-events:auto}
+.app-shell.is-farm-focused .persistent-world-stage{visibility:hidden}
+.star-atlas-caption{position:absolute;left:50%;bottom:28px;transform:translateX(-50%);display:flex;align-items:center;gap:12px;max-width:80%;padding:12px 18px;border:1px solid #c2dbff40;border-radius:18px;background:#23345b83;color:#eef5ff;backdrop-filter:blur(16px);pointer-events:none;white-space:nowrap}
+.star-atlas-caption strong,.star-atlas-caption span{display:block}.star-atlas-caption strong{font-size:13px}.star-atlas-caption span{font-size:11px;opacity:.7;margin-top:3px}.star-atlas-caption small{margin-left:12px;font-size:10px;color:#c1d5ff}
+.star-atlas-close{position:absolute;right:27px;top:83px;border:1px solid #d5e6ff75;background:#23365d99;color:#fff;border-radius:30px;padding:9px 13px;display:flex;gap:6px;align-items:center;cursor:pointer;font:inherit;font-size:11px;z-index:5}
+.star-atlas-error{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);background:#fff;color:#315b8a;padding:14px;border-radius:14px;max-width:85%}
+.is-star-atlas .persistent-world-stage{visibility:hidden}
+.is-star-atlas .world-interface{z-index:3;pointer-events:none}
+.is-star-atlas .world-interface button{pointer-events:auto}
+.is-star-atlas .world-interface .world-actions,.is-star-atlas .world-top{z-index:4}
+.app-shell .world-panel.is-star-atlas .world-top{position:fixed;z-index:104;top:20px;left:20px;right:20px}
+.app-shell .world-panel.is-star-atlas .world-actions{position:fixed;z-index:104}
+.is-star-atlas .village-footer,.is-star-atlas .chat-dock,.is-star-atlas .touch-joystick{display:none!important}
+.space-world .farm-screen{background:#243662}
+.space-world .farm-breadcrumb,.space-world .farm-controls-hint{color:#e4edff}
+.space-world .farm-controls-hint{background:#1b2c5466}
+@media(max-width:700px){.star-atlas-caption{bottom:95px;padding:10px 13px;max-width:90%}.star-atlas-caption small{display:none}.star-atlas-caption span{font-size:10px;white-space:normal}.star-atlas-close{top:110px;right:12px;padding:8px}.star-marker strong{font-size:11px}.star-travel-prompt.avatar-chat-prompt{left:50%!important;top:100%!important;transform:translateX(-50%)!important;padding:10px 16px;min-width:86px}.star-travel-prompt:before{display:none}.star-destination{gap:4px}}
+@media(prefers-reduced-motion:reduce){.star-atlas *{animation:none!important;transition:none!important}}
+@media(max-width:700px){.star-destination:last-child .star-travel-prompt{left:50%!important;right:auto!important}}
+@media(min-width:701px){.app-shell .world-panel.is-star-atlas .world-actions{top:128px;right:16px;width:245px}.app-shell .world-panel.is-star-atlas .world-actions button{min-height:72px}.app-shell .world-panel.is-star-atlas .village-theme-button{margin-right:0}}
+@media(max-width:700px){.app-shell .world-panel.is-star-atlas .world-top{top:12px;left:12px;right:12px}.app-shell .world-panel.is-star-atlas .world-actions{top:240px;right:10px;bottom:auto;left:auto;width:44px;gap:8px}}
+.star-atlas .star-atlas-canvas{animation:none}
+.star-atlas.atlas-closed,.star-atlas.atlas-preparing{visibility:hidden;opacity:0;pointer-events:none}
+.star-atlas.atlas-opening{animation:atlas-crossfade .28s ease-out both}
+.star-atlas.atlas-handoff{opacity:0;transition:opacity .32s ease-in-out;pointer-events:none}
+.star-atlas.atlas-opening .star-atlas-destinations,.star-atlas.atlas-traveling .star-atlas-destinations,.star-atlas.atlas-handoff .star-atlas-destinations{opacity:0;pointer-events:none}
+.app-shell .atlas-in-transit .world-top,.app-shell .atlas-in-transit .world-actions{opacity:0;pointer-events:none}
+.app-shell .atlas-in-transit .world-interface button{pointer-events:none}
+.star-destination.is-hovered .star-marker strong{border-color:#fff;box-shadow:0 0 13px #fff9;background:#ffffff29}
+@keyframes atlas-crossfade{from{opacity:0}to{opacity:1}}
+.studio-platform-color{padding:13px 18px;border-bottom:1px solid #d4dfeb;background:#f5f8fe;flex-shrink:0;color:#365674}
+.studio-platform-color>div:first-child{display:flex;align-items:center;justify-content:space-between;gap:8px}.studio-platform-color strong{font-size:13px}.studio-platform-color span{font-size:10px;color:#778ba5}
+.platform-color-swatches{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-top:10px}
+.platform-color-swatches button{width:25px;height:25px;border:2px solid #fff;border-radius:50%;padding:0;display:grid;place-items:center;box-shadow:0 0 0 1px #d4dbe8;cursor:pointer;color:#fff}
+.platform-color-swatches button[aria-pressed=true]{box-shadow:0 0 0 2px #527eaf}.platform-color-swatches input{width:28px;height:27px;padding:0;border:0;background:none;cursor:pointer}
+.platform-color-swatches output{font-size:10px;color:#6b8099;font-variant-numeric:tabular-nums}
+@media(max-width:700px){.studio-platform-color{padding:8px 12px}.studio-platform-color span{display:none}.platform-color-swatches{gap:6px;margin-top:6px}.platform-color-swatches button{width:22px;height:22px}}
+@media(prefers-reduced-motion:reduce){.star-atlas.atlas-opening{animation:none}.star-atlas.atlas-handoff{transition:none}}

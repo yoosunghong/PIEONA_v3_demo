@@ -1,6 +1,6 @@
 import {WALK_RADIUS} from '../shared/villageSize.mjs';
 import * as THREE from 'three';
-import {villageThemes} from '../shared/world.mjs';
+import {villageThemes,normalizeVillageTheme} from '../shared/world.mjs';
 
 export const CAMERA_TRANSITION_SECONDS=1.1;
 // Bound horizontal travel to the island and allow a little vertical framing.
@@ -27,14 +27,14 @@ export function constrainScenePanning(camera,controls,mode,options={}){
   camera.position.x+=dx;camera.position.y+=dy;camera.position.z+=dz;
   camera.updateMatrixWorld();
 }
-export const sceneMood=id=>villageThemes.find(theme=>theme.id===id)||villageThemes[0];
+export const sceneMood=id=>villageThemes.find(theme=>theme.id===normalizeVillageTheme(id))||villageThemes[0];
 export function sceneView(mode,{portrait=false,petPreview=false,dragonRide=false,mood='default'}={}){
   if(mode==='topic')return{position:[0,4.3,10],target:[0,1.8,0]};
   if(mode==='edit')return{position:[1,17,12.5],target:[0,.1,0]};
   if(mode==='village')return{position:[11,17,14],target:[0,0,0]};
   if(portrait&&dragonRide)return{position:[4.5,4.1,8.5],target:[0,3.1,0]};
   if(portrait)return petPreview?{position:[0,1.15,3.4],target:[0,.9,0]}:{position:[0,1.65,5.4],target:[0,1.65,0]};
-  if(mood==='cafe')return{position:[1,4.5,9],target:[-1.9,1,0]};
+
   return{position:[4.7,3.25,8],target:[0,1.45,0]};
 }
 export function cameraPose(camera,controls){return{position:camera.position.toArray(),target:controls.target.toArray()};}

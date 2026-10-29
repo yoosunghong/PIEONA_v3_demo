@@ -50,7 +50,7 @@ export async function renderCapture(photo){
   const palette=photoPalettes[photo.themeId]||photoPalettes.default;
   const canvas=document.createElement('canvas'),width=1200,margin=54,storyMargin=96;
   const ctx=canvas.getContext('2d');
-  ctx.font='700 32px sans-serif';const titleLines=wrapCaptureText(ctx,photo.title.trim()||'우리 마을의 작은 순간',width-storyMargin*2);
+  ctx.font='700 32px sans-serif';const titleLines=wrapCaptureText(ctx,photo.title.trim()||'우리 별의 작은 순간',width-storyMargin*2);
   ctx.font='24px sans-serif';const memoLines=photo.memo?wrapCaptureText(ctx,photo.memo,width-storyMargin*2):[];
   ctx.font='20px sans-serif';const tagLines=photo.tags?.length?wrapCaptureText(ctx,photo.tags.map(tag=>'#'+tag).join('   '),width-storyMargin*2):[];
   const footer=110+titleLines.length*44+(memoLines.length?22+memoLines.length*38:0)+(tagLines.length?22+tagLines.length*30:0)+100;

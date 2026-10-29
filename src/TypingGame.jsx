@@ -45,7 +45,7 @@ export default function TypingGame({room,me,text,setText,error,canInput,inputRef
         <span className="typing-label">현재 단어</span>
         <div className={'typing-word'+(word.length>=5?' long-word':'')} style={{'--word-length':Math.max(1,word.length)}}><h3>{countdown?'준비!':word}</h3><img src="/images/minigames/typing-kitten.png" alt=""/></div>
         <form onSubmit={submit} className="typing-input-form"><input ref={inputRef} aria-label="타자 단어 입력" value={text} onChange={e=>setText(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&(e.nativeEvent.isComposing||e.keyCode===229))e.preventDefault();}} onPaste={e=>e.preventDefault()} onDrop={e=>e.preventDefault()} maxLength={50} autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} disabled={!canInput} placeholder={countdown?'잠시 후 시작해요':connected?'단어를 입력하세요':'다시 연결하고 있어요…'}/><button type="submit" aria-label="단어 제출" disabled={!canInput||!text.trim()}>Enter ↵</button></form>
-        <p className={'typing-input-hint'+(error?' error':'')} role={error?'alert':'status'}>{error||(!connected?'마을에 다시 연결하고 있어요.':countdown?'손을 풀고, 출발할 준비를 해요!':'단어를 빠르고 정확하게 입력하세요!')}</p>
+        <p className={'typing-input-hint'+(error?' error':'')} role={error?'alert':'status'}>{error||(!connected?'별에 다시 연결하고 있어요.':countdown?'손을 풀고, 출발할 준비를 해요!':'단어를 빠르고 정확하게 입력하세요!')}</p>
       </>}
     </main>
     <aside className="typing-leaderboard" aria-label="실시간 순위"><h3><Trophy fill="#ffc936"/>현재 점수 <small>{players.length}명</small></h3><ol>{ranked.map((p,i)=><li key={p.id} className={(leader===p.id?'leading ':'')+(p.id===me.id?'is-me':'')} style={{'--player-color':colors[room.players.indexOf(p)%colors.length]}}><span className={'typing-rank rank-'+i}>{i===0&&leader?<Crown fill="currentColor"/>:i+1}</span><AvatarPortrait user={p} headshot/><div className="typing-score-detail"><strong>{p.nickname||'새싹'}{p.id===me.id&&<small>나</small>}</strong><div className="typing-score-track"><span style={{width:`${p.score/maxScore*100}%`}}/><Stars event={bursts[p.id]}/></div></div><b>{p.score}점</b></li>)}</ol></aside>
@@ -54,6 +54,6 @@ export default function TypingGame({room,me,text,setText,error,canInput,inputRef
       <div className="typing-desk"><div className="typing-keyboard" aria-hidden="true">{Array.from({length:24},(_,k)=><i key={k}/>)}</div></div>
       <div className={'typing-nameplate'+(leader===p.id?' leading':'')}>{leader===p.id&&<Crown fill="#ffd14d"/>}<strong>{p.nickname||'새싹'}</strong><b>{p.score}점</b><div className="typing-seat-progress"><span style={{width:`${p.score/maxScore*100}%`}}/><Stars event={bursts[p.id]}/></div></div>
     </div>)}</div>
-    <span className="typing-connection" role="status">{!connected?'연결을 복구하고 있어요…':waiting?'친구들이 같은 마을의 타자게임에서 참가할 수 있어요.':''}</span>
+    <span className="typing-connection" role="status">{!connected?'연결을 복구하고 있어요…':waiting?'친구들이 같은 별의 타자게임에서 참가할 수 있어요.':''}</span>
   </section>;
 }

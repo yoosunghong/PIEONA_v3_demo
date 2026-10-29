@@ -94,7 +94,7 @@ export function MusicControls() {
     <button type="button" className="music-settings" aria-label="배경음악 음량 조절" aria-expanded={open}
       ref={settingsButton} onClick={() => setOpen(!open)}><SlidersHorizontal size={15}/></button>
     {open && <div className="music-popover" aria-label="배경음악 설정">
-      <strong><Music2 size={16}/>{track === '/audio/minigame2.mp3' ? '미니게임 배경음악' : '마을의 배경음악'}</strong>
+      <strong><Music2 size={16}/>{track === '/audio/minigame2.mp3' ? '미니게임 배경음악' : '별의 배경음악'}</strong>
       <p>{track === '/audio/minigame2.mp3' ? 'minigame2' : 'S_Vilage_v2'} · 반복 재생</p>
       <label><span><Volume2 size={15}/>음량 <output>{Math.round(volume * 100)}%</output></span>
         <input type="range" aria-label="배경음악 음량" min="0" max="100" step="1" value={Math.round(volume * 100)}

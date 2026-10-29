@@ -1,3 +1,5 @@
+import {normalizeVillageTheme} from '../shared/world.mjs';
+import {platformColor} from '../shared/platform.mjs';
 import {defaultPetAppearance,petAppearance} from '../shared/pets.mjs';
 import {dragonMounted,dragonMountColor} from '../shared/dragonMount.mjs';
 import {SURVEY_REWARD} from '../shared/surveyRewards.mjs';
@@ -156,7 +158,7 @@ export function publicUser(store, user, viewerId, online = new Set()) {
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
     ...(own?{rewards}:{}),
     avatarAppearance: {...defaultPetAppearance,hat:'none',accessory:'none',color:'#88b5d7',...(user.avatar_appearance==='{}'?JSON.parse(user.appearance):JSON.parse(user.avatar_appearance))},
-    village: {items:[],theme:'default',...JSON.parse(user.village)}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
+    village: {...{items:[],...JSON.parse(user.village)},theme:normalizeVillageTheme(JSON.parse(user.village).theme),platformColor:platformColor(JSON.parse(user.village))}, appearance: {hat:'none',accessory:'none',color:'#88b5d7',...JSON.parse(user.appearance)},
     stage: own || s.stageVisible ? stageOf(store, user) : null,
     ...((own || s.stageVisible) ? experienceOf(store,user) : {level:null,xp:null,levelXp:null,nextLevelXp:null}),
     tags: s.publicTags, online: online.has(user.id), allowVisitors: s.allowVisitors,

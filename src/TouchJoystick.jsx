@@ -2,7 +2,7 @@ import React,{useEffect,useRef,useState} from 'react';
 import {joystickAxis} from './villageMovement.mjs';
 import './touch-joystick.css';
 
-export default function TouchJoystick({input,disabled=false,label='마을 이동 조이스틱'}){
+export default function TouchJoystick({input,disabled=false,label='별 이동 조이스틱'}){
   const pointer=useRef(null),pad=useRef(null);
   const [axis,setAxis]=useState({x:0,y:0}),[active,setActive]=useState(false);
   function reset(){

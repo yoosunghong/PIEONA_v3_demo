@@ -42,6 +42,10 @@ try{
   // The toolbar appears before FBX/texture decoding finishes on a cold CI runner.
   await page.locator('.scene-loading').waitFor({state:'hidden',timeout:90000});
   assert.equal(await page.locator('.scene-error').count(),0,'The village scene failed to load');
+  if(await page.locator('.scene-canvas canvas').getAttribute('data-star-id')!=='fishing'){
+    await page.getByRole('button',{name:'내 별 보기',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.star-atlas')?.dataset.phase==='open');
+    await page.getByRole('button',{name:'낚시별 선택',exact:true}).click();await page.getByRole('button',{name:'낚시별로 이동',exact:true}).click();await page.locator('.star-atlas').waitFor({state:'hidden'});await page.waitForFunction(()=>document.querySelector('.scene-canvas canvas')?.dataset.starId==='fishing');
+  }
   if(process.env.PSS_SOFTWARE_GL==='1')assert.equal(await page.locator('.scene-canvas canvas').getAttribute('data-graphics-mode'),'software','The software WebGL verification must exercise the CPU renderer');
  }
  await page.goto(base+'/?view=village');await villageReady();

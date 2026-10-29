@@ -30,13 +30,13 @@ export default function Chalkboard({target,me,board}){
   }
   async function clear(){if(busy||!board.data)return;setBusy(true);setError('');try{board.setData(await api(`/villages/${target.id}/chalkboard`,{method:'DELETE',body:{revision:board.data.revision}}));setDraft([]);batch.current=null;setConfirmClear(false);}catch(e){setError(e.message);}finally{setBusy(false);}}
   const stale=draft.length>0&&draftRevision.current!==board.data?.revision;
-  return <div className="panel-body chalkboard-panel"><p>마을 주인과 놀러 온 이웃이 함께 낙서하는 곳이에요. 저장하면 모두에게 보여요.</p>
+  return <div className="panel-body chalkboard-panel"><p>별 주인과 놀러 온 이웃이 함께 낙서하는 곳이에요. 저장하면 모두에게 보여요.</p>
     <div className="chalkboard-tools"><div role="group" aria-label="분필 색상">{colors.map(value=><button key={value} aria-label={'분필 '+value} aria-pressed={color===value} disabled={busy||drawing} style={{background:value}} onClick={()=>setColor(value)}/>)}</div><label>분필 굵기 <input type="range" aria-label="분필 굵기" min="2" max="20" value={size} disabled={busy||drawing} onChange={e=>setSize(Number(e.target.value))}/></label><button disabled={busy||drawing||!draft.length} onClick={()=>{batch.current=null;setDraft(draft.slice(0,-1));}}>내 낙서 되돌리기</button></div>
     <canvas ref={canvas} width="1200" height="800" aria-label="이웃과 함께 쓰는 칠판 그림판" onPointerDown={start} onPointerMove={move} onPointerUp={finish} onPointerCancel={e=>finish(e,true)} onLostPointerCapture={e=>finish(e,true)}/>
     {!board.data&&<p role="status">{board.error||'칠판을 불러오는 중…'}</p>}{(error||board.error)&&<p role="alert">{error||board.error}<button onClick={board.load}>다시 불러오기</button></p>}
-    {stale&&<p role="alert">마을 주인이 칠판을 지웠어요. 임시 낙서를 비우고 새 칠판에 그려주세요.</p>}
+    {stale&&<p role="alert">별 주인이 칠판을 지웠어요. 임시 낙서를 비우고 새 칠판에 그려주세요.</p>}
     <footer><button disabled={busy||drawing||!draft.length} onClick={()=>{setDraft([]);batch.current=null;}}>임시 낙서 비우기</button>{me.id===target.id&&<button disabled={busy||drawing||!board.data} onClick={()=>setConfirmClear(true)}>칠판 전체 지우기</button>}<button className="card-pink-button" disabled={busy||drawing||stale||!draft.length} onClick={save}>{busy?'처리 중…':'낙서 저장하기'}</button></footer>
-    <small>저장하지 않은 낙서는 창을 닫으면 사라져요. 다른 사람의 낙서는 마을 주인만 전체 지울 수 있어요.</small>
+    <small>저장하지 않은 낙서는 창을 닫으면 사라져요. 다른 사람의 낙서는 별 주인만 전체 지울 수 있어요.</small>
     {confirmClear&&<div role="alertdialog" aria-label="칠판 전체 지우기" className="chalkboard-confirm"><p>모두의 낙서를 지울까요?</p><button disabled={busy} onClick={()=>setConfirmClear(false)}>취소</button><button disabled={busy} onClick={clear}>전체 지우기</button></div>}
   </div>;
 }

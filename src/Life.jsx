@@ -37,7 +37,7 @@ export function useLife(userId,socket,connected,notify){
   },[socket,notify,load]);
   const perform=async action=>{
     if(guard.current)return;
-    if(!connected){notify('마을 연결을 기다려 주세요.');return;}
+    if(!connected){notify('별 연결을 기다려 주세요.');return;}
     const signature=JSON.stringify(action);if(retry.current?.signature!==signature)retry.current={signature,key:crypto.randomUUID()};
     guard.current=true;setPending(true);
     try{const result=await api('/me/life/actions',{method:'POST',body:{requestId:retry.current.key,action}});retry.current=null;await load();return result;}
@@ -50,7 +50,7 @@ export function useLife(userId,socket,connected,notify){
 export function FishingStatus({data,pending,connected,onStop}){
   const session=data?.session,task=data?.task;
   if(!session&&!task)return null;
-  return <>{task&&<section className="fishing-status" aria-label="작업 진행 상황"><div><span className="life-eyebrow">우리 마을 생활</span><div className="fishing-actor"><strong>나 · {task.label}</strong><p>{task.state==='Moving'?'목적지로 이동 중':'작업 중 · 완료되면 보관함에 반영돼요'}</p><button className="text-button" disabled={pending||!connected} onClick={()=>onStop(task.actor)}>내 작업 중단</button></div></div></section>}{session&&<div className="life-prompt"><button type="button" disabled={pending||!connected} onClick={()=>onStop(session.actor)}>낚시 그만하기</button></div>}</>;
+  return <>{task&&<section className="fishing-status" aria-label="작업 진행 상황"><div><span className="life-eyebrow">우리 별 생활</span><div className="fishing-actor"><strong>나 · {task.label}</strong><p>{task.state==='Moving'?'목적지로 이동 중':'작업 중 · 완료되면 보관함에 반영돼요'}</p><button className="text-button" disabled={pending||!connected} onClick={()=>onStop(task.actor)}>내 작업 중단</button></div></div></section>}{session&&<div className="life-prompt"><button type="button" disabled={pending||!connected} onClick={()=>onStop(session.actor)}>낚시 그만하기</button></div>}</>;
 
 }
 
@@ -76,18 +76,18 @@ const categories=[['all','전체'],['fish','물고기'],['ingredient','식재료
 export function StoragePanel({data,onRetry,initialTab='storage',pending,connected,onAction}){
   const [tab,setTab]=useState(initialTab),[category,setCategory]=useState('all'),[selected,setSelected]=useState(null);
   useEffect(()=>setTab(initialTab),[initialTab]);
-  if(!data?.catalog||!data?.garden)return <div className="panel-body"><p>마을 생활을 불러오고 있어요.</p><button className="secondary" onClick={onRetry}>다시 불러오기</button></div>;
+  if(!data?.catalog||!data?.garden)return <div className="panel-body"><p>별 생활을 불러오고 있어요.</p><button className="secondary" onClick={onRetry}>다시 불러오기</button></div>;
   const bag=new Map(data.inventory.map(i=>[i.itemId,i.quantity])),discoveries=new Map(data.discoveries.map(i=>[i.itemId,i])),fish=data.catalog.filter(i=>i.category==='fish');
   const items=tab==='collection'?fish:data.catalog.filter(i=>(bag.get(i.itemId)||0)>0&&(category==='all'||i.category===category));
   const item=items.find(i=>i.itemId===selected)||items[0],known=item&&(tab!=='collection'||discoveries.has(item.itemId)),discovery=item&&discoveries.get(item.itemId),disabled=pending||!connected||!!data.task;
-  return <div className="life-panel"><div className="life-tabs" role="tablist" aria-label="마을 생활">{lifePanelTabs(initialTab,discoveries.size,fish.length).map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{name}</button>)}</div>
+  return <div className="life-panel"><div className="life-tabs" role="tablist" aria-label="별 생활">{lifePanelTabs(initialTab,discoveries.size,fish.length).map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>setTab(id)}>{name}</button>)}</div>
     {data.garden.lastResult&&<p className="life-result" role="status">나 · {data.garden.lastResult.result.reply}</p>}
-    {data.task&&<p className="life-description">{data.task.label} 작업을 진행 중이에요. 마을 화면에서 중단할 수 있어요.</p>}
+    {data.task&&<p className="life-description">{data.task.label} 작업을 진행 중이에요. 별 화면에서 중단할 수 있어요.</p>}
     {tab==='garden'?<GardenPanel data={data} disabled={disabled} onAction={onAction}/>:tab==='kitchen'?<><p className="life-description">조리대로 이동해 음식 1개를 만들어요. 완료할 때 재료를 사용하고 보관함에 넣어요. 희귀·특별 물고기는 직접 선택한 경우에만 사용해요.</p><div className="recipe-grid">{RECIPES.map(r=><RecipeCard key={r.id} recipe={r} bag={bag} disabled={disabled} onAction={onAction}/>)}</div></>:<>
       <p className="life-description">낚시와 수확, 요리로 모은 아이템을 수량 제한과 유통기한 없이 보관해요.</p>
       {tab==='collection'&&<div className="collection-progress"><label htmlFor="fish-progress">도감 완성률 {Math.round(discoveries.size/fish.length*100)}%</label><progress id="fish-progress" value={discoveries.size} max={fish.length}/></div>}
       <div className="storage-layout">{tab==='storage'&&<nav className="storage-categories" aria-label="아이템 카테고리">{categories.map(([id,name])=><button key={id} aria-pressed={category===id} onClick={()=>setCategory(id)}>{name}</button>)}</nav>}
       <div className="storage-grid">{!items.length?<div className="storage-empty"><span>🧺</span><h3>아직 비어 있어요</h3><p>낚시하거나 텃밭을 수확하고, 재료로 요리해 보세요.</p></div>:items.map(i=>{const revealed=tab==='storage'||discoveries.has(i.itemId);return <button className={'storage-item rarity-'+i.rarity} key={i.itemId} aria-pressed={item?.itemId===i.itemId} aria-label={revealed?i.name:'미발견 물고기'} onClick={()=>setSelected(i.itemId)}><span className={revealed?'item-icon':'item-icon undiscovered'} aria-hidden="true">{i.icon}</span><strong>{revealed?i.name:'???'}</strong><small>{RARITIES[i.rarity]}{tab==='storage'?` · ${bag.get(i.itemId)}${i.unit}`:revealed?' · 발견':' · 미발견'}</small></button>;})}</div>
-      {item&&<aside className="storage-detail"><span className={known?'detail-icon':'detail-icon undiscovered'} aria-hidden="true">{item.icon}</span><span className="life-eyebrow">{categories.find(([id])=>id===item.category)?.[1]} · {RARITIES[item.rarity]}</span><h3>{known?item.name:'아직 만나지 못한 친구'}</h3><p>{known?item.description:'낚시로 처음 만나면 발견 기록이 열려요.'}</p>{known&&<><dl><dt>보유 수량</dt><dd>{bag.get(item.itemId)||0}{item.unit}</dd>{item.category==='fish'&&<><dt>최초 발견</dt><dd>{discovery?new Date(discovery.discoveredAt).toLocaleString('ko-KR'):'—'}</dd><dt>처음 획득한 캐릭터</dt><dd>{discovery?.acquiredByName||'—'}</dd></>}</dl><p className="item-usage">{item.usage}</p>{['fish','ingredient'].includes(item.category)&&<p className="life-description">마을의 요리대를 클릭하면 이동해서 요리할 수 있어요.</p>}</>}</aside>}</div>
+      {item&&<aside className="storage-detail"><span className={known?'detail-icon':'detail-icon undiscovered'} aria-hidden="true">{item.icon}</span><span className="life-eyebrow">{categories.find(([id])=>id===item.category)?.[1]} · {RARITIES[item.rarity]}</span><h3>{known?item.name:'아직 만나지 못한 친구'}</h3><p>{known?item.description:'낚시로 처음 만나면 발견 기록이 열려요.'}</p>{known&&<><dl><dt>보유 수량</dt><dd>{bag.get(item.itemId)||0}{item.unit}</dd>{item.category==='fish'&&<><dt>최초 발견</dt><dd>{discovery?new Date(discovery.discoveredAt).toLocaleString('ko-KR'):'—'}</dd><dt>처음 획득한 캐릭터</dt><dd>{discovery?.acquiredByName||'—'}</dd></>}</dl><p className="item-usage">{item.usage}</p>{['fish','ingredient'].includes(item.category)&&<p className="life-description">별의 요리대를 클릭하면 이동해서 요리할 수 있어요.</p>}</>}</aside>}</div>
     </>}<p className="life-footnote">보관함과 텃밭은 계정의 모든 자아가 함께 사용해요.</p></div>;
 }

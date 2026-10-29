@@ -1,3 +1,4 @@
+import {DEFAULT_PLATFORM_COLOR} from '../shared/platform.mjs';
 import {isLifeScenery} from '../shared/lifeLayout.mjs';
 import {WALK_RADIUS} from '../shared/villageSize.mjs';
 import test,{before,after} from 'node:test';
@@ -29,7 +30,7 @@ test('game entry HTML is reloaded instead of keeping an old runner bundle in bro
   }
 });
 test('world saves are owner scoped, validated and public to visitors',async()=>{
-  const village={items:[piece()],theme:'default'},appearance={hat:'crown',accessory:'wings',color:'#d994b6'};
+  const village={items:[piece()],theme:'milkyway',platformColor:DEFAULT_PLATFORM_COLOR},appearance={hat:'crown',accessory:'wings',color:'#d994b6'};
   assert.equal((await request('/me/world',null,{village},'PATCH')).status,401);
   assert.equal((await request('/me/world',owner,{village,appearance},'PATCH')).status,200);
   const profile=(await request('/users/'+owner.id,visitor)).body.user;
@@ -477,7 +478,7 @@ test('editor saves preserve legacy overlaps while validating new, moved and rest
   const original={theme:'default',items:[first,second],sign:{...villageSign({}),x:-3,z:3.5},guestbook:{...villageGuestbook({}),x:-3,z:3.5}};
   runtime.store.run('UPDATE users SET village=? WHERE id=?',JSON.stringify(original),user.id);
   const scenery=villageScenery(original).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden}));
-  let village={...original,scenery};
+  let village={...original,theme:'milkyway',platformColor:DEFAULT_PLATFORM_COLOR,scenery};
   let result=await request('/me/world',user,{village},'PATCH');
   assert.equal(result.status,200,JSON.stringify(result.body));
   village={...village,items:[{...first,rotation:1},second],sign:{...village.sign,rotation:1},guestbook:{...village.guestbook,rotation:2},scenery:scenery.map(item=>item.id==='tree-0'?{...item,rotation:1}:item)};

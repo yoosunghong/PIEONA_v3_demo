@@ -1,4 +1,6 @@
 import * as T from 'three';
+import {createDioramaPlatform,createSpaceBackdrop} from './spaceWorld';
+import {disposeObject} from './worldAssets';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {createRunMotion} from './avatarMotion.mjs';
 import {WALK_SPEED,villageDirection,villageMovementKey} from './villageMovement.mjs';
@@ -6,17 +8,18 @@ import {createVillageTapGesture} from './villageTapMovement.mjs';
 import {dressAvatar} from './worldAssets';
 import {clone} from 'three/addons/utils/SkeletonUtils.js';
 import {GARDEN_BEDS,cropGrowth} from '../shared/garden.mjs';
+import {DEFAULT_PLATFORM_COLOR} from '../shared/platform.mjs';
 import {loadAsset} from './avatar';
 
 // Plot controls track their 3D ground anchors as the camera moves.
-export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,onReady,onAvatar,onPlayerProject,getInput=()=>({})}){
-  const scene=new T.Scene();scene.background=new T.Color('#c5e1ed');scene.fog=new T.Fog('#c5e1ed',28,65);
+export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,onReady,onAvatar,onPlayerProject,getInput=()=>({}),onOverview,platformColor=DEFAULT_PLATFORM_COLOR,theme='milkyway'}){
+  const scene=new T.Scene(),space=createSpaceBackdrop(scene,{theme});
   const renderer=new T.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.2;host.appendChild(renderer.domElement);
   renderer.domElement.setAttribute('aria-label','3D 농장 · 드래그로 회전, 오른쪽 드래그로 이동, 휠로 확대 · WASD 또는 바닥 터치로 걷기');renderer.domElement.tabIndex=0;
-  const camera=new T.PerspectiveCamera(42,1,.1,100);camera.position.set(11,14,17);
-  const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,0,0);controls.enableDamping=true;controls.minDistance=8;controls.maxDistance=32;controls.maxPolarAngle=Math.PI*.46;controls.minPolarAngle=.2;controls.update();
-  const resize=()=>{const width=host.clientWidth||1,height=host.clientHeight||1;renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();};
+  const camera=new T.PerspectiveCamera(42,1,.1,100);camera.position.set(14,21,25);
+  const controls=new OrbitControls(camera,renderer.domElement);controls.target.set(0,0,0);controls.enableDamping=true;controls.minDistance=8;controls.maxDistance=52;controls.maxPolarAngle=Math.PI*.46;controls.minPolarAngle=.2;controls.update();
+  const resize=()=>{const width=host.clientWidth||1,height=host.clientHeight||1;renderer.setSize(width,height);space.resize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();};
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
   scene.add(new T.HemisphereLight('#fff6df','#8f997b',2.45));
   const sun=new T.DirectionalLight('#fff1db',2.5);sun.position.set(-8,17,5);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-12,right:12,top:12,bottom:-12});sun.shadow.normalBias=.03;sun.shadow.bias=-.0002;sun.shadow.intensity=.24;scene.add(sun);
@@ -57,7 +60,7 @@ export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,on
     const hit=new T.Mesh(new T.PlaneGeometry(1.5,1.05),new T.MeshBasicMaterial({transparent:true,opacity:0,depthWrite:false,side:T.DoubleSide}));hit.rotation.x=-Math.PI/2;group.add(hit);geometries.push(hit.geometry);materials.push(hit.material);
     plants.push({id:bed.id,index,group,anchor,model:null,cropId:null});
   }
-  mesh(new T.CylinderGeometry(14,14.5,.6,64),'#a8c58c',0,-.4,0,scene);
+  const platform=createDioramaPlatform({radius:14,color:platformColor});platform.position.y=-.23;scene.add(platform);
   mesh(new T.BoxGeometry(3,.04,23),'#dfceb0',5,-.07,0,scene);
   mesh(new T.BoxGeometry(22,.04,1.6),'#dfceb0',0,-.06,4.5,scene);
   for(let i=-6;i<=6;i++)for(const z of [-11,11])mesh(new T.BoxGeometry(.16,1,.16),'#e7d4b3',i*1.65,.4,z,scene);
@@ -69,8 +72,8 @@ export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,on
   const player=new T.Group();player.position.set(2,0,5);player.rotation.y=3.6;scene.add(player);
   let dead=false,frame,avatarMaterials=[],motion,last=performance.now(),destination=null;
   const keys=new Set(),direction=new T.Vector3(),gesture=createVillageTapGesture();
-  loadAsset(appearance.character||'pio').then(asset=>{
-    if(dead)return;const avatar=clone(asset);const bounds=new T.Box3().setFromObject(avatar),size=bounds.getSize(new T.Vector3());avatar.scale.setScalar(2.05/size.y);const b=new T.Box3().setFromObject(avatar),center=b.getCenter(new T.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatar.traverse(o=>{if(o.isMesh){o.material=o.material.clone();avatarMaterials.push(o.material);}});dressAvatar(avatar,appearance);player.add(avatar);motion=createRunMotion(avatar,{clip:'Walking'});onReady?.();
+  loadAsset(appearance.character||'pio').then(async asset=>{
+    if(dead)return;const avatar=clone(asset);const bounds=new T.Box3().setFromObject(avatar),size=bounds.getSize(new T.Vector3());avatar.scale.setScalar(2.05/size.y);const b=new T.Box3().setFromObject(avatar),center=b.getCenter(new T.Vector3());avatar.position.set(-center.x,-b.min.y,-center.z);avatar.traverse(o=>{if(o.isMesh){o.material=o.material.clone();avatarMaterials.push(o.material);}});dressAvatar(avatar,appearance);player.add(avatar);motion=createRunMotion(avatar,{clip:'Walking'});await renderer.compileAsync(scene,camera);if(dead)return;renderer.render(scene,camera);onReady?.();
   }).catch(()=>{if(!dead){ball('#fff6e6',0,.72,0,.4,player);ball('#8e9b66',0,.23,0,.2,player);onReady?.();}});
   function plotAt(event){const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),camera);for(const hit of ray.intersectObjects(plants.map(p=>p.group),true)){for(let o=hit.object;o;o=o.parent)if(o.userData.plotId)return o.userData.plotId;}return null;}
   function setRay(event){const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((event.clientX-rect.left)/rect.width*2-1,1-(event.clientY-rect.top)/rect.height*2),camera);}
@@ -89,7 +92,7 @@ export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,on
   window.addEventListener('keydown',keyDown);window.addEventListener('keyup',keyUp);window.addEventListener('blur',blur);
   const project=point=>{const p=point.clone().project(camera);return {left:(p.x+1)*50,top:(1-p.y)*50,visible:p.z>-1&&p.z<1&&Math.abs(p.x)<1&&Math.abs(p.y)<1};};
   function render(){if(dead)return;frame=requestAnimationFrame(render);const stamp=performance.now(),dt=Math.min((stamp-last)/1000,.05);last=stamp;const plots=getPlots(),time=stamp/1000,input=getInput();
-    controls.enabled=!input.blocked;controls.update();
+    controls.enabled=!input.blocked;controls.update();space.update(time);
     if(input.blocked){keys.clear();destination=null;}
     villageDirection(keys,camera,direction,input.stick||{x:0,y:0});
     if(!direction.lengthSq()&&destination){direction.subVectors(destination,player.position);direction.y=0;if(direction.length()<.12){destination=null;direction.set(0,0,0);}else direction.normalize();}
@@ -106,5 +109,5 @@ export function createFarmWorld(host,{getPlots,appearance={},onProject,onPlot,on
     }
     onProject(Object.fromEntries(plants.map(p=>[p.id,project(p.anchor)])));renderer.render(scene,camera);
   }render();
-  return {capture(){renderer.render(scene,camera);return renderer.domElement;},dispose(){dead=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',blur);renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointermove',pointerMove);renderer.domElement.removeEventListener('pointerup',pointerUp);renderer.domElement.removeEventListener('pointercancel',pointerCancel);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());avatarMaterials.forEach(m=>m.dispose());sun.shadow.map?.dispose();renderer.dispose();renderer.domElement.remove();}};
+  return {capture(){renderer.render(scene,camera);return renderer.domElement;},dispose(){dead=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keyDown);window.removeEventListener('keyup',keyUp);window.removeEventListener('blur',blur);renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointermove',pointerMove);renderer.domElement.removeEventListener('pointerup',pointerUp);renderer.domElement.removeEventListener('pointercancel',pointerCancel);space.dispose();disposeObject(platform);geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());avatarMaterials.forEach(m=>m.dispose());sun.shadow.map?.dispose();renderer.dispose();renderer.domElement.remove();}};
 }

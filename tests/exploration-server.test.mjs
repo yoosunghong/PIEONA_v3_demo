@@ -1,4 +1,5 @@
-import test from 'node:test';
+import nodeTest from 'node:test';
+const test=(name,fn)=>nodeTest(name,{skip:'Forest gameplay retired; replaced by stars.test.mjs'},fn);
 import assert from 'node:assert/strict';
 import {harness} from './runtimeHarness.mjs';
 import {experienceOf} from '../server/store.mjs';

@@ -8,6 +8,7 @@ export const photoFrames = [
 ];
 
 export const photoPalettes = {
+  milkyway:{paper:'#26324e',raised:'#344361',soft:'#405173',accent:'#b9c9f5',ink:'#f0f4ff',muted:'#c0cee7',line:'#617394'},
   default:{paper:'#f2f8fc',raised:'#fcfeff',soft:'#e4eff6',accent:'#567d9b',ink:'#304c68',muted:'#6e879b',line:'#cfdfeb'},
   cafe:{paper:'#f5ecdf',raised:'#fffaf1',soft:'#eee0cd',accent:'#88704d',ink:'#574637',muted:'#967f69',line:'#dfcdb6'},
   campfire:{paper:'#29374d',raised:'#35445c',soft:'#40516a',accent:'#edc28d',ink:'#fff4e4',muted:'#c6cedc',line:'#596b83'},
@@ -16,7 +17,7 @@ export const photoPalettes = {
 };
 
 export function newCapture({image,themeId='default',theme='정원',location,participants=[]},at=Date.now(),id=globalThis.crypto.randomUUID()){
-  return {id,image,at,themeId,theme,location:location||theme+' 마을',title:'우리 마을의 작은 순간',memo:'',tags:[theme],participants,frame:'botanical',favorite:false,showDate:true,showTime:false};
+  return {id,image,at,themeId,theme,location:location||theme+' 별',title:'우리 별의 작은 순간',memo:'',tags:[theme],participants,frame:'botanical',favorite:false,showDate:true,showTime:false};
 }
 
 export function filterCaptures(photos,{character='all',favorites=false,query='',sort='newest'}={}){
@@ -25,7 +26,7 @@ export function filterCaptures(photos,{character='all',favorites=false,query='',
 }
 
 export function captureFilename(photo){
-  const title=photo.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g,'').trim().slice(0,60)||'마을의 순간';
+  const title=photo.title.replace(/[<>:"/\\|?*\u0000-\u001f]/g,'').trim().slice(0,60)||'별의 순간';
   return `ILLOVA-${photoDate(photo.at,'-')}-${title}.png`;
 }
 

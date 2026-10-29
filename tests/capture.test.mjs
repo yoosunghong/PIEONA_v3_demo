@@ -29,7 +29,7 @@ test('all village themes have an export palette and six distinct selectable fram
 test('PNG names sanitize filesystem characters and retain a meaningful Korean title',()=>{
   const photo={...make('photo',Date.UTC(2026,9,17)),title:'봄: 나의/마을?*'};
   assert.equal(captureFilename(photo),'ILLOVA-2026-10-17-봄 나의마을.png');
-  assert.ok(captureFilename({...photo,title:'<>?'}).endsWith('마을의 순간.png'));
+  assert.ok(captureFilename({...photo,title:'<>?'}).endsWith('별의 순간.png'));
   assert.ok(captureFilename({...photo,at:new Date(2026,9,17,0,15).getTime()}).startsWith('ILLOVA-2026-10-17-'));
 });
 test('PNG story wrapping retains long Korean text, explicit blank lines and emoji without truncation',()=>{

@@ -13,7 +13,7 @@ export function selectedFacility(facilities,action){
 
 // Allocate render targets only after a facility is selected. OutlinePass uses
 // the complete object silhouette, keeping internal mesh edges out of the halo.
-export function createFacilityOutline(renderer,scene,camera){
+export function createFacilityOutline(renderer,scene,camera,{glow=0}={}){
   let composer,outline,renderPass,outputPass,width=0,height=0,pixelRatio=0;
   const size=new Vector2();
   return {
@@ -24,7 +24,7 @@ export function createFacilityOutline(renderer,scene,camera){
         renderPass=new RenderPass(scene,camera);composer.addPass(renderPass);
         outline=new OutlinePass(new Vector2(1,1),scene,camera);
         outline.visibleEdgeColor.set('#ffffff');outline.hiddenEdgeColor.set('#ffffff');
-        outline.edgeStrength=5;outline.edgeThickness=2;outline.edgeGlow=0;outline.pulsePeriod=0;
+        outline.edgeStrength=5;outline.edgeThickness=2;outline.edgeGlow=glow;outline.pulsePeriod=0;
         composer.addPass(outline);outputPass=new OutputPass();composer.addPass(outputPass);
       }
       renderer.getSize(size);

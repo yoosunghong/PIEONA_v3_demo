@@ -60,19 +60,10 @@ test('a resize forces a complete draw even when the scene is paused or a transit
   assert.equal(events.filter(event=>event[0]==='draw').length,4);
   assert.equal(events.filter(event=>event[0]==='resize').length,4);
 });
-test('bright-theme grids retain contrast after alpha blending without modifying the village palette',()=>{
-  const luminance=c=>.2126*c.r+.7152*c.g+.0722*c.b;
-  for(const mood of villageThemes.filter(theme=>['default','cafe','sunset'].includes(theme.id))){
-    const original=JSON.stringify(mood),style=editorGridStyle(mood),ground=new THREE.Color(mood.ground),line=new THREE.Color(style.color);
-    const blended=ground.clone().lerp(line,style.opacity);
-    assert.ok((luminance(ground)+.05)/(luminance(blended)+.05)>=3,mood.id);
-    assert.equal(JSON.stringify(mood),original);
-  }
-});
-test('night-theme grids use light lines with enough opacity to survive the darker scene',()=>{
-  for(const mood of villageThemes.filter(theme=>['campfire','twilight'].includes(theme.id))){
-    const style=editorGridStyle(mood),ground=new THREE.Color(mood.ground),line=new THREE.Color(style.color);
-    assert.ok(line.r>ground.r&&line.g>ground.g&&line.b>ground.b,mood.id);
-    assert.ok(style.opacity>=.6);
-  }
+test('editor grid retains contrast against user-selected platform colors in every theme',()=>{
+ const luminance=c=>.2126*c.r+.7152*c.g+.0722*c.b;
+ for(const theme of villageThemes)for(const color of ['#000000','#ffffff','#9296ae','#8aa88c','#8bb3c9','#7e889b']){
+   const mood={...theme,ground:color},original=JSON.stringify(mood),style=editorGridStyle(mood),ground=new THREE.Color(color),blended=ground.clone().lerp(new THREE.Color(style.color),style.opacity),a=luminance(ground),b=luminance(blended);
+   assert.ok((Math.max(a,b)+.05)/(Math.min(a,b)+.05)>=3,theme.id+' '+color);assert.equal(JSON.stringify(mood),original);
+ }
 });

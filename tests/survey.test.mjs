@@ -1,3 +1,4 @@
+import {DEFAULT_PLATFORM_COLOR} from '../shared/platform.mjs';
 import test,{before,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
@@ -68,11 +69,11 @@ test('survey validates all eleven questions, optional text, no-experience and se
 test('all stage modes save via partial updates, retain furniture and appear after login to visitors',async()=>{
   const user=await register(),visitor=await register(),items=[{id:randomUUID(),type:'bench',x:-3,z:-3.5,rotation:0}];
   await request('/me/world',user,{village:{items}},'PATCH');
-  for(const theme of ['default','campfire','cafe','twilight','sunset']){
+  for(const theme of ['milkyway','cafe','twilight','sunset']){
     assert.equal((await request('/me/world',user,{village:{theme}},'PATCH')).status,200);
-    const viewed=await request('/users/'+user.id,visitor);assert.deepEqual(viewed.body.user.village,{theme,items});
+    const viewed=await request('/users/'+user.id,visitor);assert.deepEqual(viewed.body.user.village,{theme,items,platformColor:DEFAULT_PLATFORM_COLOR});
   }
-  const login=await request('/auth/login',null,{username:user.username,password:'survey-test-password'});assert.deepEqual(login.body.user.village,{theme:'sunset',items});
+  const login=await request('/auth/login',null,{username:user.username,password:'survey-test-password'});assert.deepEqual(login.body.user.village,{theme:'sunset',items,platformColor:DEFAULT_PLATFORM_COLOR});
 });
 
 test('v8 evaluates avatar dialogue, social comfort and memory rather than retired AI pet work',()=>{

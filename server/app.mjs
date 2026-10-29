@@ -9,7 +9,7 @@ import {sceneryDefinitions,villageScenery,validSceneryPlacement,sceneryClearance
 import {villageBenches,BENCH_REACH} from '../shared/benches.mjs';
 import {installLife} from './life.mjs';
 import {installPersonaScripts} from './personaScripts.mjs';
-import {installExploration} from './exploration.mjs';
+import {validStar,playerStars} from '../shared/stars.mjs';
 import {createActionLogger} from './actionLog.mjs';
 import {generateTopic} from './topic.mjs';
 import express from 'express';
@@ -24,7 +24,7 @@ import { existsSync } from 'node:fs';
 import { z } from 'zod';
 import { openStore, id, now, day, settingsOf, publicUser, isBlocked, visibleMemories, stageOf, experienceOf, defaultSettings } from './store.mjs';
 import { assembleContext, generateAnswer, aiMode } from './ai.mjs';
-import { decorations, hats, accessories, rides, colors, validPlacement, villageThemes, characters, characterLooks } from '../shared/world.mjs';
+import { decorations, hats, accessories, rides, colors, validPlacement, villageThemes, normalizeVillageTheme, characters, characterLooks } from '../shared/world.mjs';
 import { RUN_DURATION, RUN_EXPIRY, createRunnerNotes, newRun, advanceRun, runAction, runScore } from '../shared/runner.mjs';
 import {installCrabGames} from './crabGames.mjs';
 import {crabSeconds} from '../shared/crab.mjs';
@@ -183,9 +183,9 @@ export function createApp(options = {}) {
     const stroke=z.object({tool:z.enum(['draw','erase']),color:z.string().max(9).refine(isSignColor),size:z.number().finite().min(2).max(40),points:z.array(point).min(1).max(2000)}).strict();
     const signSchema=z.object({customColors:z.array(z.string().max(9).refine(isSignColor)).max(MAX_CUSTOM_SIGN_COLORS).optional(),hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional(),shape:z.enum(signShapes).optional(),strokes:z.array(stroke).max(MAX_SIGN_STROKES).refine(strokes=>signPointCount(strokes)<=MAX_SIGN_POINTS).optional()}).strict();
     const guestbookSchema=z.object({hidden:z.boolean().optional(),x:z.number().finite().optional(),z:z.number().finite().optional(),rotation:z.number().int().min(0).max(3).optional()}).strict();
-    const data=z.object({avatarAppearance:lookSchema.optional(),avatarCharacterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),theme:z.enum(villageThemes.map(t=>t.id)).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional(),pollbox:guestbookSchema.optional(),chalkboard:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
+    const data=z.object({avatarAppearance:lookSchema.optional(),avatarCharacterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),characterLooks:z.object(Object.fromEntries(characters.map(c=>[c.id,lookSchema.optional()]))).strict().optional(),village:z.object({scenery:z.array(sceneryItem).max(sceneryDefinitions.length).refine(items=>new Set(items.map(item=>item.id)).size===items.length).optional(),items:z.array(item).max(256).refine(items=>items.filter(item=>!item.hidden).length<=24).optional(),platformColor:z.string().regex(/^#[0-9a-f]{6}$/i).transform(color=>color.toLowerCase()).optional(),theme:z.enum([...villageThemes.map(t=>t.id),'default','campfire']).transform(normalizeVillageTheme).optional(),sign:signSchema.optional(),guestbook:guestbookSchema.optional(),pollbox:guestbookSchema.optional(),chalkboard:guestbookSchema.optional()}).strict().optional(),appearance:lookSchema.optional()}).strict().parse(req.body);
     const user=userById(req.user.id);
-    const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,...data.village};
+    const oldVillage=JSON.parse(user.village),nextVillage={...oldVillage,theme:normalizeVillageTheme(oldVillage.theme),...data.village};
     // Resolve legacy colors before persisting a mount selected in the wardrobe.
     if(data.appearance?.ride===DRAGON_PET&&!data.appearance.petColor){const current=profile(user,user.id);data.appearance.petColor=dragonMountColor(current.appearance,current.avatarAppearance);}
     for(const look of [data.appearance,data.avatarAppearance,...Object.values(data.characterLooks||{}),...Object.values(data.avatarCharacterLooks||{})])checkRewardPet(user.id,look);
@@ -351,7 +351,7 @@ export function createApp(options = {}) {
 
   // The account has one publicly active avatar; independent persona slots can be switched for free.
   const slotSnapshot=user=>({nickname:user.nickname,intro:user.intro,theme:user.theme,settings:settingsOf(user),balance:JSON.parse(user.balance),memories:store.all('SELECT * FROM memories WHERE owner_id=?',user.id)});
-  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_legacy_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);for(const table of ['life_sessions','life_operations'])store.run(`UPDATE ${table} SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''`,sid,user.id);});return userById(user.id);}
+  function ensureSlot(user){if(user.active_slot)return user;const sid=id();store.transaction(()=>{store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,user.id,JSON.stringify(slotSnapshot(user)),now());store.run('UPDATE users SET active_slot=? WHERE id=?',sid,user.id);store.run("UPDATE conversations SET avatar_slot=? WHERE target_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);store.run("UPDATE avatar_legacy_experience SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''",sid,user.id);for(const table of ['life_sessions','life_operations'])store.run(`UPDATE ${table} SET avatar_slot=? WHERE owner_id=? AND avatar_slot=''`,sid,user.id);store.run("UPDATE outdoor_profiles SET slot=? WHERE owner_id=? AND slot=''",sid,user.id);const exploration=store.one('SELECT state FROM exploration_progress WHERE owner_id=?',user.id);if(exploration){const state=JSON.parse(exploration.state);if(!state.outdoorSlot){state.outdoorSlot=sid;store.run('UPDATE exploration_progress SET state=? WHERE owner_id=?',JSON.stringify(state),user.id);}}});return userById(user.id);}
   app.get('/api/slots',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));res.json({active:user.active_slot,slots:store.all('SELECT * FROM avatar_slots WHERE owner_id=? ORDER BY created_at',user.id).map(s=>{const snap=s.id===user.active_slot?slotSnapshot(user):JSON.parse(s.snapshot);return{id:s.id,nickname:snap.nickname,theme:snap.theme,memoryCount:snap.memories.length,balanceComplete:!!snap.balance.length,active:s.id===user.active_slot};})});});
   app.post('/api/slots',auth,(req,res)=>{const data=z.object({nickname,theme:z.enum(['sage','rose','ocean','sunset']).default('sage')}).parse(req.body);ensureSlot(userById(req.user.id));if(store.one('SELECT COUNT(*) n FROM avatar_slots WHERE owner_id=?',req.user.id).n>=8)fail(400,'프로토타입에서는 최대 8개의 자아를 키울 수 있어요.');const sid=id();store.transaction(()=>{avatars.unlock(req.user.id,sid);store.run('INSERT INTO avatar_slots VALUES(?,?,?,?)',sid,req.user.id,JSON.stringify({nickname:data.nickname,intro:'',theme:data.theme,settings:{...defaultSettings},balance:[],memories:[]}),now());event(req.user.id,'slot_created');});res.status(201).json({id:sid});});
   app.post('/api/slots/:id/activate',auth,(req,res)=>{const user=ensureSlot(userById(req.user.id));if(locks.has(`owner:${user.id}`))fail(409,'내 아바타의 답변이 끝난 뒤 자아를 전환해주세요.');const slot=store.one('SELECT * FROM avatar_slots WHERE id=? AND owner_id=?',req.params.id,user.id);if(!slot)fail(404,'나의 자아 슬롯을 찾을 수 없어요.');if(slot.id!==user.active_slot){life.switchAvatar(user.id);const snapshot=JSON.parse(slot.snapshot);store.transaction(()=>{store.run('UPDATE avatar_slots SET snapshot=? WHERE id=?',JSON.stringify(slotSnapshot(user)),user.active_slot);store.run('DELETE FROM memories WHERE owner_id=?',user.id);for(const m of snapshot.memories)store.run('INSERT INTO memories VALUES(?,?,?,?,?,?,?,?,?)',m.id,user.id,m.content,m.category,m.visibility,m.confirmed,m.source,m.created_at,m.updated_at);store.run('UPDATE users SET nickname=?,intro=?,theme=?,settings=?,balance=?,active_slot=?,revision=revision+1 WHERE id=?',snapshot.nickname,snapshot.intro,snapshot.theme,JSON.stringify(snapshot.settings),JSON.stringify(snapshot.balance),slot.id,user.id);event(user.id,'slot_activated');});emitWorld();}res.json({user:profile(userById(user.id),user.id)});});
@@ -463,7 +463,11 @@ export function createApp(options = {}) {
   const busy=(userId,exceptInvite)=>wordGames.busy(userId)||life.busy(userId)||crabs.busy(userId)||volleys.busy(userId)||store.one("SELECT id FROM games WHERE user_id=? AND finished=0 AND ((kind='runner' AND started>?) OR (kind!='runner' AND started>?))",userId,Date.now()-RUN_EXPIRY,Date.now()-120000)||[...races.values()].some(r=>r.players.some(p=>p.userId===userId)&&!r.started)||[...invites.values()].some(i=>i.id!==exceptInvite&&invitePlayers(i).some(p=>p.userId===userId));
   const personaScripts=installPersonaScripts({app,store,auth,limiter:aiLimiter,io,provider:options.personaProvider,testing:!!options.testing,forceVariant:options.pssForceVariant});
   const life=installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,logAction,personaScripts,clock:options.lifeClock,random:options.lifeRandom});
-  installExploration({app,store,auth,personaScripts,logAction,clock:options.explorationClock,random:options.explorationRandom});
+  // Forest gameplay is retired. Keep saved exploration data intact for migration.
+  // Avatar slots still carry legacy tendencies, so schema ownership outlives the feature.
+  store.db.exec(`CREATE TABLE IF NOT EXISTS exploration_progress(owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,state TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS outdoor_profiles(owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,slot TEXT NOT NULL,profile TEXT NOT NULL,PRIMARY KEY(owner_id,slot));`);
+  app.get('/api/me/stars',auth,(req,res)=>res.json({stars:playerStars}));
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
   const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance:user=>profile(user,user.id).appearance,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
   const polls=installVillagePolls({app,io,store,auth,limiter:aiLimiter,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,personaScripts,generate:options.generatePollAnswer,clock:options.socialClock});
@@ -710,6 +714,19 @@ export function createApp(options = {}) {
         startRace(race);
       }ack({ok:true});
     });
+    socket.on('star:travel',(data,ack)=>{
+      try{
+        const current=socket.data.village,starId=data?.starId;
+        if(!current||!validStar(starId))throw new Error('이동할 별을 다시 선택해 주세요.');
+        if(starId==='farm'&&current.villageId!==uid)throw new Error('농장별은 주인만 가꿀 수 있어요.');
+        const member=villageVisitors.get(current.villageId)?.get(uid);
+        if(!member)throw new Error('별에 다시 연결해 주세요.');
+        if(busy(uid)&&!life.busy(uid))throw new Error('진행 중인 게임을 마친 뒤 이동해 주세요.');
+        life.stop(uid);
+        Object.assign(member,{starId,x:0,z:3,rotation:0,seatId:null,moving:false,jumpStarted:0,activityState:'Idle'});
+        emitVillage(current.villageId);ack?.({ok:true,starId});
+      }catch(error){ack?.({ok:false,error:error.message});}
+    });
     socket.on('village:join',(data,ack)=>{
       try {
         if(!sessionUser(socket.request.headers))throw new Error('로그인이 필요해요.');
@@ -723,6 +740,7 @@ export function createApp(options = {}) {
         // One avatar per account, retained until its final tab leaves the room.
         const member=members.get(uid)||{userId:uid,x:uid===villageId?-1:1,z:3,rotation:0,moving:false,sockets:new Set(),lastMove:0};
         const firstHome=uid===villageId&&!member.sockets.size;if(firstHome)life.arrive(uid);
+        if(validStar(data?.starId))member.starId=data.starId;
         member.sockets.add(socket.id);members.set(uid,member);villageVisitors.set(villageId,members);
         socket.data.village={villageId,userId:uid};socket.join(`village:${villageId}`);
         logAction(uid,'village_join',{villageId});

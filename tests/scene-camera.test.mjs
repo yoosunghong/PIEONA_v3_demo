@@ -113,7 +113,7 @@ test('interrupted and reversed camera travel starts at the current view without 
   advanceCameraTransition(returning,camera,controls,1.1);
   assert.deepEqual(cameraPose(camera,controls),original);
 });
-test('reduced motion applies the destination directly; every village theme retains its original lighting',()=>{
+test('reduced motion applies directly; space themes retain their lighting and use the full star framing',()=>{
   const {camera,controls}=rig(),view=sceneView('edit');
   assert.equal(advanceCameraTransition(startCameraTransition(camera,controls,view,0),camera,controls,0),true);
   assert.deepEqual(cameraPose(camera,controls),view);
@@ -122,5 +122,5 @@ test('reduced motion applies the destination directly; every village theme retai
     assert.deepEqual(sceneView('edit',{mood:theme.id}),view);
   }
   assert.equal(sceneMood('unknown'),villageThemes[0]);
-  assert.deepEqual(sceneView('home',{mood:'cafe'}),{position:[1,4.5,9],target:[-1.9,1,0]});
+  assert.deepEqual(sceneView('home',{mood:'cafe'}),sceneView('home',{mood:'default'}));
 });

@@ -30,19 +30,19 @@ export default function WordGames({initialKind='typing',target,me,socket,members
   return <div className="panel-body word-games"><button className="text-button" onClick={onBack}><ArrowLeft size={16}/>게임 목록으로</button><div className="word-game-heading"><span>{kind==='typing'?<Keyboard size={30}/>:<MessagesSquare size={30}/>}</span><div><small className="social-eyebrow">A LITTLE CHALLENGE, ALL TOGETHER</small><h2>{room?.kind==='wordchain'||!room&&kind==='wordchain'?'도란도란 끝말잇기':'타자입력 게임'}</h2><p>{room?.kind==='wordchain'||!room&&kind==='wordchain'?'120초 동안 이어가요. 시간 종료 시 차례인 사람이 패배해요. 빠른 정답일수록 높은 점수!':'같은 단어를 빠르고 정확하게! 인원 제한 없이 60초 한 라운드! 오타 제출은 5점 감점이에요.'}</p></div></div>
     {error&&<p className="word-game-error" role="alert">{error}</p>}
     {!room?<><div className="tab-row"><button className={kind==='typing'?'active':''} onClick={()=>setKind('typing')}>타자입력</button><button className={kind==='wordchain'?'active':''} onClick={()=>setKind('wordchain')}>끝말잇기</button></div>
-      <section className="word-game-friends" aria-label="같은 마을의 게임 친구">
-        <h3>같은 마을의 친구</h3>
-        {!connected?<p role="status">마을에 다시 연결하고 있어요. 연결되면 참가할 친구를 확인할 수 있어요.</p>:<>
-          <p className="tiny" role="status">마을 친구 {friends.length}명 · 함께할 수 있는 친구 {available}명</p>
+      <section className="word-game-friends" aria-label="같은 별의 게임 친구">
+        <h3>같은 별의 친구</h3>
+        {!connected?<p role="status">별에 다시 연결하고 있어요. 연결되면 참가할 친구를 확인할 수 있어요.</p>:<>
+          <p className="tiny" role="status">별 친구 {friends.length}명 · 함께할 수 있는 친구 {available}명</p>
           {friends.map(friend=><div className="duel-lobby-row" key={friend.userId}><AvatarPortrait user={friend}/><div><strong>{friend.nickname||'새싹'}</strong><small>{friend.joinable?'이 게임의 대결 방에서 기다리는 중':friend.busy?'다른 게임이나 활동 중':'함께 플레이 가능'}</small></div>{friend.joinable&&<button className="card-pink-button" disabled={busy||loading||!connected} onClick={()=>perform(`/duels/${friend.joinable.id}/join`)}>참가하기</button>}</div>)}
-          {!friends.length&&<p className="tiny">지금은 같은 마을에 다른 플레이어가 없어요.</p>}
+          {!friends.length&&<p className="tiny">지금은 같은 별에 다른 플레이어가 없어요.</p>}
         </>}
       </section>
       <button className="card-pink-button full" disabled={busy||loading||!connected} onClick={()=>perform(`/villages/${target.id}/duels`,{kind})}><Users size={17}/>{kind==='typing'?'다 함께 타자게임 방 만들기':'다 함께 끝말잇기 방 만들기'}</button>
       <h3>참가할 수 있는 대기 방</h3>
       {loading?<p role="status">대기 방을 불러오는 중…</p>:error?<button className="text-button" onClick={load}>대기 방 다시 불러오기</button>:<>
         {waitingRooms.map(r=><div className="duel-lobby-row" key={r.id}><Users size={22}/><div><strong>{r.players[0].nickname}</strong><small>{r.players.length}명 · 인원 제한 없음 · 함께할 친구를 기다려요</small></div><button className="card-pink-button" disabled={busy||!connected} onClick={()=>perform(`/duels/${r.id}/join`)}>참가하기</button></div>)}
-        {!waitingRooms.length&&<div className="social-empty"><Users size={32}/><p>{friends.length?'아직 이 게임의 대기 방이 없어요. 방을 만들면 같은 마을의 친구가 참가할 수 있어요.':'먼저 방을 만들어 두면 친구가 마을에 와서 참가할 수 있어요.'}</p></div>}
+        {!waitingRooms.length&&<div className="social-empty"><Users size={32}/><p>{friends.length?'아직 이 게임의 대기 방이 없어요. 방을 만들면 같은 별의 친구가 참가할 수 있어요.':'먼저 방을 만들어 두면 친구가 별에 와서 참가할 수 있어요.'}</p></div>}
       </>}
     </>:null}
   </div>;

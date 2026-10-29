@@ -1,3 +1,4 @@
+import {DEFAULT_PLATFORM_COLOR} from './platform.mjs';
 import {DECOR_RADIUS} from './villageSize.mjs';
 import {inLifeArea} from './life.mjs';
 // Original, code-generated 3D assets; this catalog is shared by editor and server.
@@ -40,13 +41,13 @@ export const rides=[{id:'none',name:'내리기'},{id:'motorcycle',name:'오토�
 export const colors=['#88b5d7','#d994b6','#a6bc83','#c8a0dd','#e5b570','#eee7da'];
 export const defaultAppearance={hat:'none',accessory:'none',color:colors[0]};
 export const villageThemes=[
-  {id:'default',name:'정원',description:'맑고 포근한 낮의 정원',sky:0x92c8e8,light:0xffedcf,intensity:2.1,ambient:1.15,ground:0x74ac87,swatch:'#74ac87'},
-  {id:'campfire',name:'모닥불',description:'달과 별 아래 반짝이는 불씨',sky:0x273454,light:0xffc281,intensity:1.2,ambient:.9,ground:0x7f91a5,swatch:'#334666'},
-  {id:'cafe',name:'카페',description:'따뜻한 창가와 작은 쉼표',sky:0xe5d9cc,light:0xffd5a2,intensity:2.2,ambient:1.5,ground:0xbcbda9,swatch:'#dbc6ab'},
-  {id:'twilight',name:'황혼',description:'보랏빛 하늘과 은은한 가로등',sky:0x646486,light:0xd3bcff,intensity:1.3,ambient:1.2,ground:0x929bbd,swatch:'#77739c'},
-  {id:'sunset',name:'노을',description:'따뜻한 살구빛이 물드는 마을',sky:0xf4c9ba,light:0xffb075,intensity:2.5,ambient:1.5,ground:0xcbb8b1,swatch:'#efb09c'},
+  {id:'milkyway',name:'은하수',description:'깊은 우주에 부드럽게 흐르는 보랏빛 별의 강',sky:0x263452,light:0xe2e7ff,intensity:1.65,ambient:1.1,ground:0x9296ae,swatch:'#7777a4'},
+  {id:'cafe',name:'오로라',description:'청록빛 오로라가 흐르는 우주 정원',sky:0x315967,light:0xc5f3e7,intensity:1.8,ambient:1.3,ground:0x9296ae,swatch:'#82bcb5'},
+  {id:'twilight',name:'황혼',description:'보랏빛 성운과 은은하게 빛나는 별무리',sky:0x646486,light:0xd3bcff,intensity:1.3,ambient:1.2,ground:0x9296ae,swatch:'#77739c'},
+  {id:'sunset',name:'태양 노을',description:'멀리 있는 작은 주황빛 태양 무리의 은은한 온기',sky:0x35324c,light:0xf3d0b4,intensity:1.5,ambient:1.1,ground:0x9296ae,swatch:'#ad826c'},
 ];
-export const defaultVillage={items:[],theme:'default'};
+export const normalizeVillageTheme=id=>villageThemes.some(theme=>theme.id===id)?id:'milkyway';
+export const defaultVillage={items:[],theme:'milkyway',platformColor:DEFAULT_PLATFORM_COLOR};
 export function validPlacement(x,z,scenery){return Number.isFinite(x)&&Number.isFinite(z)&&!inLifeArea(x,z,{scenery})&&Math.hypot(x,z)<=DECOR_RADIUS;}
 export const characters=[
   {id:'pio',name:'피오',folder:'Meshy_AI_Pieona_biped',model:'Meshy_AI_Pieona_biped_Meshy_Merged_Animations.fbx'},

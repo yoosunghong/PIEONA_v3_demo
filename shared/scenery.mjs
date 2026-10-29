@@ -27,7 +27,7 @@ export const pinkPebbles=(()=>{
 export const sceneryDefinitions = [
   ...[[-3.7,-2.4],[3.8,-2.7],[-5,1.5],[4.8,1.3],[1,-5.1],[-2,-5.2]].map(([x,z],i)=>({id:`tree-${i}`,name:[0,3].includes(i)?'벚꽃나무':'정원 나무',x,z})),
   ...Array.from({length:17},(_,i)=>i).filter(i=>i%5!==0).map(i=>({id:`bush-${i}`,name:'정원 덤불',x:Math.cos(i*2.39996)*(4.6+Math.sin(i*4)*.8),z:Math.sin(i*2.39996)*(4.6+Math.sin(i*4)*.8)})),
-  {id:'cafe',name:'마을 카페',x:-3.65,z:-.2},
+  {id:'cafe',name:'별 카페',x:-3.65,z:-.2},
   {id:'pond',name:'작은 연못',x:3.35,z:1.2},
   {id:'campfire',name:'모닥불',x:2.1,z:-3.5},
   ...[[-2.7,2],[-4.3,2.1]].map(([x,z],i)=>({id:`table-${i}`,name:'카페 테이블',x,z})),

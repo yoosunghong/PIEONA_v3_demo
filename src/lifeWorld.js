@@ -3,12 +3,11 @@ import {lifeDefinitions} from '../shared/lifeLayout.mjs';
 import {FISHING_ANCHORS,STORAGE} from '../shared/life.mjs';
 import {KITCHEN} from '../shared/garden.mjs';
 
-export function createLifeWorld(){
+export function createLifeWorld({starId='plaza'}={}){
   const root=new THREE.Group(),rods=[];
   const material=color=>new THREE.MeshStandardMaterial({color,roughness:.75});
   const wood=material(0xb78c60),trim=material(0xf0d3a1),metal=material(0x567b7d);
   function box(w,h,d,mat,x,y,z,parent=root){const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);mesh.position.set(x,y,z);mesh.castShadow=true;mesh.receiveShadow=true;parent.add(mesh);return mesh;}
-  const sea=new THREE.Mesh(new THREE.RingGeometry(7.05,28,128),new THREE.MeshStandardMaterial({color:0x72becb,roughness:.28,metalness:.2,side:THREE.DoubleSide}));sea.rotation.x=-Math.PI/2;sea.position.y=-.72;root.add(sea);
   for(const anchor of FISHING_ANCHORS){
     const deck=new THREE.Group();deck.userData.action=anchor.id;root.add(deck);
     for(let i=0;i<7;i++)box(.84,.12,.18,i%2?wood:trim,anchor.x,.47,5.75+i*.2,deck);
@@ -37,6 +36,7 @@ export function createLifeWorld(){
     if(typeof document==='undefined')continue;
     const label=createFacilityLabel(def.name);label.position.y=def.action==='kitchen'?1.5:1.25;group.add(label);
   }
+  root.visible=starId==='fishing';
   return {root,facilities,update(time,members,garden){
     for(const entry of rods){
       const fisher=members.find(m=>m.seatId===entry.anchor.id);
