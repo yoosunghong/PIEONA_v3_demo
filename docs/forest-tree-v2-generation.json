@@ -1,0 +1,8 @@
+{
+  "asset": "public/images/exploration/cherry-tree-v2.png",
+  "tool": "built-in image_gen.imagegen",
+  "date": "2026-10-30",
+  "referenceRole": "User-supplied forest image; visual style only",
+  "transparentBackground": true,
+  "prompt": "Use case: stylized-concept. Asset type: high quality transparent game sprite for live Three.js cozy top down forest. The attached image is STYLE REFERENCE ONLY. Create ONE isolated cherry blossom tree closely matching the pink flowering trees in that reference: short thick warm ochre brown branching trunk, a broad asymmetrical umbrella canopy with MANY small angular scalloped clusters of salmon pink flowers, warm pale yellow sunlit blossom flecks, rose shaded underside, subtle faceted hand-painted geometry, dense layered tiny petal silhouettes rather than smooth spheres. Orthographic elevated game view at 50 degrees downward, tree seen from south. Trunk visible for bottom 35 percent, canopy 65 percent. Soft golden sunshine from upper left. A miniature whimsical adventure game asset, rich and detailed like reference, bright coral pink, buttery sun highlights. Tree fully visible with modest transparent margins, cutout with genuine alpha transparency. No ground island, no background, no UI, no letters, no other trees or props, no shadow backdrop, no smooth bubble canopy, no photorealism. Match reference's painted low-poly stylization and sculptural leafy silhouette very closely."
+}

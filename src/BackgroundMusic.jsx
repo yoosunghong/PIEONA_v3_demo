@@ -11,7 +11,7 @@ const savePreference = (key, value) => { try { localStorage.setItem(key, JSON.st
 
 export function MusicProvider({ children }) {
   const audio = useRef(null);
-  const [track, setTrack] = useState('/audio/S_Vilage_v2.mp3');
+  const [track, setTrack] = useState('/audio/maple_main_bgm.mp3');
   const interruptions = useRef(new Set());
   const [interruptionVersion, setInterruptionVersion] = useState(0);
   const interrupt = useCallback(() => {
@@ -94,8 +94,8 @@ export function MusicControls() {
     <button type="button" className="music-settings" aria-label="배경음악 음량 조절" aria-expanded={open}
       ref={settingsButton} onClick={() => setOpen(!open)}><SlidersHorizontal size={15}/></button>
     {open && <div className="music-popover" aria-label="배경음악 설정">
-      <strong><Music2 size={16}/>{track === '/audio/minigame2.mp3' ? '미니게임 배경음악' : '별의 배경음악'}</strong>
-      <p>{track === '/audio/minigame2.mp3' ? 'minigame2' : 'S_Vilage_v2'} · 반복 재생</p>
+      <strong><Music2 size={16}/>{track === '/audio/maple_game_bgm.mp3' ? '미니게임 배경음악' : '별 배경음악'}</strong>
+      <p>{track === '/audio/maple_game_bgm.mp3' ? 'maple_game_bgm' : 'maple_main_bgm'} · 반복 재생</p>
       <label><span><Volume2 size={15}/>음량 <output>{Math.round(volume * 100)}%</output></span>
         <input type="range" aria-label="배경음악 음량" min="0" max="100" step="1" value={Math.round(volume * 100)}
           onChange={e => setVolume(Number(e.target.value) / 100)}/>

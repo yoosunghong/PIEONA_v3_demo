@@ -53,17 +53,17 @@ test('departure selects exactly one accepted friend; validates privacy and persi
 });
 
 
-test('a forest companion refreshes the friend avatar appearance during and between trips',async()=>{
+test('a forest companion uses the same appearance as the village and refreshes it between trips',async()=>{
  const h=await harness();try{
   const a=await h.register('forest_look_owner'),b=await h.register('forest_look_friend');
   await h.request('/friends/'+b.id,a,{});await h.request('/friends/'+a.id,b,{});
   const first={character:'pio',hat:'none',accessory:'none',color:'#88b5d7'};
   const changed={character:'tori',hat:'beret',accessory:'bow',color:'#d994b6'};
-  assert.equal((await h.request('/me/world',b,{avatarAppearance:first},'PATCH')).status,200);
+  assert.equal((await h.request('/me/world',b,{appearance:first},'PATCH')).status,200);
   await h.request('/exploration/return',a,{requestId:'look-initial-return'});
   const entered=await h.request('/exploration/enter',a,{requestId:'look-enter-0001',companionId:b.id});
   assert.equal(entered.body.state.companion.profile.appearance.character,'pio');
-  assert.equal((await h.request('/me/world',b,{avatarAppearance:changed},'PATCH')).status,200);
+  assert.equal((await h.request('/me/world',b,{appearance:changed},'PATCH')).status,200);
   const refreshed=await h.request('/exploration',a);
   for(const [key,value] of Object.entries(changed))assert.equal(refreshed.body.state.companion.profile.appearance[key],value);
   assert.equal(refreshed.body.state.companion.enabled,true);

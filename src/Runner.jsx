@@ -151,7 +151,7 @@ export default function Runner({target,me,notify,onReward,anonymous,socket,race,
   const players=race?race.players:[{userId:me.id,nickname:me.nickname}];
   const ranked=players.map(p=>({...p,live:snapshot?.players.find(v=>v.userId===p.userId)})).sort((a,b)=>(b.live?.score??(b.userId===me.id?runScore(hud):0))-(a.live?.score??(a.userId===me.id?runScore(hud):0)));
   return <div className="panel-body runner sky-runner" onPointerDownCapture={()=>effects.current?.unlock()}>
-    <audio ref={audio} src="/audio/splash-and-play.mp3" preload="auto" loop onError={()=>notify('달리기 음악을 불러오지 못했어요. 재생을 다시 시도해주세요.')}/>
+    <audio ref={audio} src="/audio/maple_game_bgm.mp3" preload="auto" loop onError={()=>notify('달리기 음악을 불러오지 못했어요. 재생을 다시 시도해주세요.')}/>
     <div className="runner-stage">
       <div className="runner-viewport" ref={mount} aria-label="하늘섬 구름 달리기 3D 트랙"/>
       <div className="sky-top"><div className="sky-brand"><Flower2/><div><b>ILLOVA</b><small>미니게임 · 하늘 달리기</small></div></div><div className="sky-timer"><Timer size={19}/>{String(Math.floor(seconds/60)).padStart(2,'0')}:{(seconds%60).toFixed(1).padStart(4,'0')}</div></div>

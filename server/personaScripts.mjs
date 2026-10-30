@@ -1,3 +1,4 @@
+import {effectiveOutdoorPersona,readOutdoorProfile} from './outdoorTraits.mjs';
 import {randomUUID,createHash} from 'node:crypto';
 import {z} from 'zod';
 import {settingsOf} from './store.mjs';
@@ -17,16 +18,16 @@ export function installPersonaScripts({app,store,auth,limiter,io,provider=create
  const user=uid=>store.one('SELECT * FROM users WHERE id=?',uid);
  const key=(uid,slot)=>JSON.stringify([uid,slot]);
  function current(uid,slot=user(uid).active_slot){
-  const k=key(uid,slot);if(cache.has(k))return cache.get(k);
+  const k=key(uid,slot);if(cache.has(k)){const base=cache.get(k);return {...base,persona:effectiveOutdoorPersona(store,uid,slot,base.persona)};}
   const row=store.one('SELECT v.* FROM pss_active a JOIN pss_versions v ON v.owner_id=a.owner_id AND v.slot=a.slot AND v.version=a.version WHERE a.owner_id=? AND a.slot=?',uid,slot);
   const u=user(uid),settings=settingsOf(u);
   const value=row?{version:row.version,persona:JSON.parse(row.persona),scripts:validateScripts(JSON.parse(row.scripts)),provider:row.provider}:{version:0,persona:{...Object.fromEntries(TRAITS.map(t=>[t,.5])),speechStyle:settings.speechStyle||'차분하고 다정한 말투',preferences:(settings.publicTags||[]).slice(0,8)},scripts:{events:[]},provider:null};
-  if(row)cache.set(k,value);return value;
+  if(row)cache.set(k,value);return {...value,persona:effectiveOutdoorPersona(store,uid,slot,value.persona)};
  }
  function evidence(uid,slot){
   const messages=store.all("SELECT m.id,m.content FROM messages m JOIN conversations c ON c.id=m.conversation_id WHERE c.viewer_id=? AND c.target_id=? AND c.avatar_slot=? AND m.role='user' ORDER BY m.created_at DESC,m.rowid DESC LIMIT 40",uid,uid,slot).reverse();
   const memories=store.all('SELECT id,content,category FROM memories WHERE owner_id=? ORDER BY updated_at DESC LIMIT 30',uid);
-  return {messages,memories};
+  return {messages,memories,outdoor:readOutdoorProfile(store,uid,slot)};
  }
  const fingerprint=(uid,slot)=>hash({slot,revision:user(uid).revision,evidence:evidence(uid,slot)});
  function proposal(uid,pid){const p=store.one('SELECT * FROM pss_proposals WHERE id=? AND owner_id=? AND slot=?',pid,uid,user(uid).active_slot);if(!p)fail(404,'업데이트 제안을 찾을 수 없어요.');return p;}

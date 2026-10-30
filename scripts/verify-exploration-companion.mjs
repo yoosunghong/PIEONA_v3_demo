@@ -22,6 +22,6 @@ try{
  await page.getByRole('button',{name:'동행 친구 P'}).click();await page.getByRole('button',{name:'부탁하기',exact:true}).click();await page.getByRole('button',{name:'중단하기',exact:true}).click();assert.equal((await h.request('/exploration',a)).body.state.companion.mode,'IDLE');
  await page.setViewportSize({width:390,height:844});await page.screenshot({path:'tmp/exploration-companion/mobile.png'});
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
- await page.getByRole('button',{name:'마을로 귀환',exact:true}).click();await page.waitForURL('**/?view=village');
+ await page.getByRole('button',{name:'마을로 귀환',exact:true}).click();await page.getByRole('dialog',{name:'탐험 결과'}).waitFor();await page.screenshot({path:'tmp/exploration-companion/summary.png'});await page.getByRole('button',{name:'마을로 돌아가기',exact:true}).click();await page.waitForURL('**/?view=village');
  assert.deepEqual(errors,[]);console.log('PASS: real-server departure, friend selection, 3D forest, request dialogue, task replacement, stop, mobile layout, return; no browser errors');
 }finally{await browser?.close();await h.close();}

@@ -32,8 +32,8 @@ export default function GameHub({target,me,notify,onReward,anonymous,socket,memb
   const {setTrack}=useBackgroundMusic();
   const musicKind=wordKind||(race?.kind||game);
   useEffect(()=>{
-    setTrack(['typing','wordchain','crab','volley'].includes(musicKind)?'/audio/minigame2.mp3':'/audio/S_Vilage_v2.mp3');
-    return()=>setTrack('/audio/S_Vilage_v2.mp3');
+    setTrack(['typing','wordchain','crab','volley','runner'].includes(musicKind)?'/audio/maple_game_bgm.mp3':'/audio/maple_main_bgm.mp3');
+    return()=>setTrack('/audio/maple_main_bgm.mp3');
   },[musicKind,setTrack]);
   const [multiplayer,setMultiplayer]=useState(true),[selectedFriends,setSelectedFriends]=useState([]),[inviteProgress,setInviteProgress]=useState(null);
   const [pending,setPending]=useState(null),[sending,setSending]=useState(false),[hideName,setHideName]=useState(!!anonymous);
