@@ -1,3 +1,5 @@
+import {installColony} from './colony.mjs';
+import {starScene,starDetails} from '../shared/colony.mjs';
 import {communityDefinitions,communityPlacements,objectClearance} from '../shared/communityObjects.mjs';
 import {arrivalQuestions,chooseArrivalQuestion} from '../shared/arrivalQuestions.mjs';
 import {petTypes,petColors} from '../shared/pets.mjs';
@@ -248,6 +250,7 @@ export function createApp(options = {}) {
     for(const [character,look] of Object.entries(data.avatarCharacterLooks||{}))if(look)avatarSaved[character]={...look,character};
     if(data.avatarAppearance)avatarSaved[data.avatarAppearance.character||'pio']={...data.avatarAppearance};
     store.run('UPDATE users SET avatar_appearance=?,avatar_character_looks=? WHERE id=?',JSON.stringify(data.avatarAppearance||profile(user,user.id).avatarAppearance),JSON.stringify(avatarSaved),user.id);
+    if(data.village?.items)colony.syncRobots(user.id,nextVillage);
     if(data.village?.items?.some(i=>!i.hidden))event(user.id,'village_decorated');
     if(data.village?.scenery?.some(i=>i.id.startsWith('scenery:life-garden')&&sceneryMoved(villageScenery(oldVillage).find(before=>before.id===i.id),i)))event(user.id,'garden_decorated');
     emitWorld();for(const villageId of villageVisitors.keys())emitVillage(villageId);
@@ -473,7 +476,8 @@ export function createApp(options = {}) {
   // Avatar slots still carry legacy tendencies, so schema ownership outlives the feature.
   store.db.exec(`CREATE TABLE IF NOT EXISTS exploration_progress(owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,state TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS outdoor_profiles(owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,slot TEXT NOT NULL,profile TEXT NOT NULL,PRIMARY KEY(owner_id,slot));`);
-  app.get('/api/me/stars',auth,(req,res)=>res.json({stars:store.all('SELECT star_id,name FROM owned_stars WHERE owner_id=? ORDER BY CASE star_id WHEN \'plaza\' THEN 0 WHEN \'fishing\' THEN 1 WHEN \'farm\' THEN 2 ELSE 3 END,star_id',req.user.id).map(s=>playerStars.find(star=>star.id===s.star_id)||{id:s.star_id,name:s.name})}));
+  app.get('/api/me/stars',auth,(req,res)=>res.json({stars:store.all('SELECT star_id,name FROM owned_stars WHERE owner_id=? ORDER BY CASE star_id WHEN \'plaza\' THEN 0 WHEN \'fishing\' THEN 1 WHEN \'farm\' THEN 2 ELSE 3 END,star_id',req.user.id).map(s=>playerStars.find(star=>star.id===s.star_id)||starDetails({...store.one('SELECT type,grade,bonus,cost FROM colony_stars WHERE owner_id=? AND star_id=?',req.user.id,s.star_id),id:s.star_id,name:s.name,occupied:!colony.available(req.user.id,s.star_id)}))}));
+  const colony=installColony({app,store,auth,villageVisitors,onChange:emitUpdate,clock:options.colonyClock,random:options.colonyRandom});
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
   const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance:user=>profile(user,user.id).appearance,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
   const polls=installVillagePolls({app,io,store,auth,limiter:aiLimiter,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,personaScripts,generate:options.generatePollAnswer,clock:options.socialClock});
@@ -724,7 +728,8 @@ export function createApp(options = {}) {
       try{
         const current=socket.data.village,starId=data?.starId;
         if(!current||!validStar(starId))throw new Error('이동할 별을 다시 선택해 주세요.');
-        if(starId==='farm'&&current.villageId!==uid)throw new Error('농장별은 주인만 가꿀 수 있어요.');
+        if(!colony.available(current.villageId,starId))throw new Error('소유하지 않았거나 NPC가 점령한 별이에요.');
+        if(starScene(starId)==='farm'&&current.villageId!==uid)throw new Error('농장별은 주인만 가꿀 수 있어요.');
         const member=villageVisitors.get(current.villageId)?.get(uid);
         if(!member)throw new Error('별에 다시 연결해 주세요.');
         if(busy(uid)&&!life.busy(uid))throw new Error('진행 중인 게임을 마친 뒤 이동해 주세요.');
@@ -746,7 +751,8 @@ export function createApp(options = {}) {
         // One avatar per account, retained until its final tab leaves the room.
         const member=members.get(uid)||{userId:uid,x:uid===villageId?-1:1,z:3,rotation:0,moving:false,sockets:new Set(),lastMove:0};
         const firstHome=uid===villageId&&!member.sockets.size;if(firstHome)life.arrive(uid);
-        if(validStar(data?.starId))member.starId=data.starId;
+        if(validStar(data?.starId)&&colony.available(villageId,data.starId)&&(starScene(data.starId)!=='farm'||villageId===uid))member.starId=data.starId;
+        if(!colony.available(villageId,member.starId||'plaza'))member.starId='plaza';
         member.sockets.add(socket.id);members.set(uid,member);villageVisitors.set(villageId,members);
         socket.data.village={villageId,userId:uid};socket.join(`village:${villageId}`);
         logAction(uid,'village_join',{villageId});
@@ -816,5 +822,5 @@ export function createApp(options = {}) {
     if(status===500)console.error('[server]',error.name,error.message?.slice(0,160));
     res.status(status).json({error:error instanceof z.ZodError?'입력 형식 또는 길이를 확인해 주세요.':messages[error.message]||(status===500?'처리 중 오류가 발생했어요. 다시 시도해 주세요.':error.message)});
   });
-  return {app,server,io,store,life,personaScripts,avatars,wordGames,polls,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);wordGames.close();polls.close();life.close();crabs.close();volleys.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
+  return {app,server,io,store,colony,life,personaScripts,avatars,wordGames,polls,close:async()=>{clearInterval(maintenance);clearInterval(raceTimer);wordGames.close();polls.close();life.close();crabs.close();volleys.close();await new Promise(r=>io.close(r));if(server.listening)await new Promise(r=>server.close(r));store.close();}};
 }

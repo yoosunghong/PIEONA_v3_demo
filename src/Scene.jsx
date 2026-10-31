@@ -1,3 +1,4 @@
+import {starScene} from '../shared/colony.mjs';
 import {createDioramaPlatform,createSpaceBackdrop,setPlatformColor} from './spaceWorld';
 import {platformColor} from '../shared/platform.mjs';
 import {fishingDuelView,fishLabel} from '../shared/fishingDuel.mjs';
@@ -44,7 +45,8 @@ import {isLifeFocus,lifeFocusView,lifeFocusOccluders} from './lifeFocus.mjs';
 
 const themes={sage:{accent:0x70a9ad,flowers:0xce87bc},rose:{accent:0xdfc7e1,flowers:0xf5dbe5},ocean:{accent:0xbddded,flowers:0xd3d2f1},sunset:{accent:0xe8d7c5,flowers:0xeed2d9}};
 
-export default function Scene({dioramaRef,starId='plaza',onOverview,fishingDuel=null,chalkStrokes=[],pollActive=false,onPollClick,villageSpeech=[],topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,readingDialogue=false,editor=null}){
+export default function Scene({dioramaRef,miningRobots=[],starId:destinationId='plaza',onOverview,fishingDuel=null,chalkStrokes=[],pollActive=false,onPollClick,villageSpeech=[],topicGuest=null,topicLine=null,captureRef,movementInput,jumpInput,mode='home',chatFocusToken=0,chatActive=false,questionPending=false,onQuestionClick,lifeObjectId=null,theme='sage',emotion='calm',sceneType='garden',onInteract,onWalk,onReady,villageMembers=[],gardenData=null,viewerId,viewerNickname,onPositionChange,ownerId,ownerNickname,appearance={},ownerAppearance={},village={items:[]},inputEnabled=true,portrait=false,petPreview=false,paused=false,renderSuspended=false,readingDialogue=false,editor=null}){
+  const starId=starScene(destinationId);
   const humanoidPortrait=!petPreview;
   const community=communityPlacements(village),communityKey=JSON.stringify(community);
   const signData=villageSign(village),signKey=JSON.stringify(signData);
@@ -61,7 +63,7 @@ export default function Scene({dioramaRef,starId='plaza',onOverview,fishingDuel=
   const [lifePrompt,setLifePrompt]=useState('');
   const lifePromptRef=useRef(''),lifeToggle=useRef();
   const mount=useRef(),rendererRef=useRef(),worldRef=useRef();const callbacks=useRef();callbacks.current={village,topicGuest,topicLine,onInteract,onWalk,onReady,onPositionChange,movementInput,editor,benches:villageBenches(village),sign:signData,guestbook:guestbookData,items:[...villageScenery(village),...(village.items||[]),signPlacementItem(signData),guestbookPlacementItem(guestbookData),...community]};
-  callbacks.current.onOverview=onOverview;callbacks.current.fishingDuel=fishingDuel;callbacks.current.pollActive=pollActive;callbacks.current.onPollClick=onPollClick;callbacks.current.villageSpeech=villageSpeech;callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;callbacks.current.avatarSelected=avatarSelected;
+  callbacks.current.miningRobots=miningRobots;callbacks.current.onOverview=onOverview;callbacks.current.fishingDuel=fishingDuel;callbacks.current.pollActive=pollActive;callbacks.current.onPollClick=onPollClick;callbacks.current.villageSpeech=villageSpeech;callbacks.current.lifeObjectId=lifeObjectId;callbacks.current.questionPending=questionPending;callbacks.current.chatFocusToken=chatFocusToken;callbacks.current.chatActive=chatActive;callbacks.current.avatarSelected=avatarSelected;
   const state=useRef();const [error,setError]=useState('');const [loading,setLoading]=useState(true);
   useEffect(()=>{if(state.current){state.current.mode=mode;state.current.emotion=emotion;state.current.villageMembers=villageMembers;state.current.gardenData=gardenData;state.current.viewerId=viewerId;state.current.viewerNickname=viewerNickname;state.current.inputEnabled=inputEnabled;state.current.paused=paused;state.current.renderSuspended=renderSuspended;state.current.readingDialogue=readingDialogue;}},[mode,emotion,villageMembers,gardenData,viewerId,viewerNickname,inputEnabled,paused,renderSuspended,readingDialogue]);
   // Keep one WebGL context for this mounted scene, including all look previews.
@@ -471,6 +473,7 @@ export default function Scene({dioramaRef,starId='plaza',onOverview,fishingDuel=
       gridOpacity+=((editing?gridStyle.opacity:0)-gridOpacity)*Math.min(1,dt*6);grid.visible=gridOpacity>.002;grid.material.opacity=gridOpacity;
       controls.update();
       space?.update(time);
+      for(const robot of decorationRoot.children){const drill=robot.getObjectByName('mining-drill');if(drill&&callbacks.current.miningRobots?.find(r=>r.id===robot.userData.itemId)?.battery!==0){drill.rotation.y=reducedMotion.matches?0:performance.now()/180;drill.position.y=.35+(reducedMotion.matches?0:Math.sin(performance.now()/110)*.045);}}
       renderer.domElement.dataset.starId=starId;renderer.domElement.dataset.platformColor='#'+platform.getObjectByName('platform-surface').material.color.getHexString();
       constrainCameraPan();
       const players=s.mode==='topic'&&callbacks.current.topicGuest?[{userId:callbacks.current.topicGuest.id,nickname:callbacks.current.topicGuest.nickname,actorKind:'AVATAR',appearance:callbacks.current.topicGuest.appearance,x:1.15,z:0,rotation:-Math.PI/2}]:villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);
@@ -629,7 +632,7 @@ export default function Scene({dioramaRef,starId='plaza',onOverview,fishingDuel=
       if(sceneFrameDue(quality.software,lastSceneRender,time,viewport.needsDraw)){lastSceneRender=time;drawFrame();}
     }render();
     return()=>{const local=remoteCharacters.get(state.current?.viewerId);if(local?.seatId&&!local.seatId.startsWith('fishing:'))stand(local,false);if(dioramaRef)dioramaRef.current=null;space?.dispose();disposeObject(platform);facilityOutline.dispose();disposeObject(lifeWorld.root);lifeToggle.current=null;lifePromptRef.current='';setLifePrompt('');benchToggle.current=null;benchPromptRef.current='';setBenchPrompt('');if(captureRef)captureRef.current=null;disposed=true;cancelAnimationFrame(frame);observer.disconnect();controls.dispose();window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);window.removeEventListener('blur',clearKeys);document.removeEventListener('visibilitychange',visibilityChanged);disposeObject(decorationRoot);disposeObject(signRoot);disposeObject(previewRoot);gardenDetailParts.forEach(disposeObject);disposeObject(gardenDetails);disposeObject(cafeTables);for(const [id,root] of sceneryRoots){if(id.includes('table-'))disposeObject(root);}grid.geometry.dispose();grid.material.dispose();disposeCharacter(avatarRoot);remoteCharacters.forEach(({root,mixer:remoteMixer})=>{world.remove(root);disposeCharacter(root);remoteMixer?.stopAllAction();remoteMixer?.uncacheRoot(remoteMixer.getRoot());});for(const [name,handler] of Object.entries(pointerEvents))renderer.domElement.removeEventListener(name,handler);mixer?.stopAllAction();mixer?.uncacheRoot(mixer.getRoot());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());sun.dispose();renderer.renderLists.dispose();renderer.domElement.remove();state.current=null;worldRef.current=null;};
-  },[starId,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),village.theme]);
+  },[destinationId,starId,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance),village.theme]);
   useEffect(()=>{const scene=worldRef.current;if(scene){setPlatformColor(scene.platform,platformColor(village));Object.assign(scene.gridStyle,editorGridStyle({...sceneMood(village.theme),ground:platformColor(village)}));scene.grid.material.color.setHex(scene.gridStyle.color);}},[village.platformColor,starId,village.theme]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene||!editor?.onThumbnails)return;
@@ -650,7 +653,7 @@ export default function Scene({dioramaRef,starId='plaza',onOverview,fishingDuel=
     const scene=worldRef.current;if(!scene)return;
     const {decorationRoot}=scene;
     disposeObject(decorationRoot);decorationRoot.clear();
-    for(const item of (village.items||[]).filter(item=>!item.hidden)){const model=createDecoration(item.type);model.userData.itemId=item.id;model.position.set(item.x,.15,item.z);model.rotation.y=item.rotation*Math.PI/2;decorationRoot.add(model);}
+    for(const item of (village.items||[]).filter(item=>!item.hidden)){const model=createDecoration(item.type);model.userData.itemId=item.id;if(item.type==='miningRobot')model.userData.action='robot:'+item.id;model.position.set(item.x,.15,item.z);model.rotation.y=item.rotation*Math.PI/2;decorationRoot.add(model);}
   },[starId,JSON.stringify(village.scenery),JSON.stringify(village.items),village.theme,theme,sceneType,portrait,petPreview,ownerId,ownerNickname,JSON.stringify(ownerAppearance),JSON.stringify(appearance)]);
   useEffect(()=>{
     const scene=worldRef.current;if(!scene)return;

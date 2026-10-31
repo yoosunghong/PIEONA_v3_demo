@@ -12,7 +12,14 @@ export function createDecoration(type){
   const box=(w,h,d,m,x,y,z)=>shape(new THREE.BoxGeometry(w,h,d),m,x,y,z);
   const ball=(r,m,x,y,z)=>shape(new THREE.IcosahedronGeometry(r,1),m,x,y,z);
   const cyl=(a,b,h,m,x,y,z)=>shape(new THREE.CylinderGeometry(a,b,h,20),m,x,y,z);
-  if(type==='planter'){
+  if(type==='miningRobot'){
+    const metal=material('#7d98b7'),dark=material('#34445e'),glow=material('#a6f9d9');glow.emissive.set('#64d8c6');glow.emissiveIntensity=.5;
+    box(.85,.24,.68,dark,0,.16,0);box(.64,.6,.52,metal,0,.58,0);box(.46,.2,.04,dark,0,.72,.28);
+    for(const x of [-.13,.13])ball(.055,glow,x,.74,.31);
+    for(const x of [-.48,.48]){cyl(.13,.13,.5,dark,x,.24,0).rotation.x=Math.PI/2;box(.12,.5,.12,metal,x,.52,.12);}
+    const drill=shape(new THREE.ConeGeometry(.17,.5,9),cream,0,.35,.6);drill.rotation.z=Math.PI;drill.name='mining-drill';
+    cyl(.025,.025,.3,metal,0,1.02,0);ball(.07,glow,0,1.2,0);
+  }else if(type==='planter'){
     box(1,.3,.6,cream,0,.15,0);box(.9,.06,.5,wood,0,.32,0);
     for(let i=0;i<5;i++){const x=(i-2)*.17;cyl(.018,.018,.3,green,x,.48,0);ball(.105,i%2?pink:blue,x,.68,0);const leaf=ball(.09,green,x+.06,.46,0);leaf.scale.set(.8,.3,1);}
   }else if(type==='bench'){

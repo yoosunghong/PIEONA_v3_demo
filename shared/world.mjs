@@ -3,6 +3,7 @@ import {DECOR_RADIUS} from './villageSize.mjs';
 import {inLifeArea} from './life.mjs';
 // Original, code-generated 3D assets; this catalog is shared by editor and server.
 export const decorations = [
+  {id:'miningRobot',name:'채광 로봇',category:'other',color:'#97b8da'},
   {id:'bench',name:'나무 벤치',category:'furniture',color:'#bf947b'},
   {id:'lantern',name:'가로등',category:'lighting',color:'#efc976'},
   {id:'cherry',name:'벚꽃나무',category:'plants',color:'#edabc5'},
@@ -28,7 +29,7 @@ export const decorations = [
 ];
 // The legacy 2D catalog also uses these symbols for saved items.
 const decorIcons=['🪑','🏮','🌸','⛱️','⛲','🛒','🪵','🌷','🪨','🐰','🍄','🎠','🌸','🪧','🌿','🍄','📬','🧺','🌼','🏛️','💎'];
-decorations.forEach((item,index)=>{item.icon=decorIcons[index]||'🪺';item.quantity=item.reward?1:item.id==='statue'?Infinity:10;});
+decorations.forEach((item,index)=>{item.icon=item.id==='miningRobot'?'🤖':decorIcons[index-1]||'🪺';item.quantity=item.reward?1:item.id==='statue'?Infinity:10;});
 export const decorationQuantity=(entry,rewards=[])=>entry.reward&&!rewards.includes(entry.reward)?0:entry.quantity;
 // Placed items use stock; storing or undoing a placement returns it.
 export function remainingDecoration(items,type,rewards=[]){

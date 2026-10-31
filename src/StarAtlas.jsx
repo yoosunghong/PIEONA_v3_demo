@@ -1,3 +1,4 @@
+import {starScene} from '../shared/colony.mjs';
 import React,{useEffect,useRef,useState} from 'react';
 import {ArrowUpRight,MapPin,Orbit,X} from 'lucide-react';
 import * as THREE from 'three';
@@ -31,7 +32,7 @@ function miniature(kind,small=false){
   return root;
 }
 
-export default function StarAtlas({open=false,active='plaza',theme='milkyway',village,onTravel,onExited,onPhaseChange,captureRef,dioramaRef}){
+export default function StarAtlas({stars=playerStars,open=false,active='plaza',theme='milkyway',village,onTravel,onExited,onPhaseChange,captureRef,dioramaRef}){
   const host=useRef(),nodes=useRef(new Map()),current=useRef(),engine=useRef(),[selected,setSelected]=useState(null),[hovered,setHovered]=useState(null),[phase,setPhase]=useState('closed'),[failed,setFailed]=useState(false);
   current.current={active,onTravel,onExited,onPhaseChange,open,hovered,captureRef,dioramaRef,village};
   useEffect(()=>{
@@ -43,7 +44,7 @@ export default function StarAtlas({open=false,active='plaza',theme='milkyway',vi
     renderer.domElement.setAttribute('aria-label','내 별 지도 · 별을 클릭하여 이동');renderer.domElement.dataset.atlasRenderer=crypto.randomUUID();
     const world=new THREE.Scene(),space=createSpaceBackdrop(world,{theme}),camera=new THREE.PerspectiveCamera(38,1,.1,220);
     world.add(new THREE.HemisphereLight(0xd6ddff,0x676085,1.65));const light=new THREE.DirectionalLight(0xffe5d7,2.4);light.position.set(-15,30,25);world.add(light);
-    const roots=playerStars.map((star,i)=>{const root=miniature(star.id);root.position.set(...[[0,-.4,5],[-18,-.2,-3],[14,1,-3]][i]);if(star.id==='plaza')root.scale.multiplyScalar(1.5);root.userData.starId=star.id;world.add(root);return {star,root,y:root.position.y};});
+    const roots=stars.map((star,i)=>{const root=miniature(starScene(star.id));root.position.set(...([[0,-.4,5],[-18,-.2,-3],[14,1,-3]][i]||[Math.cos(i*2.4)*19,0,-13-Math.floor((i-3)/5)*9]));if(star.id==='plaza')root.scale.multiplyScalar(1.5);root.userData.starId=star.id;world.add(root);return {star,root,y:root.position.y};});
     const distant=[];for(let i=0;i<12;i++){const root=miniature(['plaza','fishing','farm'][i%3],true);root.scale.setScalar(.15+(i%3)*.055);root.position.set(Math.sin(i*2.4)*23,-2+(i%4)*3,-16-(i%5)*3);root.rotation.y=i;root.traverse(o=>{if(o.isMesh){o.material.transparent=true;o.material.opacity=.26+(i%3)*.1;}});world.add(root);distant.push(root);}
     const outline=createFacilityOutline(renderer,world,camera,{glow:.75}),ray=new THREE.Raycaster();
     let down=null,dead=false,frame,last=0,visible=false,preparing=false,motion=null,flight=null,fade=null,phaseValue='closed',previousCapture,fadeTimer;
@@ -58,9 +59,9 @@ export default function StarAtlas({open=false,active='plaza',theme='milkyway',vi
       source.userData.borrowed=false;source.userData.snapshotOwned=true;source.userData.starId=entry.star.id;source.position.copy(entry.root.position);if(entry.star.id==='plaza')source.scale.multiplyScalar(1.5);world.remove(entry.root);release(entry.root);entry.root=source;world.add(source);
     };
     const pose=()=>({position:camera.position.clone(),target:target.clone()});
-    const near=id=>{const entry=roots.find(e=>e.star.id===id),source=entry.root.userData.sourceView,scale=source?entry.root.scale.x:4/8.75*entry.root.scale.x;return {position:new THREE.Vector3(...(source?.position||[11,17,14])).multiplyScalar(scale).add(entry.root.position),target:new THREE.Vector3(...(source?.target||[0,0,0])).multiplyScalar(scale).add(entry.root.position)};};
+    const near=id=>{const entry=roots.find(e=>e.star.id===id)||roots[0],source=entry.root.userData.sourceView,scale=source?entry.root.scale.x:4/8.75*entry.root.scale.x;return {position:new THREE.Vector3(...(source?.position||[11,17,14])).multiplyScalar(scale).add(entry.root.position),target:new THREE.Vector3(...(source?.target||[0,0,0])).multiplyScalar(scale).add(entry.root.position)};};
     const move=(to,duration,done)=>{const from=pose();motion={from,to,duration:reduced?.12:duration,start:performance.now(),done};};
-    const resize=()=>{const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;renderer.setSize(w,h);space.resize(w,h);camera.aspect=w/h;const mobile=w/h<1;widePosition.set(0,mobile?35:23,mobile?76:40);roots.forEach(({root},i)=>{root.position.x=[0,-18,14][i]*(mobile?.42:1);});if(phaseValue==='open'||!visible){camera.position.copy(widePosition);target.copy(wideTarget);}else if(phaseValue==='opening'&&motion){motion.to.position.copy(widePosition);}camera.lookAt(target);camera.updateProjectionMatrix();};
+    const resize=()=>{const w=el.clientWidth,h=el.clientHeight;if(!w||!h)return;renderer.setSize(w,h);space.resize(w,h);camera.aspect=w/h;const mobile=w/h<1;widePosition.set(0,mobile?35:23,mobile?76:40);roots.forEach(({root},i)=>{root.position.x=([0,-18,14][i]??Math.cos(i*2.4)*19)*(mobile?.42:1);});if(phaseValue==='open'||!visible){camera.position.copy(widePosition);target.copy(wideTarget);}else if(phaseValue==='opening'&&motion){motion.to.position.copy(widePosition);}camera.lookAt(target);camera.updateProjectionMatrix();};
     const observer=new ResizeObserver(resize);observer.observe(el);resize();
     const atlasCapture=()=>{outline.render(null);return renderer.domElement.toDataURL('image/png');};
     const beginOpen=async()=>{if(visible||preparing)return;preparing=true;setSelected(null);setHovered(null);setPhaseValue('preparing');refreshCurrent();await space.ready;await renderer.compileAsync(world,camera);if(dead||!current.current.open){preparing=false;setPhaseValue('closed');return;}const start=near(current.current.active);camera.position.copy(start.position);target.copy(start.target);camera.lookAt(target);renderer.render(world,camera);visible=true;preparing=false;previousCapture=current.current.captureRef?.current;if(current.current.captureRef)current.current.captureRef.current=atlasCapture;setPhaseValue('opening');move({position:widePosition.clone(),target:wideTarget.clone()},1.2,()=>setPhaseValue('open'));};
@@ -82,18 +83,18 @@ export default function StarAtlas({open=false,active='plaza',theme='milkyway',vi
       if(fade&&performance.now()-fade.start>=fade.duration)finish();
     };frame=requestAnimationFrame(animate);if(current.current.open)beginOpen();
     return()=>{dead=true;motionPreference.removeEventListener('change',preferenceChanged);clearTimeout(fadeTimer);engine.current=null;cancelAnimationFrame(frame);observer.disconnect();renderer.domElement.removeEventListener('pointerdown',pointerDown);renderer.domElement.removeEventListener('pointerup',click);renderer.domElement.removeEventListener('pointermove',pointerMove);renderer.domElement.removeEventListener('pointerleave',pointerLeave);renderer.domElement.removeEventListener('wheel',wheel);if(current.current.captureRef?.current===atlasCapture)current.current.captureRef.current=previousCapture;outline.dispose();space.dispose();roots.forEach(({root})=>release(root));distant.forEach(release);renderer.dispose();renderer.forceContextLoss();renderer.domElement.remove();};
-  },[theme]);
+  },[theme,stars.map(s=>s.id).join(',')]);
   useEffect(()=>{if(open){if(failed){setPhase('open');onPhaseChange?.('open');}else engine.current?.open();}},[open,theme,failed]);
   useEffect(()=>{engine.current?.colors();},[village?.platformColor]);
   useEffect(()=>{if(!open)return;const key=e=>{if(e.key==='Escape'){e.preventDefault();e.stopPropagation();if(selected)setSelected(null);else engine.current?.travel(active);}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key);},[open,selected,active]);
   const interactive=phase==='open';
   return <section className={'star-atlas atlas-'+phase} aria-label="내 별 지도" aria-hidden={!open} inert={!interactive} data-phase={phase}><div className="star-atlas-canvas" ref={host}/><div className="star-atlas-haze" aria-hidden="true"/>
-    <div className="star-atlas-destinations">{playerStars.map(star=><div key={star.id} ref={node=>{if(node)nodes.current.set(star.id,node);else nodes.current.delete(star.id);}} className={'star-destination'+(selected===star.id?' is-selected':'')+(active===star.id?' is-current':'')+(hovered===star.id?' is-hovered':'')}>
+    <div className="star-atlas-destinations">{stars.map(star=><div key={star.id} ref={node=>{if(node)nodes.current.set(star.id,node);else nodes.current.delete(star.id);}} className={'star-destination'+(selected===star.id?' is-selected':'')+(active===star.id?' is-current':'')+(hovered===star.id?' is-hovered':'')}>
       <button className="star-marker" aria-label={star.name+' 선택'} aria-pressed={selected===star.id} onMouseEnter={()=>setHovered(star.id)} onMouseLeave={()=>setHovered(null)} onFocus={()=>setHovered(star.id)} onBlur={()=>setHovered(null)} onClick={()=>setSelected(selected===star.id?null:star.id)} style={{'--star-color':star.color}}>{active===star.id?<MapPin size={23}/>:<span/>}<strong>{star.name}</strong></button>
-      {selected===star.id&&<button className="avatar-chat-prompt star-travel-prompt" onClick={()=>engine.current?.travel(star.id)} aria-label={star.name+'로 이동'}><ArrowUpRight size={20}/><span>이동</span></button>}
+      {selected===star.id&&<button className="avatar-chat-prompt star-travel-prompt" disabled={!!star.occupied} title={star.occupied?'NPC 점령 중 · 편지함에서 탈환하세요':star.caption} onClick={()=>engine.current?.travel(star.id)} aria-label={star.name+'로 이동'}><ArrowUpRight size={20}/><span>이동</span></button>}
     </div>)}</div>
-    <div className="star-atlas-caption"><Orbit size={20}/><div><strong>나의 별자리</strong><span>{selected?playerStars.find(s=>s.id===selected)?.caption:phase==='traveling'?'별을 향해 이동하고 있어요':phase==='opening'?'나의 별자리를 펼치는 중':'별을 선택하고 이동해 보세요'}</span></div><small>보유한 별 3개</small></div>
+    <div className="star-atlas-caption"><Orbit size={20}/><div><strong>나의 별자리</strong><span>{selected?stars.find(s=>s.id===selected)?.caption:phase==='traveling'?'별을 향해 이동하고 있어요':phase==='opening'?'나의 별자리를 펼치는 중':'별을 선택하고 이동해 보세요'}</span></div><small>보유한 별 {stars.length}개</small></div>
     <button className="star-atlas-close" onClick={()=>engine.current?.travel(active)} aria-label={starName(active)+'로 돌아가기'}><X size={17}/><span>현재 별로</span></button>
-    {failed&&open&&<div className="star-atlas-error" role="status">3D 지도를 표시할 수 없어요.{playerStars.map(star=><button key={star.id} onClick={async()=>{if(await onTravel(star.id,Promise.resolve())!==false)onExited();}}>{star.name}로 이동</button>)}</div>}
+    {failed&&open&&<div className="star-atlas-error" role="status">3D 지도를 표시할 수 없어요.{stars.map(star=><button key={star.id} onClick={async()=>{if(await onTravel(star.id,Promise.resolve())!==false)onExited();}}>{star.name}로 이동</button>)}</div>}
   </section>;
 }

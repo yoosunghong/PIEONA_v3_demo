@@ -1,3 +1,4 @@
+import {bestBonus} from './colony.mjs';
 import {cookingInputs,COOK_TIME_MS} from '../shared/cooking.mjs';
 import {villageLife} from '../shared/lifeLayout.mjs';
 import {id} from './store.mjs';
@@ -21,9 +22,10 @@ export function createGardening(store,clock,{recover=true}={}){
   });}
   if(recover)store.transaction(()=>{store.run("UPDATE life_operations SET status='cancelled',completed_at=?,result=? WHERE status='pending'",clock(),JSON.stringify({ok:false,reply:'서버가 다시 시작되어 작업을 중단했어. 재료는 사용하지 않았어.'}));store.run('DELETE FROM garden_reservations');});
   const inventory=uid=>store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=? AND quantity>0',uid);
+  const waterInterval=uid=>Math.ceil(WATER_INTERVAL_MS/(1+bestBonus(store,uid,'green')/100));
   function plots(uid){return GARDEN_BEDS.map(b=>{
     const p=store.one('SELECT crop_id AS cropId,planted_at AS plantedAt,ready_at AS readyAt,planting_id AS plantingId,planted_by AS plantedBy,water_count AS waterCount,last_watered_at AS lastWateredAt FROM garden_plots WHERE owner_id=? AND plot_id=?',uid,b.id)||{cropId:null};
-    return {id:b.id,...p,...cropGrowth(p,clock()),reserved:!!store.one('SELECT 1 FROM garden_reservations WHERE owner_id=? AND plot_id=?',uid,b.id)};
+    return {id:b.id,...p,...cropGrowth(p,clock(),waterInterval(uid)),reserved:!!store.one('SELECT 1 FROM garden_reservations WHERE owner_id=? AND plot_id=?',uid,b.id)};
   });}
   function recipePlan(uid,action){
     const recipe=RECIPES.find(r=>r.id===action.recipe);if(!recipe)fail('만들 요리를 골라 줘. 생선구이, 허브 생선구이, 해산물 모둠, 토마토 샐러드를 만들 수 있어.');
@@ -92,7 +94,7 @@ export function createGardening(store,clock,{recover=true}={}){
         result={ok:true,reply:`${Number(p.id.split(':')[1])+1}번 텃밭에 ${crop.name} 씨앗을 심었어요. 5분마다 물을 3번 주면 수확할 수 있어요.`,items:[],consumed:planned.inputs};
       }else if(current.intent==='WATER_CROP'){
         const p=planned.plots[0];
-        const changed=store.run('UPDATE garden_plots SET water_count=water_count+1,last_watered_at=?,ready_at=CASE WHEN water_count+1>=? THEN ? ELSE NULL END WHERE owner_id=? AND plot_id=? AND planting_id=? AND water_count=? AND water_count<? AND COALESCE(last_watered_at,planted_at)+?<=?',clock(),REQUIRED_WATERINGS,clock(),uid,p.id,p.plantingId,p.waterCount,REQUIRED_WATERINGS,WATER_INTERVAL_MS,clock());
+        const changed=store.run('UPDATE garden_plots SET water_count=water_count+1,last_watered_at=?,ready_at=CASE WHEN water_count+1>=? THEN ? ELSE NULL END WHERE owner_id=? AND plot_id=? AND planting_id=? AND water_count=? AND water_count<? AND COALESCE(last_watered_at,planted_at)+?<=?',clock(),REQUIRED_WATERINGS,clock(),uid,p.id,p.plantingId,p.waterCount,REQUIRED_WATERINGS,waterInterval(uid),clock());
         if(!changed.changes)fail('물주기 상태가 바뀌었어요. 다시 확인해 주세요.');
         result={ok:true,reply:p.waterCount+1===REQUIRED_WATERINGS?'성장이 완료됐어요! 과일 아이콘을 눌러 수확하세요.':`물을 주었어요. (${p.waterCount+1}/${REQUIRED_WATERINGS}) 5분 후 다시 줄 수 있어요.`,items:[]};
       }else{
