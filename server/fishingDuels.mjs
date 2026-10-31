@@ -42,10 +42,11 @@ export function createFishingDuels({store,clock,members,anchors,active,busy,star
     if(uid===data.targetId||!members(room)?.has(uid)||!members(room)?.has(data.targetId))fail(409,'같은 마을의 낚시 중인 플레이어에게 신청해 주세요.');
     if(current(uid)||current(data.targetId))fail(409,'이미 대결 신청이나 대결이 진행 중이에요.');
     const target=active(data.targetId),player=members(room).get(uid),opponent=members(room).get(data.targetId);
+    if((player.starId||'fishing')!==(opponent.starId||'fishing'))fail(409,'같은 별에 있는 상대에게 신청해 주세요.');
     if(!target||target.status!=='active'||target.village_id!==room)fail(409,'낚시 중인 상대에게 신청해 주세요.');
     if(Math.hypot(player.x-opponent.x,player.z-opponent.z)>2.2)fail(409,'상대 낚시 자리 가까이로 이동해 주세요.');
     if(busy(uid)&&!active(uid))fail(409,'다른 활동을 마친 뒤 신청해 주세요.');
-    const m={id:id(),villageId:room,status:'pending',stake:data.stake,minutes:data.minutes,createdAt:clock(),expiresAt:clock()+30000,players:[uid,data.targetId].map(userId=>({userId,nickname:store.one('SELECT nickname FROM users WHERE id=?',userId).nickname}))};
+    const m={id:id(),villageId:room,starId:target.star_id||'fishing',status:'pending',stake:data.stake,minutes:data.minutes,createdAt:clock(),expiresAt:clock()+30000,players:[uid,data.targetId].map(userId=>({userId,nickname:store.one('SELECT nickname FROM users WHERE id=?',userId).nickname}))};
     matches.set(m.id,m);save(m);broadcast(m);return view(m);
   }
   function action(uid,room,raw){
@@ -56,7 +57,7 @@ export function createFishingDuels({store,clock,members,anchors,active,busy,star
       if(data.action==='cancel'&&m.players[0].userId!==uid||['accept','decline'].includes(data.action)&&m.players[1].userId!==uid)fail(403,'대결 신청 권한을 확인해 주세요.');
       if(data.action==='finish')fail(409,'아직 시작하지 않은 대결이에요.');
       if(data.action!=='accept'){m.status='cancelled';m.reason='대결 신청이 취소되었어요.';save(m);broadcast(m);return view(m);}
-      if(room!==m.villageId||m.players.some(p=>!members(room)?.has(p.userId)))fail(409,'두 플레이어가 같은 마을에 있어야 해요.');
+      if(room!==m.villageId||m.players.some(p=>!members(room)?.has(p.userId)||(members(room).get(p.userId).starId||'fishing')!==m.starId))fail(409,'두 플레이어가 같은 마을에 있어야 해요.');
       store.transaction(()=>{
         for(const p of m.players)if(!store.run('UPDATE users SET gold=gold-? WHERE id=? AND gold>=?',m.stake,p.userId,m.stake).changes)fail(400,'참가자의 내기 골드가 부족해요.');
         const sessions=startPair(m);

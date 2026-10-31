@@ -5,16 +5,17 @@ import {CROPS,RECIPES,cropState} from '../shared/garden.mjs';
 import './life.css';
 import {lifePanelTabs} from './lifeFocus.mjs';
 
-export function useLife(userId,socket,connected,notify){
+export function useLife(userId,socket,connected,notify,starId='farm'){
   const [data,setData]=useState(null),[pending,setPending]=useState(false),sequence=useRef(0),guard=useRef(false),retry=useRef(null);
-  const load=useCallback(async()=>{
+  const load=useCallback(async(destination=starId)=>{
     const request=++sequence.current;
-    try{const result=await api('/me/life');if(request===sequence.current){setData({...result,receivedAt:Date.now()});}}
+    try{const result=await api('/me/life?starId='+encodeURIComponent(destination));if(request===sequence.current){setData({...result,receivedAt:Date.now()});}}
     catch(e){if(request===sequence.current)notify(e.message);}
-  },[userId,notify]);
+  },[userId,notify,starId]);
   useEffect(()=>{
     setData(null);if(!userId)return;
     load();const update=result=>{
+      if(result.starId&&result.starId!==starId){load();return;}
       setData(previous=>({...previous,...result,receivedAt:Date.now()}));
       if(result.notice)notify(result.notice);
       const catches=result.results?.filter(r=>r.itemId)||[];
@@ -38,9 +39,9 @@ export function useLife(userId,socket,connected,notify){
   const perform=async action=>{
     if(guard.current)return;
     if(!connected){notify('별 연결을 기다려 주세요.');return;}
-    const signature=JSON.stringify(action);if(retry.current?.signature!==signature)retry.current={signature,key:crypto.randomUUID()};
+    const signature=starId+JSON.stringify(action);if(retry.current?.signature!==signature)retry.current={signature,key:crypto.randomUUID()};
     guard.current=true;setPending(true);
-    try{const result=await api('/me/life/actions',{method:'POST',body:{requestId:retry.current.key,action}});retry.current=null;await load();return result;}
+    try{const result=await api('/me/life/actions',{method:'POST',body:{starId,requestId:retry.current.key,action}});retry.current=null;await load();return result;}
     catch(e){if(e.status)retry.current=null;notify(e.message);await load();}
     finally{guard.current=false;setPending(false);}
   };

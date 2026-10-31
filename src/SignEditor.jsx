@@ -9,7 +9,7 @@ import './sign-editor.css';
 const colorNames=['먹색','회색','아이보리','코랄','분홍','주황','노랑','초록','하늘','파랑','보라','갈색'];
 const brushSizes=[2,8,14,26,40];
 const shapeNames=['나무 판자','화살표','매달린 팻말'];
-export default function SignEditor({sign,onClose,onSaved}){
+export default function SignEditor({starId='plaza',sign,onClose,onSaved}){
   const [history,setHistory]=useState({past:[],present:{shape:sign.shape,strokes:sign.strokes,customColors:sign.customColors||[]},future:[]});
   const [tool,setTool]=useState('draw'),[color,setColor]=useState(signColors[0]),[toolSizes,setToolSizes]=useState({draw:14,erase:14}),[busy,setBusy]=useState(false),[error,setError]=useState(''),[confirmExit,setConfirmExit]=useState(false);
   const canvas=useRef(),preview=useRef(),root=useRef(),stroke=useRef(null),saving=useRef(false),previousFocus=useRef(document.activeElement);
@@ -60,7 +60,7 @@ export default function SignEditor({sign,onClose,onSaved}){
   function finish(e,cancel=false){const active=stroke.current;if(!active)return;stroke.current=null;if(e&&canvas.current.hasPointerCapture(e.pointerId))canvas.current.releasePointerCapture(e.pointerId);if(!cancel)commit({...drawing,strokes:[...drawing.strokes,active]});else redraw();}
   async function save(){
     if(saving.current||stroke.current)return;saving.current=true;setBusy(true);setError('');
-    try{const result=await api('/me/world',{method:'PATCH',body:{village:{sign:{shape:drawing.shape,strokes:drawing.strokes,customColors:drawing.customColors}}}});onSaved(result.user);}
+    try{const result=await api('/me/world',{method:'PATCH',body:{starId,village:{sign:{shape:drawing.shape,strokes:drawing.strokes,customColors:drawing.customColors}}}});onSaved(result.user);}
     catch(e){setError('저장하지 못했어요. '+e.message);}finally{saving.current=false;setBusy(false);}
   }
   function keyboard(e){

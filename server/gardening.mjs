@@ -1,4 +1,4 @@
-import {bestBonus} from './colony.mjs';
+import {initializeStarWorlds,readStarWorld,starBonus,starAccessible} from './starWorlds.mjs';
 import {cookingInputs,COOK_TIME_MS} from '../shared/cooking.mjs';
 import {villageLife} from '../shared/lifeLayout.mjs';
 import {id} from './store.mjs';
@@ -8,6 +8,8 @@ import {ALL_ITEMS,ITEM_DEFINITIONS} from '../shared/life.mjs';
 const fail=message=>{throw Object.assign(new Error(message),{status:409});};
 const describe=items=>items.map(i=>{const d=ALL_ITEMS.find(d=>d.itemId===i.itemId);return `${d.name} ${i.quantity}${d.unit}`;}).join(', ');
 export function createGardening(store,clock,{recover=true}={}){
+  initializeStarWorlds(store);
+  const plotKey=(starId,id)=>starId==='farm'?id:starId+'|'+id;
   store.db.exec(`CREATE TABLE IF NOT EXISTS garden_plots(owner_id TEXT NOT NULL REFERENCES users(id),plot_id TEXT NOT NULL,crop_id TEXT,planted_at INTEGER,ready_at INTEGER,planting_id TEXT,planted_by TEXT,PRIMARY KEY(owner_id,plot_id));
     CREATE TABLE IF NOT EXISTS life_operations(id TEXT PRIMARY KEY,owner_id TEXT NOT NULL REFERENCES users(id),request_id TEXT NOT NULL,actor TEXT NOT NULL,actor_name TEXT NOT NULL,avatar_slot TEXT,intent TEXT NOT NULL,input TEXT NOT NULL,plan TEXT NOT NULL,status TEXT NOT NULL,started_at INTEGER NOT NULL,completed_at INTEGER,result TEXT,UNIQUE(owner_id,request_id));
     CREATE UNIQUE INDEX IF NOT EXISTS life_pending_operation ON life_operations(owner_id,actor) WHERE status='pending';
@@ -22,12 +24,12 @@ export function createGardening(store,clock,{recover=true}={}){
   });}
   if(recover)store.transaction(()=>{store.run("UPDATE life_operations SET status='cancelled',completed_at=?,result=? WHERE status='pending'",clock(),JSON.stringify({ok:false,reply:'서버가 다시 시작되어 작업을 중단했어. 재료는 사용하지 않았어.'}));store.run('DELETE FROM garden_reservations');});
   const inventory=uid=>store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=? AND quantity>0',uid);
-  const waterInterval=uid=>Math.ceil(WATER_INTERVAL_MS/(1+bestBonus(store,uid,'green')/100));
-  function plots(uid){return GARDEN_BEDS.map(b=>{
-    const p=store.one('SELECT crop_id AS cropId,planted_at AS plantedAt,ready_at AS readyAt,planting_id AS plantingId,planted_by AS plantedBy,water_count AS waterCount,last_watered_at AS lastWateredAt FROM garden_plots WHERE owner_id=? AND plot_id=?',uid,b.id)||{cropId:null};
-    return {id:b.id,...p,...cropGrowth(p,clock(),waterInterval(uid)),reserved:!!store.one('SELECT 1 FROM garden_reservations WHERE owner_id=? AND plot_id=?',uid,b.id)};
+  const waterInterval=(uid,starId)=>Math.ceil(WATER_INTERVAL_MS/(1+starBonus(store,uid,starId,'green')/100));
+  function plots(uid,starId='farm'){return GARDEN_BEDS.map(b=>{
+    const p=store.one('SELECT crop_id AS cropId,planted_at AS plantedAt,ready_at AS readyAt,planting_id AS plantingId,planted_by AS plantedBy,water_count AS waterCount,last_watered_at AS lastWateredAt FROM garden_plots WHERE owner_id=? AND plot_id=?',uid,plotKey(starId,b.id))||{cropId:null};
+    return {id:b.id,...p,waterIntervalMs:waterInterval(uid,starId),...cropGrowth(p,clock(),waterInterval(uid,starId)),reserved:!!store.one('SELECT 1 FROM garden_reservations WHERE owner_id=? AND plot_id=?',uid,plotKey(starId,b.id))};
   });}
-  function recipePlan(uid,action){
+  function recipePlan(uid,action,starId){
     const recipe=RECIPES.find(r=>r.id===action.recipe);if(!recipe)fail('만들 요리를 골라 줘. 생선구이, 허브 생선구이, 해산물 모둠, 토마토 샐러드를 만들 수 있어.');
     const bag=new Map(inventory(uid).map(i=>[i.itemId,i.quantity]));let selected=action.fish||[];
     if(recipe.fishCount){
@@ -40,12 +42,12 @@ export function createGardening(store,clock,{recover=true}={}){
     }else if(selected.length)fail('이 요리에는 물고기를 사용하지 않아.');
     const quantity=action.quantity||1,inputs=cookingInputs(recipe,selected,quantity);
     for(const input of inputs)if((bag.get(input.itemId)||0)<input.quantity)fail(`${ALL_ITEMS.find(i=>i.itemId===input.itemId).name} 재료가 부족해.`);
-    return {recipeId:recipe.id,inputs,outputs:[{itemId:recipe.id,quantity}],durationMs:COOK_TIME_MS*quantity,target:villageLife(JSON.parse(store.one('SELECT village FROM users WHERE id=?',uid).village)).kitchen.approach};
+    return {recipeId:recipe.id,inputs,outputs:[{itemId:recipe.id,quantity}],durationMs:COOK_TIME_MS*quantity,target:villageLife(readStarWorld(store,uid,starId)).kitchen.approach};
   }
-  function plan(uid,action){
-    if(action.intent==='COOK_FOOD')return recipePlan(uid,action);
+  function plan(uid,action,starId='farm'){
+    if(action.intent==='COOK_FOOD')return recipePlan(uid,action,starId);
     ensureSeeds(uid);
-    const all=plots(uid),target={x:0,z:0};
+    const all=plots(uid,starId),target={x:0,z:0};
     if(action.intent==='PLANT_SEED'){
       const crop=CROPS.find(c=>c.id===action.crop);if(!crop)fail('심을 씨앗을 선택해 주세요.');
       const plot=action.plot?all.find(p=>p.id===action.plot):all.find(p=>p.state==='Empty'&&!p.reserved);
@@ -68,15 +70,15 @@ export function createGardening(store,clock,{recover=true}={}){
   }
 
   function find(uid,key){return store.one('SELECT * FROM life_operations WHERE owner_id=? AND request_id=?',uid,key);}
-  function existing(uid,key,action,actor){const op=find(uid,key);if(op&&(op.input!==JSON.stringify(action)||op.actor!==actor))fail('같은 요청 번호로 다른 작업을 실행할 수 없어.');return op;}
-  function prepare(uid,key,action,actor){
-    const duplicate=existing(uid,key,action,actor);if(duplicate)return duplicate;
+  function existing(uid,key,action,actor,starId='farm'){const op=find(uid,key);if(op&&(op.input!==JSON.stringify(action)||op.actor!==actor||(JSON.parse(op.plan).starId||'farm')!==starId))fail('같은 요청 번호로 다른 작업을 실행할 수 없어.');return op;}
+  function prepare(uid,key,action,actor,starId='farm'){
+    const duplicate=existing(uid,key,action,actor,starId);if(duplicate)return duplicate;
     let op;
     store.transaction(()=>{
       if(store.one("SELECT 1 FROM life_operations WHERE owner_id=? AND actor=? AND status='pending'",uid,actor))fail('진행 중인 생활 작업을 마치거나 중단해 줘.');
-      const planned=plan(uid,action),user=store.one('SELECT nickname,active_slot FROM users WHERE id=?',uid),sid=id();
+      const planned={...plan(uid,action,starId),starId},user=store.one('SELECT nickname,active_slot FROM users WHERE id=?',uid),sid=id();
       store.run("INSERT INTO life_operations(id,owner_id,request_id,actor,actor_name,avatar_slot,intent,input,plan,status,started_at) VALUES(?,?,?,?,?,?,?,?,?,'pending',?)",sid,uid,key,actor,user.nickname,user.active_slot,action.intent,JSON.stringify(action),JSON.stringify(planned),clock());
-      for(const plot of planned.plots||[])store.run('INSERT INTO garden_reservations VALUES(?,?,?)',uid,plot.id,sid);
+      for(const plot of planned.plots||[])store.run('INSERT INTO garden_reservations VALUES(?,?,?)',uid,plotKey(starId,plot.id),sid);
       op=find(uid,key);
     });return op;
   }
@@ -85,20 +87,21 @@ export function createGardening(store,clock,{recover=true}={}){
   }
   function complete(op){
     const current=store.one('SELECT * FROM life_operations WHERE id=?',op.id);if(current.status!=='pending')return JSON.parse(current.result);
-    const planned=JSON.parse(current.plan),uid=current.owner_id;let result;
+    const planned=JSON.parse(current.plan),uid=current.owner_id,starId=planned.starId||'farm';let result;
     try{store.transaction(()=>{
+      if(!starAccessible(store,uid,starId))fail('점령되었거나 소유하지 않은 별에서는 작업할 수 없어요.');
       if(current.intent==='PLANT_SEED'){
-        const p=planned.plots[0],crop=CROPS.find(c=>c.id===planned.cropId),prior=store.one('SELECT crop_id FROM garden_plots WHERE owner_id=? AND plot_id=?',uid,p.id);
+        const p=planned.plots[0],crop=CROPS.find(c=>c.id===planned.cropId),prior=store.one('SELECT crop_id FROM garden_plots WHERE owner_id=? AND plot_id=?',uid,plotKey(starId,p.id));
         if(prior?.crop_id)fail('그 텃밭에는 이미 작물이 있어.');
-        store.run('INSERT INTO garden_plots(owner_id,plot_id,crop_id,planted_at,ready_at,planting_id,planted_by,water_count,last_watered_at) VALUES(?,?,?,?,?,?,?,0,NULL) ON CONFLICT(owner_id,plot_id) DO UPDATE SET crop_id=excluded.crop_id,planted_at=excluded.planted_at,ready_at=NULL,planting_id=excluded.planting_id,planted_by=excluded.planted_by,water_count=0,last_watered_at=NULL',uid,p.id,crop.id,clock(),null,id(),current.actor_name);
+        store.run('INSERT INTO garden_plots(owner_id,plot_id,crop_id,planted_at,ready_at,planting_id,planted_by,water_count,last_watered_at) VALUES(?,?,?,?,?,?,?,0,NULL) ON CONFLICT(owner_id,plot_id) DO UPDATE SET crop_id=excluded.crop_id,planted_at=excluded.planted_at,ready_at=NULL,planting_id=excluded.planting_id,planted_by=excluded.planted_by,water_count=0,last_watered_at=NULL',uid,plotKey(starId,p.id),crop.id,clock(),null,id(),current.actor_name);
         result={ok:true,reply:`${Number(p.id.split(':')[1])+1}번 텃밭에 ${crop.name} 씨앗을 심었어요. 5분마다 물을 3번 주면 수확할 수 있어요.`,items:[],consumed:planned.inputs};
       }else if(current.intent==='WATER_CROP'){
         const p=planned.plots[0];
-        const changed=store.run('UPDATE garden_plots SET water_count=water_count+1,last_watered_at=?,ready_at=CASE WHEN water_count+1>=? THEN ? ELSE NULL END WHERE owner_id=? AND plot_id=? AND planting_id=? AND water_count=? AND water_count<? AND COALESCE(last_watered_at,planted_at)+?<=?',clock(),REQUIRED_WATERINGS,clock(),uid,p.id,p.plantingId,p.waterCount,REQUIRED_WATERINGS,waterInterval(uid),clock());
+        const changed=store.run('UPDATE garden_plots SET water_count=water_count+1,last_watered_at=?,ready_at=CASE WHEN water_count+1>=? THEN ? ELSE NULL END WHERE owner_id=? AND plot_id=? AND planting_id=? AND water_count=? AND water_count<? AND COALESCE(last_watered_at,planted_at)+?<=?',clock(),REQUIRED_WATERINGS,clock(),uid,plotKey(starId,p.id),p.plantingId,p.waterCount,REQUIRED_WATERINGS,waterInterval(uid,starId),clock());
         if(!changed.changes)fail('물주기 상태가 바뀌었어요. 다시 확인해 주세요.');
         result={ok:true,reply:p.waterCount+1===REQUIRED_WATERINGS?'성장이 완료됐어요! 과일 아이콘을 눌러 수확하세요.':`물을 주었어요. (${p.waterCount+1}/${REQUIRED_WATERINGS}) 5분 후 다시 줄 수 있어요.`,items:[]};
       }else{
-        for(const p of planned.plots||[]){const changed=store.run('UPDATE garden_plots SET crop_id=NULL,planted_at=NULL,ready_at=NULL,planting_id=NULL,planted_by=NULL,water_count=0,last_watered_at=NULL WHERE owner_id=? AND plot_id=? AND planting_id=? AND water_count>=?',uid,p.id,p.plantingId,REQUIRED_WATERINGS);if(!changed.changes)fail('수확할 작물 상태가 바뀌었어요. 다시 확인해 주세요.');}
+        for(const p of planned.plots||[]){const changed=store.run('UPDATE garden_plots SET crop_id=NULL,planted_at=NULL,ready_at=NULL,planting_id=NULL,planted_by=NULL,water_count=0,last_watered_at=NULL WHERE owner_id=? AND plot_id=? AND planting_id=? AND water_count>=?',uid,plotKey(starId,p.id),p.plantingId,REQUIRED_WATERINGS);if(!changed.changes)fail('수확할 작물 상태가 바뀌었어요. 다시 확인해 주세요.');}
         result={ok:true,reply:current.intent==='COOK_FOOD'?`${describe(planned.inputs)}를 사용해서 ${describe(planned.outputs)}를 만들었어요. 보관함에 넣었어요.`:`${describe(planned.outputs)}를 수확해서 보관함에 넣었어요.`,items:planned.outputs,consumed:planned.inputs};
       }
       for(const input of planned.inputs){const changed=store.run('UPDATE inventory_entries SET quantity=quantity-? WHERE owner_id=? AND item_id=? AND quantity>=?',input.quantity,uid,input.itemId,input.quantity);if(!changed.changes)fail('작업하는 동안 재료가 부족해졌어요. 다시 확인해 주세요.');}
@@ -108,6 +111,6 @@ export function createGardening(store,clock,{recover=true}={}){
     });}catch(e){if(!e.status)throw e;result={ok:false,reply:e.message};store.transaction(()=>{store.run("UPDATE life_operations SET status='failed',completed_at=?,result=? WHERE id=?",clock(),JSON.stringify(result),current.id);store.run('DELETE FROM garden_reservations WHERE operation_id=?',current.id);});}
     return result;
   }
-  function snapshot(uid){const last=store.one("SELECT intent,actor,actor_name AS actorName,completed_at AS completedAt,result FROM life_operations WHERE owner_id=? AND status IN ('completed','failed','cancelled') ORDER BY completed_at DESC,rowid DESC LIMIT 1",uid);return {plots:plots(uid),crops:CROPS,recipes:RECIPES,lastResult:last?{...last,result:JSON.parse(last.result)}:null};}
+  function snapshot(uid,starId='farm'){const last=store.one("SELECT intent,actor,actor_name AS actorName,completed_at AS completedAt,result FROM life_operations WHERE owner_id=? AND COALESCE(json_extract(plan,'$.starId'),'farm')=? AND status IN ('completed','failed','cancelled') ORDER BY completed_at DESC,rowid DESC LIMIT 1",uid,starId);return {starId,plots:plots(uid,starId),crops:CROPS,recipes:RECIPES,lastResult:last?{...last,result:JSON.parse(last.result)}:null};}
   return {plots,snapshot,plan,prepare,existing,complete,cancel,ensureSeeds};
 }

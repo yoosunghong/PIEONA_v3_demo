@@ -28,7 +28,7 @@ export function lifeFocusOccluders(world,camera,target,lifeRoot,objectId){
     const direction=point.sub(camera.position);ray.set(camera.position,direction.clone().normalize());ray.far=Math.max(0,direction.length()-.2);
     for(const hit of ray.intersectObjects(world.children,true)){
       let object=hit.object,selected=false;
-      for(let ancestor=object;ancestor;ancestor=ancestor.parent)if(objectId&&ancestor.userData.action===objectId){selected=true;break;}
+      for(let ancestor=object;ancestor;ancestor=ancestor.parent)if(objectId&&(ancestor.userData.action===objectId||ancestor.userData.itemId===objectId)){selected=true;break;}
       if(selected)continue;
       while(object.parent&&object.parent!==world&&object.parent!==lifeRoot&&!object.userData.itemId&&!object.userData.action)object=object.parent;
       if(object===lifeRoot||object.parent===lifeRoot&&!object.userData.action)continue;

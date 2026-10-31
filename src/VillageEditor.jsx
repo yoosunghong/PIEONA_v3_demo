@@ -1,3 +1,4 @@
+import {starScene} from '../shared/colony.mjs';
 import {platformColor as savedPlatformColor,platformColors} from '../shared/platform.mjs';
 import {communityDefinitions,communityPlacements,isCommunityObject} from '../shared/communityObjects.mjs';
 import {isLifeScenery} from '../shared/lifeLayout.mjs';
@@ -36,7 +37,7 @@ export default function VillageEditor({starId='plaza',me,notify,onRefresh,onClos
   const chosen=items.find(item=>item.id===selected),active=isCommunityObject(chosen?.id)?{id:chosen.id,name:chosen.name}:isScenery(chosen?.id)?{id:chosen.id,name:chosen.name}:chosen?.id===GUESTBOOK_ID?{id:'villageGuestbook',name:'별 방명록'}:chosen?.id===SIGN_ID?{id:'villageSign',name:'별 팻말'}:decorations.find(item=>item.id===(chosen?.type||tool));
   const dirty=initial.current!==JSON.stringify(items)||floorColor!==initialFloorColor.current;
   useEffect(()=>{if(!dirty)return;const warn=e=>{e.preventDefault();e.returnValue='';};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[dirty]);
-  const catalog=filterVillageCatalog(villageCatalog(items,me.rewards).filter(item=>item.id!=='scenery:life-fishing'||starId==='fishing'),{category,query,sort,recent});
+  const catalog=filterVillageCatalog(villageCatalog(items,me.rewards).filter(item=>item.id!=='scenery:life-fishing'||starScene(starId)==='fishing'),{category,query,sort,recent});
   useEffect(()=>{cardsRef.current?.scrollTo({top:0,left:0});},[category,query,sort]);
   useEffect(()=>{let alive=true;decorationThumbnails().then(result=>{if(alive)setImages(result);}).catch(()=>{if(alive)setError('소품 미리보기를 불러오지 못했어요. 새로고침 후 다시 시도해주세요.');});backRef.current?.focus();return()=>{alive=false;};},[]);
   function change(next){if(busyRef.current)return;setError('');dispatch({type:'change',items:next});}
@@ -89,7 +90,7 @@ export default function VillageEditor({starId='plaza',me,notify,onRefresh,onClos
   async function save(){
     if(busyRef.current)return;busyRef.current=true;setBusy(true);setError('');
     try{
-      await api('/me/world',{method:'PATCH',body:{village:{platformColor:floorColor,items:items.filter(item=>!fixedItem(item.id)),sign:placement(SIGN_ID),guestbook:placement(GUESTBOOK_ID),...Object.fromEntries(communityDefinitions.map(def=>[def.key,placement(def.id)])),scenery:items.filter(item=>isScenery(item.id)).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden}))}}});
+      await api('/me/world',{method:'PATCH',body:{starId,village:{platformColor:floorColor,items:items.filter(item=>!fixedItem(item.id)),sign:placement(SIGN_ID),guestbook:placement(GUESTBOOK_ID),...Object.fromEntries(communityDefinitions.map(def=>[def.key,placement(def.id)])),scenery:items.filter(item=>isScenery(item.id)).map(({id,x,z,rotation,hidden=false})=>({id:id.slice(8),x,z,rotation,hidden}))}}});
       initial.current=JSON.stringify(items);initialFloorColor.current=floorColor;
       try{await onRefresh();}catch{notify('배치는 저장됐어요. 홈 화면을 새로고침하면 저장한 별을 볼 수 있어요.');}
       notify('별 꾸미기를 저장했어요.');onClose();

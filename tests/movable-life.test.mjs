@@ -58,12 +58,12 @@ test('saved facilities reach visitors and server fishing, planting and cooking u
     const registration=await fetch(url+'/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:'movable_life_owner',password:'test-facility-password'})});
     assert.equal(registration.status,201);const cookie=registration.headers.get('set-cookie').split(';')[0],user=(await registration.json()).user;
     const request=async(path,body,method=body?'POST':'GET')=>{const r=await fetch(url+'/api'+path,{method,headers:{'Content-Type':'application/json',Cookie:cookie},body:body?JSON.stringify(body):undefined});return {status:r.status,body:await r.json()};};
-    const village=layout(),life=villageLife(village),save=body=>request('/me/world',{village:body},'PATCH');
+    const village=layout(),life=villageLife(village),save=body=>request('/me/world',{starId:'fishing',village:body},'PATCH');
     assert.equal((await save({scenery:[{id:'life-storage',x:-1.75,z:4.65,rotation:1}]})).status,200);
-    const saved=await save(village);assert.equal(saved.status,200,JSON.stringify(saved.body));assert.deepEqual((await request('/users/'+user.id)).body.user.village.scenery,village.scenery);
+    const saved=await save(village);assert.equal(saved.status,200,JSON.stringify(saved.body));assert.deepEqual((await request('/users/'+user.id+'/stars/fishing/world')).body.village.scenery,village.scenery);
     socket=io(url,{transports:['websocket'],extraHeaders:{Cookie:cookie},forceNew:true});await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
     const emit=(event,data={})=>new Promise((resolve,reject)=>socket.timeout(3000).emit(event,data,(error,result)=>error?reject(error):resolve(result)));
-    assert.equal((await emit('village:join',{villageId:user.id})).ok,true);
+    assert.equal((await emit('village:join',{villageId:user.id,starId:'fishing'})).ok,true);
     const move=async point=>{socket.emit('village:move',{villageId:user.id,x:point.x,z:point.z,rotation:0,moving:false,seatId:null,jumpStarted:0});await emit('village:join',{villageId:user.id});};
     await move(FISHING_ANCHORS[0]);assert.equal((await emit('life:start',{anchorId:'fishing:0'})).ok,false);
     await move(life.anchors[0]);assert.equal((await emit('life:start',{anchorId:'fishing:0'})).ok,true);
@@ -72,6 +72,8 @@ test('saved facilities reach visitors and server fishing, planting and cooking u
     const changed={scenery:village.scenery.map(item=>item.id==='life-storage'?{...item,x:-5.25}:item)};
     assert.equal((await save(changed)).status,409);assert.equal((await save(village)).status,200);
     await emit('life:stop');
+    assert.equal((await emit('star:travel',{starId:'farm'})).ok,true);
+    assert.equal((await request('/me/world',{starId:'farm',village},'PATCH')).status,200);
     const action=action=>request('/me/life/actions',{requestId:randomUUID(),action});
     let result=await action({intent:'PLANT_SEED',actor:'PLAYER',plot:'garden:0',crop:'HERB'});assert.equal(result.body.ok,true,JSON.stringify(result.body));
     let plan=JSON.parse(runtime.store.one("SELECT plan FROM life_operations WHERE owner_id=? AND status='pending'",user.id).plan);assert.deepEqual(plan.target,{x:0,z:0});

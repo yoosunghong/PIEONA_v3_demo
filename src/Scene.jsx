@@ -473,7 +473,7 @@ export default function Scene({dioramaRef,miningRobots=[],starId:destinationId='
       gridOpacity+=((editing?gridStyle.opacity:0)-gridOpacity)*Math.min(1,dt*6);grid.visible=gridOpacity>.002;grid.material.opacity=gridOpacity;
       controls.update();
       space?.update(time);
-      for(const robot of decorationRoot.children){const drill=robot.getObjectByName('mining-drill');if(drill&&callbacks.current.miningRobots?.find(r=>r.id===robot.userData.itemId)?.battery!==0){drill.rotation.y=reducedMotion.matches?0:performance.now()/180;drill.position.y=.35+(reducedMotion.matches?0:Math.sin(performance.now()/110)*.045);}}
+      for(const robot of decorationRoot.children){const drill=robot.getObjectByName('mining-drill');if(drill&&callbacks.current.miningRobots?.find(r=>r.id===robot.userData.itemId)?.operating!==false){drill.rotation.y=reducedMotion.matches?0:performance.now()/180;drill.position.y=.35+(reducedMotion.matches?0:Math.sin(performance.now()/110)*.045);}}
       renderer.domElement.dataset.starId=starId;renderer.domElement.dataset.platformColor='#'+platform.getObjectByName('platform-surface').material.color.getHexString();
       constrainCameraPan();
       const players=s.mode==='topic'&&callbacks.current.topicGuest?[{userId:callbacks.current.topicGuest.id,nickname:callbacks.current.topicGuest.nickname,actorKind:'AVATAR',appearance:callbacks.current.topicGuest.appearance,x:1.15,z:0,rotation:-Math.PI/2}]:villagePlayers(s.villageMembers,ownerId,s.viewerId,s.viewerNickname,appearance);

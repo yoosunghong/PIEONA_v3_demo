@@ -66,3 +66,5 @@
 .platform-color-swatches output{font-size:10px;color:#6b8099;font-variant-numeric:tabular-nums}
 @media(max-width:700px){.studio-platform-color{padding:8px 12px}.studio-platform-color span{display:none}.platform-color-swatches{gap:6px;margin-top:6px}.platform-color-swatches button{width:22px;height:22px}}
 @media(prefers-reduced-motion:reduce){.star-atlas.atlas-opening{animation:none}.star-atlas.atlas-handoff{transition:none}}
+
+.star-destination.is-selected{z-index:5}

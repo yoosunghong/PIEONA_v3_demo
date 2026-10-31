@@ -21,7 +21,7 @@ export const SEED_ITEMS=CROPS.map(c=>({itemId:seedId(c.id),cropId:c.id,name:`${c
 export const GARDEN_ITEMS=CROPS.map(c=>({...c,itemId:c.id,rarity:'common',stackable:true,unit:'개'}));
 export const FOOD_ITEMS=RECIPES.map(r=>({itemId:r.id,name:r.name,icon:r.icon,rarity:'common',stackable:true,category:'food',unit:'개',description:`우리 마을에서 만든 ${r.name}.`,usage:'완성된 음식 보관 · 함께 식사는 후속 업데이트'}));
 export function cropState(plot,now){return !plot.cropId?'Empty':(plot.waterCount||0)>=REQUIRED_WATERINGS?'Ready':'Growing';}
-export function cropGrowth(plot,now,interval=WATER_INTERVAL_MS){
+export function cropGrowth(plot,now,interval=plot.waterIntervalMs??WATER_INTERVAL_MS){
   const state=cropState(plot,now),waterCount=plot.waterCount||0;
   const nextWaterAt=state==='Growing'?(plot.lastWateredAt??plot.plantedAt)+interval:null;
   return {state,waterCount,stage:state==='Empty'?0:Math.min(3,waterCount+1),nextWaterAt,canWater:state==='Growing'&&now>=nextWaterAt};

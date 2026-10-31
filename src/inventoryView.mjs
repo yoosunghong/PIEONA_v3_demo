@@ -9,6 +9,7 @@ export function inventoryItems(data,{category='all',query='',sort='recent',colle
 }
 
 export function spritePosition(id){
+  if(['IRON_ORE','STAR_CORE'].includes(id))return {backgroundImage:`url(/images/colony/${id.toLowerCase()}.svg)`,backgroundPosition:'center',backgroundSize:'contain',backgroundRepeat:'no-repeat'};
   const cell=inventorySprites[id];
   return cell===undefined?null:{backgroundPosition:`${cell%5*25}% ${Math.floor(cell/5)*100/3}%`};
 }

@@ -1,10 +1,12 @@
+import {initializeStarWorlds,readStarWorld,createStarWorld,transferStarWorld,starAccessible,starBonus} from './starWorlds.mjs';
 import {randomUUID} from 'node:crypto';
 import {z} from 'zod';
 import {ALL_ITEMS} from '../shared/life.mjs';
 import {galaxyNpcs,galaxyNpc} from '../shared/galaxy.mjs';
 import {STAR_TYPES,STAR_GRADES,NPC_WISHES,discoveryChance,ROBOT_BATTERY_MS,ROBOT_CYCLE_MS,DEFENSE_DURATION_MS,persuasionChance} from '../shared/colony.mjs';
 const fail=message=>{throw Object.assign(new Error(message),{status:409});};
-export function installColony({app,store,auth,villageVisitors,onChange=()=>{},clock=Date.now,random=Math.random}){
+export function installColony({app,store,auth,villageVisitors,onChange=()=>{},onTransfer=()=>{},clock=Date.now,random=Math.random}){
+  initializeStarWorlds(store);
   store.db.exec(`CREATE TABLE IF NOT EXISTS colony_discovery(owner_id TEXT PRIMARY KEY,star TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS colony_stars(owner_id TEXT NOT NULL,star_id TEXT NOT NULL,type TEXT NOT NULL,grade TEXT NOT NULL,bonus INTEGER NOT NULL,cost INTEGER NOT NULL,PRIMARY KEY(owner_id,star_id));
     CREATE TABLE IF NOT EXISTS colony_games(game_id TEXT NOT NULL,owner_id TEXT NOT NULL,kind TEXT NOT NULL,processed INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(game_id,owner_id,kind));
@@ -17,24 +19,32 @@ export function installColony({app,store,auth,villageVisitors,onChange=()=>{},cl
     CREATE TRIGGER IF NOT EXISTS colony_game_finished AFTER UPDATE OF finished ON games WHEN NEW.finished=1 AND OLD.finished=0 BEGIN INSERT OR IGNORE INTO colony_games(game_id,owner_id,kind) VALUES(NEW.id,NEW.user_id,'game'); END;
     CREATE TRIGGER IF NOT EXISTS colony_social_finished AFTER INSERT ON social_game_records BEGIN INSERT OR IGNORE INTO colony_games(game_id,owner_id,kind) VALUES(NEW.id,NEW.user_id,'social'); END;`);
   const columns=new Set(store.all('PRAGMA table_info(colony_robots)').map(c=>c.name));
-  if(!columns.has('total_runtime'))store.db.exec('ALTER TABLE colony_robots ADD COLUMN total_runtime INTEGER NOT NULL DEFAULT 0');
+  if(!columns.has('total_runtime'))store.db.exec('ALTER TABLE colony_robots ADD COLUMN total_runtime INTEGER NOT NULL DEFAULT 0; UPDATE colony_robots SET total_runtime=runtime');
+  if(!columns.has('star_id'))store.transaction(()=>{
+    store.db.exec("ALTER TABLE colony_robots ADD COLUMN star_id TEXT NOT NULL DEFAULT 'plaza'");
+    store.db.exec(`CREATE TABLE colony_robots_scoped(owner_id TEXT NOT NULL,star_id TEXT NOT NULL,item_id TEXT NOT NULL,started INTEGER NOT NULL,settled INTEGER NOT NULL,runtime INTEGER NOT NULL DEFAULT 0,collected INTEGER NOT NULL DEFAULT 0,active INTEGER NOT NULL DEFAULT 1,total_runtime INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(owner_id,star_id,item_id));
+      INSERT INTO colony_robots_scoped SELECT owner_id,star_id,item_id,started,settled,runtime,collected,active,total_runtime FROM colony_robots;
+      DROP TABLE colony_robots;ALTER TABLE colony_robots_scoped RENAME TO colony_robots;`);
+  });
+  for(const star of store.all("SELECT owner_id,star_id FROM owned_stars WHERE star_id!='plaza'"))readStarWorld(store,star.owner_id,star.star_id);
   const grant=(uid,item,quantity)=>store.run('INSERT INTO inventory_entries VALUES(?,?,?) ON CONFLICT(owner_id,item_id) DO UPDATE SET quantity=quantity+excluded.quantity',uid,item,quantity);
   function spend(uid,item,quantity){if(!store.run('UPDATE inventory_entries SET quantity=quantity-? WHERE owner_id=? AND item_id=? AND quantity>=?',quantity,uid,item,quantity).changes)fail('보유 자원이 부족해요.');}
   function ensure(uid){if(store.run('INSERT OR IGNORE INTO colony_grants VALUES(?)',uid).changes)grant(uid,'STAR_CORE',3);}
-  function settleRobots(uid){
+  function settleRobots(uid,at=clock()){
     for(const r of store.all('SELECT * FROM colony_robots WHERE owner_id=? AND active=1',uid)){
-      const elapsed=Math.max(0,Math.min(clock()-r.settled,ROBOT_BATTERY_MS-r.runtime)),runtime=r.runtime+elapsed;
+      const elapsed=starAccessible(store,uid,r.star_id)?Math.max(0,Math.min(at-r.settled,ROBOT_BATTERY_MS-r.runtime)):0,runtime=r.runtime+elapsed;
       const cycles=Math.floor(runtime/ROBOT_CYCLE_MS)-Math.floor(r.runtime/ROBOT_CYCLE_MS);
-      const bonus=bestBonus(store,uid,'red'),quantity=cycles+Math.floor(Math.floor(runtime/ROBOT_CYCLE_MS)*bonus/100)-Math.floor(Math.floor(r.runtime/ROBOT_CYCLE_MS)*bonus/100);
+      const bonus=starBonus(store,uid,r.star_id,'red'),quantity=cycles+Math.floor(Math.floor(runtime/ROBOT_CYCLE_MS)*bonus/100)-Math.floor(Math.floor(r.runtime/ROBOT_CYCLE_MS)*bonus/100);
       if(quantity)grant(uid,'IRON_ORE',quantity);
-      store.run('UPDATE colony_robots SET settled=?,runtime=?,total_runtime=total_runtime+?,collected=collected+? WHERE owner_id=? AND item_id=?',clock(),runtime,elapsed,quantity,uid,r.item_id);
+      store.run('UPDATE colony_robots SET settled=?,runtime=?,total_runtime=total_runtime+?,collected=collected+? WHERE owner_id=? AND star_id=? AND item_id=?',Math.max(at,r.settled),runtime,elapsed,quantity,uid,r.star_id,r.item_id);
     }
   }
-  function syncRobots(uid,village){store.transaction(()=>{
+  function syncRobots(uid,village,starId='plaza'){store.transaction(()=>{
+    settleDefense(uid);
     settleRobots(uid);
     const items=(village.items||[]).filter(i=>i.type==='miningRobot'&&!i.hidden),ids=new Set(items.map(i=>i.id));
-    for(const r of store.all('SELECT item_id FROM colony_robots WHERE owner_id=?',uid))if(!ids.has(r.item_id))store.run('UPDATE colony_robots SET active=0 WHERE owner_id=? AND item_id=?',uid,r.item_id);
-    for(const item of items){store.run('INSERT OR IGNORE INTO colony_robots(owner_id,item_id,started,settled) VALUES(?,?,?,?)',uid,item.id,clock(),clock());store.run('UPDATE colony_robots SET active=1,settled=? WHERE owner_id=? AND item_id=?',clock(),uid,item.id);}
+    for(const r of store.all('SELECT item_id FROM colony_robots WHERE owner_id=? AND star_id=?',uid,starId))if(!ids.has(r.item_id))store.run('UPDATE colony_robots SET active=0 WHERE owner_id=? AND star_id=? AND item_id=?',uid,starId,r.item_id);
+    for(const item of items){store.run('INSERT OR IGNORE INTO colony_robots(owner_id,star_id,item_id,started,settled) VALUES(?,?,?,?,?)',uid,starId,item.id,clock(),clock());store.run('UPDATE colony_robots SET active=1,settled=? WHERE owner_id=? AND star_id=? AND item_id=?',clock(),uid,starId,item.id);}
   });}
   function processGames(uid){
     for(const row of store.all('SELECT * FROM colony_games WHERE owner_id=? AND processed=0 ORDER BY rowid',uid)){
@@ -51,12 +61,12 @@ export function installColony({app,store,auth,villageVisitors,onChange=()=>{},cl
     }
   }
   function snapshot(uid){return store.transaction(()=>{
-    ensure(uid);processGames(uid);settleRobots(uid);settleDefense(uid);
+    ensure(uid);processGames(uid);settleDefense(uid);settleRobots(uid);
     return {serverTime:clock(),discovery:JSON.parse(store.one('SELECT star FROM colony_discovery WHERE owner_id=?',uid)?.star||'null'),
       inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=? AND quantity>0',uid),
       stars:store.all("SELECT star_id AS id,type,grade,bonus,cost,EXISTS(SELECT 1 FROM colony_letters l WHERE l.owner_id=s.owner_id AND l.star_id=s.star_id AND l.status='occupied') AS occupied FROM colony_stars s WHERE owner_id=?",uid),
       defense:defenseView(uid),
-      robots:store.all('SELECT item_id AS id,started,runtime,total_runtime AS totalRuntime,collected,active FROM colony_robots WHERE owner_id=? AND active=1',uid).map(r=>({...r,battery:Math.max(0,Math.ceil(100*(1-r.runtime/ROBOT_BATTERY_MS)))})),
+      robots:store.all('SELECT star_id AS starId,item_id AS id,started,runtime,total_runtime AS totalRuntime,collected,active FROM colony_robots WHERE owner_id=? AND active=1',uid).map(r=>({...r,operating:starAccessible(store,uid,r.starId)&&r.runtime<ROBOT_BATTERY_MS,battery:Math.max(0,Math.ceil(100*(1-r.runtime/ROBOT_BATTERY_MS)))})),
       npcs:galaxyNpcs.map((npc,i)=>{const r=store.one('SELECT * FROM colony_relations WHERE owner_id=? AND npc_id=?',uid,npc.id);return {id:npc.id,name:npc.nickname,affinity:r?.affinity||0,persuasionChance:persuasionChance(r?.affinity||0),wishlist:NPC_WISHES[i].slice(0,r?.revealed||0)};}),
       letters:store.all('SELECT * FROM colony_letters WHERE owner_id=? ORDER BY created DESC LIMIT 30',uid)};
   });}
@@ -68,12 +78,13 @@ export function installColony({app,store,auth,villageVisitors,onChange=()=>{},cl
       const star=JSON.parse(row.star);if(req.body?.starId!==star.id)fail('발견한 별을 다시 확인해 주세요.');spend(uid,'STAR_CORE',star.cost);
       store.run('INSERT INTO owned_stars VALUES(?,?,?)',uid,star.id,star.name+' · '+star.grade);
       store.run('INSERT INTO colony_stars VALUES(?,?,?,?,?,?)',uid,star.id,star.type,star.grade,star.bonus,star.cost);
+      createStarWorld(store,uid,star.id);
       store.run('DELETE FROM colony_discovery WHERE owner_id=?',uid);
       if(random()<.4){const npc=galaxyNpcs[Math.min(3,Math.floor(random()*4))];store.run('INSERT INTO colony_letters VALUES(?,?,?,?,?,?,?,?)',randomUUID(),uid,npc.id,star.id,star.name,star.cost,'pending',clock());}
     });res.json(snapshot(uid));
   });
   app.post('/api/me/colony/discard',auth,(req,res)=>{store.run("DELETE FROM colony_discovery WHERE owner_id=? AND json_extract(star,'$.id')=?",req.user.id,z.string().parse(req.body.starId));res.json(snapshot(req.user.id));});
-  app.post('/api/me/colony/robots/:id/recharge',auth,(req,res)=>{const uid=req.user.id;store.transaction(()=>{settleRobots(uid);if(!store.one('SELECT 1 FROM colony_robots WHERE owner_id=? AND item_id=? AND active=1',uid,req.params.id))fail('배치된 로봇을 선택해 주세요.');spend(uid,'IRON_ORE',5);store.run('UPDATE colony_robots SET runtime=0,settled=? WHERE owner_id=? AND item_id=?',clock(),uid,req.params.id);});res.json(snapshot(uid));});
+  app.post('/api/me/colony/robots/:id/recharge',auth,(req,res)=>{const uid=req.user.id,starId=req.body?.starId||'plaza';store.transaction(()=>{settleDefense(uid);settleRobots(uid);if(!starAccessible(store,uid,starId)||!store.one('SELECT 1 FROM colony_robots WHERE owner_id=? AND star_id=? AND item_id=? AND active=1',uid,starId,req.params.id))fail('해당 별에 배치된 로봇을 선택해 주세요.');spend(uid,'IRON_ORE',5);store.run('UPDATE colony_robots SET runtime=0,settled=? WHERE owner_id=? AND star_id=? AND item_id=?',clock(),uid,starId,req.params.id);});res.json(snapshot(uid));});
   app.post('/api/npcs/:id/talk',auth,(req,res)=>{const uid=req.user.id,npc=req.params.id;present(uid,npc);let reply;store.transaction(()=>{
     store.run('INSERT OR IGNORE INTO colony_relations(owner_id,npc_id) VALUES(?,?)',uid,npc);
     const r=store.one('SELECT * FROM colony_relations WHERE owner_id=? AND npc_id=?',uid,npc),wishes=NPC_WISHES[galaxyNpcs.findIndex(n=>n.id===npc)];
@@ -90,17 +101,17 @@ export function installColony({app,store,auth,villageVisitors,onChange=()=>{},cl
   app.post('/api/me/colony/letters/:id/resolve',auth,(req,res)=>{const uid=req.user.id,{choice}=z.object({choice:z.enum(['cede','keep'])}).parse(req.body);store.transaction(()=>{
     const letter=store.one("SELECT * FROM colony_letters WHERE id=? AND owner_id=? AND status='pending'",req.params.id,uid);if(!letter)fail('이미 해결한 편지예요.');present(uid,letter.npc_id);
     if(choice==='cede'){
-      if(!store.run('DELETE FROM owned_stars WHERE owner_id=? AND star_id=?',uid,letter.star_id).changes)fail('소유한 별이 아니에요.');
-      store.run('DELETE FROM colony_stars WHERE owner_id=? AND star_id=?',uid,letter.star_id);store.run('INSERT INTO owned_stars VALUES(?,?,?)',letter.npc_id,letter.star_id,letter.star_name);grant(uid,'STAR_CORE',letter.cost*2);
-      for(const member of villageVisitors.get(uid)?.values()||[])if(member.starId===letter.star_id)member.starId='plaza';
+      settleRobots(uid);
+      transferStarWorld(store,uid,letter.npc_id,letter.star_id,clock());grant(uid,'STAR_CORE',letter.cost*2);
     }
     store.run('UPDATE colony_letters SET status=? WHERE id=?',choice==='cede'?'ceded':random()<persuasionChance(store.one('SELECT affinity FROM colony_relations WHERE owner_id=? AND npc_id=?',uid,letter.npc_id)?.affinity||0)?'kept':'attacking',letter.id);
-  });res.json(snapshot(uid));});
+  });if(choice==='cede'){const letter=store.one('SELECT * FROM colony_letters WHERE id=?',req.params.id);onTransfer(uid,letter.npc_id,letter.star_id);}res.json(snapshot(uid));});
   function letterFor(uid,id){const l=store.one('SELECT * FROM colony_letters WHERE id=? AND owner_id=?',id,uid);if(!l)fail('편지를 찾을 수 없어요.');return l;}
   function defenseView(uid){const d=store.one("SELECT * FROM colony_defenses WHERE owner_id=? AND status='active'",uid);if(!d)return null;return {id:d.id,letterId:d.letter_id,started:d.started,duration:DEFENSE_DURATION_MS,hits:JSON.parse(d.hits),ships:Array.from({length:15},(_,i)=>({id:i,lane:i%3,spawn:i*1000,arrives:i*1000+6000}))};}
   function settleDefense(uid){const d=store.one("SELECT * FROM colony_defenses WHERE owner_id=? AND status='active'",uid);if(!d||clock()<d.started+DEFENSE_DURATION_MS)return;
+    settleRobots(uid,d.started+DEFENSE_DURATION_MS);
     const won=JSON.parse(d.hits).length>=12;store.run('UPDATE colony_defenses SET status=? WHERE id=?',won?'won':'lost',d.id);
-    store.run('UPDATE colony_letters SET status=? WHERE id=?',won?'defended':'occupied',d.letter_id);onChange(uid);
+    store.run('UPDATE colony_letters SET status=? WHERE id=?',won?'defended':'occupied',d.letter_id);if(!won)store.run('UPDATE colony_robots SET settled=? WHERE owner_id=? AND star_id=(SELECT star_id FROM colony_letters WHERE id=?)',clock(),uid,d.letter_id);onChange(uid);
   }
   app.post('/api/me/colony/letters/:id/defense',auth,(req,res)=>{const uid=req.user.id;store.transaction(()=>{settleDefense(uid);const l=letterFor(uid,req.params.id);
     if(!['attacking','occupied'].includes(l.status))fail('방어전 또는 탈환전이 필요하지 않아요.');
@@ -113,9 +124,14 @@ export function installColony({app,store,auth,villageVisitors,onChange=()=>{},cl
     const target=Array.from({length:15},(_,i)=>i).find(i=>i%3===lane&&!hits.includes(i)&&elapsed>=i*1000&&elapsed<i*1000+6000);
     if(target!==undefined)hits.push(target);store.run('UPDATE colony_defenses SET hits=?,last_shot=? WHERE id=?',JSON.stringify(hits),clock(),d.id);
   });res.json(snapshot(uid));});
-  function available(uid,id){settleDefense(uid);return !!store.one("SELECT 1 FROM owned_stars s WHERE owner_id=? AND star_id=? AND NOT EXISTS(SELECT 1 FROM colony_letters l WHERE l.owner_id=s.owner_id AND l.star_id=s.star_id AND l.status IN ('occupied','attacking'))",uid,id);}
+  function available(uid,id){settleDefense(uid);return !!store.one("SELECT 1 FROM owned_stars s WHERE owner_id=? AND star_id=? AND NOT EXISTS(SELECT 1 FROM colony_letters l WHERE l.owner_id=s.owner_id AND l.star_id=s.star_id AND l.status='occupied')",uid,id);}
   // Existing placed robots are adopted once; moving one keeps its battery and production history.
   for(const u of store.all("SELECT id,village FROM users WHERE username NOT LIKE '@galaxy:%'"))syncRobots(u.id,JSON.parse(u.village));
-  return {snapshot,syncRobots,available};
+  for(const w of store.all('SELECT owner_id,star_id,village FROM star_worlds'))if(starAccessible(store,w.owner_id,w.star_id))syncRobots(w.owner_id,JSON.parse(w.village),w.star_id);
+  let lastNpcSettlement=clock();
+  const timer=setInterval(()=>{store.transaction(()=>{for(const d of store.all("SELECT DISTINCT owner_id FROM colony_defenses WHERE status='active' AND started<=?",clock()-DEFENSE_DURATION_MS))settleDefense(d.owner_id);
+    if(clock()-lastNpcSettlement>=ROBOT_CYCLE_MS){for(const npc of galaxyNpcs)settleRobots(npc.id);lastNpcSettlement=clock();}
+  });},500);timer.unref();
+  return {snapshot,syncRobots,available,close(){clearInterval(timer);}};
 }
-export function bestBonus(store,uid,type){if(!store.one("SELECT 1 FROM sqlite_master WHERE name='colony_stars'"))return 0;return store.one("SELECT MAX(bonus) bonus FROM colony_stars s WHERE owner_id=? AND type=? AND NOT EXISTS(SELECT 1 FROM colony_letters l WHERE l.owner_id=s.owner_id AND l.star_id=s.star_id AND l.status IN ('occupied','attacking'))",uid,type)?.bonus||0;}
+export function bestBonus(store,uid,type){if(!store.one("SELECT 1 FROM sqlite_master WHERE name='colony_stars'"))return 0;return store.one("SELECT MAX(bonus) bonus FROM colony_stars s WHERE owner_id=? AND type=? AND NOT EXISTS(SELECT 1 FROM colony_letters l WHERE l.owner_id=s.owner_id AND l.star_id=s.star_id AND l.status='occupied')",uid,type)?.bonus||0;}

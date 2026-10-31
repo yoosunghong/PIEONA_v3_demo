@@ -1,3 +1,4 @@
+import {initializeStarWorlds,readStarWorld,starAccessible} from './starWorlds.mjs';
 import {starScene} from '../shared/colony.mjs';
 import {createFishingDuels} from './fishingDuels.mjs';
 import {createPetRuntime} from './petRuntime.mjs';
@@ -13,6 +14,7 @@ import {lifeActionSchema} from './lifeActions.mjs';
 
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitVillage,busy,personaScripts,logAction=()=>{},clock=Date.now,random=()=>randomInt(0,0x100000000)/0x100000000}){
+  initializeStarWorlds(store);
   store.db.exec(`
     CREATE TABLE IF NOT EXISTS life_sessions (
       id TEXT PRIMARY KEY, owner_id TEXT NOT NULL REFERENCES users(id), actor_id TEXT NOT NULL REFERENCES users(id),
@@ -26,10 +28,10 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   // Additive migration: existing Phase 1 catches remain PLAYER records.
   const columns=new Set(store.all('PRAGMA table_info(life_sessions)').map(c=>c.name));
   store.transaction(()=>{
-    for(const [name,definition] of [['actor_kind',"TEXT NOT NULL DEFAULT 'PLAYER'"],['actor_name',"TEXT NOT NULL DEFAULT ''"],['avatar_slot','TEXT'],['task_limit','INTEGER'],['village_id','TEXT']])if(!columns.has(name))store.db.exec(`ALTER TABLE life_sessions ADD COLUMN ${name} ${definition}`);
+    for(const [name,definition] of [['actor_kind',"TEXT NOT NULL DEFAULT 'PLAYER'"],['actor_name',"TEXT NOT NULL DEFAULT ''"],['avatar_slot','TEXT'],['task_limit','INTEGER'],['village_id','TEXT'],['star_id',"TEXT NOT NULL DEFAULT 'fishing'"]])if(!columns.has(name))store.db.exec(`ALTER TABLE life_sessions ADD COLUMN ${name} ${definition}`);
     store.db.exec(`DROP INDEX IF EXISTS life_active_actor; DROP INDEX IF EXISTS life_active_anchor;
       CREATE UNIQUE INDEX life_active_actor ON life_sessions(actor_id,actor_kind) WHERE status IN ('moving','active');
-      CREATE UNIQUE INDEX life_active_anchor ON life_sessions(COALESCE(village_id,owner_id),anchor_id) WHERE status IN ('moving','active');`);
+      CREATE UNIQUE INDEX life_active_anchor ON life_sessions(COALESCE(village_id,owner_id),star_id,anchor_id) WHERE status IN ('moving','active');`);
     store.run("UPDATE life_sessions SET status='stopped',stopped_at=settled_at WHERE status IN ('moving','active')");
   });
   // Return inventory left in transit by the removed courier, without running old AI jobs.
@@ -45,9 +47,11 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   const playerVillage=uid=>active(uid)?.village_id||uid;
   const memberFor=uid=>villageVisitors.get(playerVillage(uid))?.get(uid);
   const owner=uid=>store.one('SELECT * FROM users WHERE id=?',uid);
-  const anchors=uid=>villageLife(JSON.parse(owner(uid).village)).anchors;
+  const anchors=(uid,starId='fishing')=>villageLife(readStarWorld(store,uid,starId)).anchors;
+  const physicalMember=uid=>[...villageVisitors.values()].map(m=>m.get(uid)).find(Boolean);
+  const gardenStar=uid=>physicalMember(uid)?.starId?.startsWith('found-')?physicalMember(uid).starId:'farm';
   function viewSession(s){return s?{id:s.id,state:s.status==='moving'?'Moving':'Fishing',actor:s.actor_kind,anchorId:s.anchor_id,startedAt:s.started_at,nextAt:s.status==='active'?s.settled_at+FISHING_PERIOD:null,attempts:s.attempts,caught:s.caught,taskLimit:s.task_limit,items:itemsFor(s.id)}:null;}
-  function snapshot(uid){return {serverTime:clock(),gold:owner(uid)?.gold,session:viewSession(active(uid)),duel:duels.snapshot(uid),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid)};}
+  function snapshot(uid,starId=gardenStar(uid)){return {starId,serverTime:clock(),gold:owner(uid)?.gold,session:viewSession(active(uid)),duel:duels.snapshot(uid),task:task(uid,'PLAYER'),garden:gardening.snapshot(uid,starId)};}
   function publish(uid,results=[],notice){io.to(`user:${uid}`).emit('life:state',{...snapshot(uid),results,...(notice?{notice}:{})});}
   function petMembers(room){
     if(villageVisitors.get(room)?.size)ensurePet(room,`resident:${room}`,room);
@@ -56,6 +60,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function ensurePet(uid,key=uid,room=uid){if(!pets.has(key))pets.set(key,{userId:`pet:${uid}`,ownerId:uid,villageId:room,actorKind:'PET',x:1.1,z:0,rotation:0,moving:false,seatId:null,activityState:'Idle'});return pets.get(key);}
   function settle(uid,kind='PLAYER'){
     const s=active(uid,kind);if(!s||s.status!=='active')return [];
+    if(!starAccessible(store,s.village_id||uid,s.star_id)){finish(uid,kind,s);return [];}
     const elapsed=Math.floor((Math.min(clock(),duels.limit(uid)??clock())-s.settled_at)/FISHING_PERIOD),count=Math.min(elapsed,s.task_limit?s.task_limit-s.attempts:elapsed);if(count<=0)return [];
     const results=[],dialogues=[];
     store.transaction(()=>{
@@ -79,7 +84,7 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
     logAction(uid,'fishing_stop',{actor:kind,sessionId:s.id});
     store.run("UPDATE life_sessions SET status='stopped',stopped_at=? WHERE id=?",clock(),s.id);
     const member=villageVisitors.get(s.village_id||uid)?.get(uid);
-    if(member){const approach=anchors(s.village_id||uid).find(a=>a.id===s.anchor_id)?.approach;if(approach)Object.assign(member,{x:approach.x,z:approach.z});Object.assign(member,{seatId:null,moving:false,jumpStarted:0,activityState:'Idle'});}
+    if(member){const approach=anchors(s.village_id||uid,s.star_id).find(a=>a.id===s.anchor_id)?.approach;if(approach)Object.assign(member,{x:approach.x,z:approach.z});Object.assign(member,{seatId:null,moving:false,jumpStarted:0,activityState:'Idle'});}
   }
   function stop(uid,kind='PLAYER',pause=true,skipSettlement=false){
     duels.leave(uid);
@@ -93,32 +98,34 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   function leave(uid){stop(uid,'PLAYER',false);pets.delete(uid);emitVillage(uid);}
   function arrive(){}
   function switchAvatar(uid){stop(uid);pets.delete(uid);}
-  function occupied(uid){return new Set([...store.all("SELECT anchor_id FROM life_sessions WHERE COALESCE(village_id,owner_id)=? AND status IN ('moving','active')",uid).map(s=>s.anchor_id),...[...(villageVisitors.get(uid)?.values()||[])].map(m=>m.seatId).filter(Boolean)]);}
-  function insertSession(uid,kind,anchor,moving,report=false,villageId=uid){
+  function occupied(uid,starId){return new Set([...store.all("SELECT anchor_id FROM life_sessions WHERE COALESCE(village_id,owner_id)=? AND star_id=? AND status IN ('moving','active')",uid,starId).map(s=>s.anchor_id),...[...(villageVisitors.get(uid)?.values()||[])].filter(m=>(m.starId||'fishing')===starId).map(m=>m.seatId).filter(Boolean)]);}
+  function insertSession(uid,kind,anchor,moving,report=false,villageId=uid,starId='fishing'){
     const user=owner(uid),time=clock();
-    store.run('INSERT INTO life_sessions(id,owner_id,actor_id,actor_kind,actor_name,avatar_slot,anchor_id,started_at,settled_at,status,task_limit,village_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',id(),uid,uid,kind,user.nickname,user.active_slot,anchor.id,time,time,moving?'moving':'active',report?3:null,villageId);
+    store.run('INSERT INTO life_sessions(id,owner_id,actor_id,actor_kind,actor_name,avatar_slot,anchor_id,started_at,settled_at,status,task_limit,village_id,star_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',id(),uid,uid,kind,user.nickname,user.active_slot,anchor.id,time,time,moving?'moving':'active',report?3:null,villageId,starId);
     const session=active(uid,kind);logAction(uid,'fishing_start',{actor:kind,sessionId:session.id});personaScripts?.emit(uid,'fishing.start',{},session.id);return session;
   }
   function start(uid,anchorId,villageId){
     if(!villageId||!villageVisitors.get(villageId)?.has(uid))fail(403,'마을에 입장한 뒤 낚시해 주세요.');
     if(active(uid)){if(playerVillage(uid)!==villageId)fail(409,'다른 마을에서 진행 중인 낚시를 먼저 중단해 주세요.');return snapshot(uid);}
-    const member=villageVisitors.get(villageId)?.get(uid),anchor=anchors(villageId).find(a=>a.id===anchorId);
+    const member=villageVisitors.get(villageId)?.get(uid),starId=member?.starId||'fishing',anchor=anchors(villageId,starId).find(a=>a.id===anchorId&&!a.hidden);
     // Older clients omit starId; space clients can fish only on the fishing star.
     if(member?.starId&&starScene(member.starId)!=='fishing')fail(409,'낚시별로 이동한 뒤 낚시해 주세요.');
+    if(!starAccessible(store,villageId,starId))fail(409,'점령되었거나 소유하지 않은 별이에요.');
     if(!member||!anchor)fail(400,'낚시 자리 가까이에서 다시 시도해 주세요.');
     if(busy(uid)||member.seatId||member.jumpStarted&&clock()-member.jumpStarted<720)fail(409,'진행 중인 활동을 마친 뒤 낚시해 주세요.');
     if(Math.hypot(member.x-anchor.x,member.z-anchor.z)>INTERACTION_REACH)fail(409,'낚시 자리 가까이로 이동해 주세요.');
-    if(occupied(villageId).has(anchor.id))fail(409,'이미 사용 중인 자리예요.');
-    insertSession(uid,'PLAYER',anchor,false,false,villageId);
+    if(occupied(villageId,starId).has(anchor.id))fail(409,'이미 사용 중인 자리예요.');
+    insertSession(uid,'PLAYER',anchor,false,false,villageId,starId);
     Object.assign(member,{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing',fishingCaught:0,fishingCatch:null});
     publish(uid);emitVillage(villageId);return snapshot(uid);
   }
-  function startGardenJob(uid,action,kind,requestId){
-    const duplicate=gardening.existing(uid,requestId,action,kind);
+  function startGardenJob(uid,action,kind,requestId,starId){
+    const duplicate=gardening.existing(uid,requestId,action,kind,starId);
     if(duplicate)return {ok:duplicate.status==='pending'||duplicate.status==='completed',intent:action.intent,operationId:duplicate.id,...(duplicate.result?JSON.parse(duplicate.result):{reply:'이미 이동하거나 작업 중이야. 같은 요청은 한 번만 실행할게.'}),...snapshot(uid)};
     const player=memberFor(uid,'PLAYER');if(!player)fail(409,'내 마을에 접속한 뒤 시설을 이용해 주세요.');
     if(jobs.has(jobKey(uid,kind))||!active(uid)&&!jobs.has(jobKey(uid,'PLAYER'))&&(busy(uid)||player.seatId||player.jumpStarted&&clock()-player.jumpStarted<720))fail(409,'진행 중인 활동을 마치거나 중단해 줘.');
-    const op=gardening.prepare(uid,requestId,action,kind),plan=JSON.parse(op.plan);
+    if(!starAccessible(store,uid,starId))fail(409,'점령되었거나 소유하지 않은 별에서는 작업할 수 없어요.');
+    const op=gardening.prepare(uid,requestId,action,kind,starId),plan=JSON.parse(op.plan);
     try{
       if(active(uid,kind))stop(uid,kind,false);
       const member=player;
@@ -130,9 +137,9 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
       publish(uid);emitVillage(uid);return {ok:true,intent:action.intent,operationId:op.id,reply:`${label} 작업을 시작합니다. 완료하면 보관함에 반영됩니다.`,...snapshot(uid)};
     }catch(e){gardening.cancel(op);throw e;}
   }
-  function execute(uid,raw,requestId=id()){
+  function execute(uid,raw,requestId=id(),starId=gardenStar(uid)){
     const action=lifeActionSchema.parse(raw);
-    try{return startGardenJob(uid,action,'PLAYER',requestId);}
+    try{return startGardenJob(uid,action,'PLAYER',requestId,starId);}
     catch(e){if(!e.status)throw e;return {ok:false,intent:action.intent,reply:e.message};}
   }
   function tick(){
@@ -162,20 +169,20 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   }
   const duels=createFishingDuels({store,clock,members:room=>villageVisitors.get(room),anchors,active,busy,publish,emitVillage,stopPlayer:uid=>stop(uid,'PLAYER',false,true),settlePlayer:uid=>settle(uid),startPair(match){
     const room=match.villageId,opponent=active(match.players[1].userId),people=villageVisitors.get(room);
-    if(!opponent||opponent.village_id!==room)fail(409,'상대가 낚시를 중단했어요.');
-    const first=anchors(room).find(a=>a.id===opponent.anchor_id&&!a.hidden);
+    if(!opponent||opponent.village_id!==room||opponent.star_id!==match.starId)fail(409,'상대가 낚시를 중단했어요.');
+    const first=anchors(room,match.starId).find(a=>a.id===opponent.anchor_id&&!a.hidden);
     if(!first)fail(409,'낚시 자리를 확인해 주세요.');
     const challenger=people.get(match.players[0].userId),target=people.get(match.players[1].userId);
     if(Math.hypot(challenger.x-target.x,challenger.z-target.z)>2.2)fail(409,'상대 가까이에서 수락을 기다려 주세요.');
     for(const p of match.players)if(busy(p.userId)&&!active(p.userId))fail(409,'진행 중인 다른 활동을 마쳐주세요.');
-    const second=anchors(room).filter(a=>!a.hidden&&a.id!==first.id&&!store.one("SELECT 1 FROM life_sessions WHERE village_id=? AND anchor_id=? AND status IN ('moving','active') AND actor_id NOT IN (?,?)",room,a.id,...match.players.map(p=>p.userId))&&![...people.values()].some(p=>!match.players.some(player=>player.userId===p.userId)&&p.seatId===a.id)).sort((a,b)=>Math.hypot(a.x-first.x,a.z-first.z)-Math.hypot(b.x-first.x,b.z-first.z))[0];
+    const second=anchors(room,match.starId).filter(a=>!a.hidden&&a.id!==first.id&&!store.one("SELECT 1 FROM life_sessions WHERE village_id=? AND star_id=? AND anchor_id=? AND status IN ('moving','active') AND actor_id NOT IN (?,?)",room,match.starId,a.id,...match.players.map(p=>p.userId))&&![...people.values()].some(p=>(p.starId||'fishing')===match.starId&&!match.players.some(player=>player.userId===p.userId)&&p.seatId===a.id)).sort((a,b)=>Math.hypot(a.x-first.x,a.z-first.z)-Math.hypot(b.x-first.x,b.z-first.z))[0];
     if(!second)fail(409,'함께 낚시할 빈 자리가 없어요.');
     for(const p of match.players){const old=active(p.userId);if(old){settle(p.userId);finish(p.userId,'PLAYER',old);}}
-    return match.players.map((p,i)=>{const anchor=i===0?second:first,session=insertSession(p.userId,'PLAYER',anchor,false,false,room);Object.assign(people.get(p.userId),{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing',fishingCaught:0,fishingCatch:null});return session;});
+    return match.players.map((p,i)=>{const anchor=i===0?second:first,session=insertSession(p.userId,'PLAYER',anchor,false,false,room,match.starId);Object.assign(people.get(p.userId),{x:anchor.x,z:anchor.z,rotation:anchor.rotation,seatId:anchor.id,moving:false,jumpStarted:0,activityState:'Fishing',fishingCaught:0,fishingCatch:null});return session;});
   }});
-  app.post('/api/me/life/actions',auth,(req,res)=>{const body=z.object({requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);const result=execute(req.user.id,body.action,body.requestId);res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});});
+  app.post('/api/me/life/actions',auth,(req,res)=>{const body=z.object({starId:z.string().optional(),requestId:z.string().uuid(),action:lifeActionSchema}).strict().parse(req.body);if(body.starId&&body.starId!==(physicalMember(req.user.id)?.starId||'plaza'))fail(409,'별이 바뀌었어요. 현재 별에서 다시 작업해 주세요.');const result=execute(req.user.id,body.action,body.requestId,body.starId||gardenStar(req.user.id));res.status(result.ok?200:409).json({...result,...(!result.ok?{error:result.reply}:{})});});
   app.get('/api/me/farm',auth,(req,res)=>{gardening.ensureSeeds(req.user.id);res.json({ok:true});});
-  app.get('/api/me/life',auth,(req,res)=>{res.json({...snapshot(req.user.id),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),inventoryAcquisitions:store.all(`SELECT i.item_id AS itemId,i.quantity,MAX(COALESCE((SELECT MAX(timestamp) FROM acquisition_events a WHERE a.owner_id=i.owner_id AND a.item_id=i.item_id),0),COALESCE((SELECT MAX(timestamp) FROM inventory_changes c WHERE c.owner_id=i.owner_id AND c.item_id=i.item_id AND c.quantity>0),0)) AS lastAcquiredAt FROM inventory_entries i WHERE i.owner_id=?`,req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
+  app.get('/api/me/life',auth,(req,res)=>{const starId=req.query.starId||gardenStar(req.user.id);if(!starAccessible(store,req.user.id,starId))fail(409,'별을 다시 선택해 주세요.');res.json({...snapshot(req.user.id,starId),catalog:ALL_ITEMS,inventory:store.all('SELECT item_id AS itemId,quantity FROM inventory_entries WHERE owner_id=?',req.user.id),inventoryAcquisitions:store.all(`SELECT i.item_id AS itemId,i.quantity,MAX(COALESCE((SELECT MAX(timestamp) FROM acquisition_events a WHERE a.owner_id=i.owner_id AND a.item_id=i.item_id),0),COALESCE((SELECT MAX(timestamp) FROM inventory_changes c WHERE c.owner_id=i.owner_id AND c.item_id=i.item_id AND c.quantity>0),0)) AS lastAcquiredAt FROM inventory_entries i WHERE i.owner_id=?`,req.user.id),discoveries:store.all(`SELECT d.item_id AS itemId,d.discovered_at AS discoveredAt,d.acquired_by AS acquiredBy,
     COALESCE(NULLIF(s.actor_name,''),u.nickname) AS acquiredByName,COALESCE(s.actor_kind,'PLAYER') AS actor
     FROM fish_discoveries d JOIN users u ON u.id=d.acquired_by LEFT JOIN acquisition_events e ON e.rowid=(SELECT e2.rowid FROM acquisition_events e2 WHERE e2.owner_id=d.owner_id AND e2.item_id=d.item_id ORDER BY e2.timestamp,e2.rowid LIMIT 1) LEFT JOIN life_sessions s ON s.id=e.session_id WHERE d.owner_id=?`,req.user.id)});});
   io.on('connection',socket=>{
@@ -193,5 +200,5 @@ export function installLife({app,io,store,auth,sessionUser,villageVisitors,emitV
   });
   const petRuntime=createPetRuntime({app,auth,clock,random,villageVisitors,pets,ensurePet,emitVillage,dragonState:uid=>({available:!!store.one('SELECT 1 FROM account_rewards WHERE user_id=? AND reward_id=?',uid,SURVEY_REWARD),riding:JSON.parse(owner(uid).appearance).ride==='babyDragon'}),emitMove:(room,member)=>io.to(`village:${room}`).emit('village:move',{villageId:room,...member}),logAction});
   const timer=setInterval(()=>{try{tick();}catch(e){console.error('[life] tick failed',e.message);}},100);timer.unref();
-  return {arrive,switchAvatar,active,cancelDuel:uid=>duels.leave(uid),seatOccupied:(room,seatId,except)=>[...(villageVisitors.get(room)?.values()||[])].some(m=>m.userId!==except&&m.seatId===seatId),busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,petMembers,execute,tick,gardenSnapshot:uid=>({serverTime:clock(),plots:gardening.plots(uid)}),close(){clearInterval(timer);}};
+  return {arrive,switchAvatar,active,cancelDuel:uid=>duels.leave(uid),seatOccupied:(room,seatId,except,starId)=>[...(villageVisitors.get(room)?.values()||[])].some(m=>m.userId!==except&&m.seatId===seatId&&(!starId||(m.starId||'plaza')===starId)),busy:uid=>active(uid)||jobs.has(jobKey(uid,'PLAYER')),stop,leave,settle,snapshot,petMembers,execute,tick,gardenSnapshot:(uid,starId='farm')=>({starId,serverTime:clock(),plots:gardening.plots(uid,starId)}),gardenSnapshots:uid=>Object.fromEntries([...new Set(['farm',...[...(villageVisitors.get(uid)?.values()||[])].map(m=>m.starId||'plaza')])].map(starId=>[starId,{starId,serverTime:clock(),plots:gardening.plots(uid,starId)}])),close(){clearInterval(timer);}};
 }

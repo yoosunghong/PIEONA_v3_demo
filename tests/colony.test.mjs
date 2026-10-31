@@ -6,6 +6,13 @@ import {galaxyNpcs} from '../shared/galaxy.mjs';
 import {discoveryChance,persuasionChance,ROBOT_BATTERY_MS,DEFENSE_DURATION_MS} from '../shared/colony.mjs';
 import {bestBonus} from '../server/colony.mjs';
 import {rollFish} from '../shared/life.mjs';
+import {gardenPlotView} from '../src/gardenView.mjs';
+import {createDecoration,disposeObject} from '../src/worldAssets.js';
+import {lifeFocusOccluders,lifeFocusView} from '../src/lifeFocus.mjs';
+import * as THREE from 'three';
+import {openStore} from '../server/store.mjs';
+import {resolve} from 'node:path';
+import {mkdirSync,rmSync} from 'node:fs';
 
 function completed(h,users){const id=randomUUID();h.runtime.store.transaction(()=>{for(const u of users)h.runtime.store.run('INSERT INTO social_game_records VALUES(?,?,?,?,?,?,?)',id,u.id,u.id,'chain',10,'{}',new Date().toISOString());});return id;}
 function seedStar(h,u,type='red',bonus=20){const id=`found-${type}-${randomUUID()}`;h.runtime.store.run('INSERT INTO owned_stars VALUES(?,?,?)',u.id,id,'테스트별');h.runtime.store.run('INSERT INTO colony_stars VALUES(?,?,?,?,?,?)',u.id,id,type,'B',bonus,2);return id;}
@@ -70,7 +77,7 @@ test('ceding transfers ownership, doubles cores once and occupied stars reject t
 test('failed persuasion leads to server-timed defense, occupation on loss, and successful recapture',async()=>{
   let time=Date.now();const h=await harness({colonyClock:()=>time,colonyRandom:()=>.99});try{
     const u=await h.register('defense_owner'),socket=await h.connect(u),s=seedStar(h,u),id=letter(h,u,s);
-    await h.emit(socket,'village:join',{villageId:galaxyNpcs[0].id});let r=await h.request('/me/colony/letters/'+id+'/resolve',u,{choice:'keep'});assert.equal(r.body.letters[0].status,'attacking');assert.equal(bestBonus(h.runtime.store,u.id,'red'),0);
+    await h.emit(socket,'village:join',{villageId:galaxyNpcs[0].id});let r=await h.request('/me/colony/letters/'+id+'/resolve',u,{choice:'keep'});assert.equal(r.body.letters[0].status,'attacking');assert.equal(bestBonus(h.runtime.store,u.id,'red'),20);
     r=await h.request('/me/colony/letters/'+id+'/defense',u,{});assert.ok(r.body.defense);const defense=r.body.defense.id;
     assert.equal((await h.request('/me/colony/letters/'+id+'/defense',u,{})).status,409);
     time+=DEFENSE_DURATION_MS;r=await h.request('/me/colony',u);assert.equal(r.body.letters[0].status,'occupied');assert.equal(r.body.defense,null);
@@ -84,4 +91,31 @@ test('failed persuasion leads to server-timed defense, occupation on loss, and s
 
 test('owned blue star bonus changes rare fish chance while keeping base catch success',()=>{
   const sequence=[.5,.8,0];assert.equal(rollFish(()=>sequence.shift(),20).rarity,'rare');assert.equal(rollFish(()=>.9,50),null);
+});
+
+test('green star growth bonus is reflected in server eligibility and client countdowns',async()=>{
+  const h=await harness();try{
+    const u=await h.register('green_growth'),time=Date.now();const star=seedStar(h,u,'green',20);
+    h.runtime.store.run('INSERT INTO garden_plots(owner_id,plot_id,crop_id,planted_at,planting_id) VALUES(?,?,?,?,?)',u.id,star+'|garden:0','HERB',time,randomUUID());
+    const p=h.runtime.life.gardenSnapshot(u.id,star).plots[0];assert.equal(p.waterIntervalMs,250000);assert.equal(p.nextWaterAt,time+250000);
+    assert.equal(gardenPlotView(p,time+250000).canWater,true);assert.equal(gardenPlotView(p,time).seconds,250);
+  }finally{await h.close();}
+});
+
+test('robot focus keeps the selected robot visible while suppressing foreground scenery',()=>{
+  const world=new THREE.Scene(),robot=createDecoration('miningRobot'),life=new THREE.Group();robot.userData.itemId='selected-robot';robot.userData.action='robot:selected-robot';world.add(robot,life);
+  const view=lifeFocusView('robot','selected-robot',1,{items:[{id:'selected-robot',x:0,z:0}]}),camera=new THREE.PerspectiveCamera(38,1,.1,100);camera.position.fromArray(view.position);camera.lookAt(...view.target);camera.updateMatrixWorld();
+  try{const hidden=lifeFocusOccluders(world,camera,view.target,life,'selected-robot');assert.equal(hidden.includes(robot),false);assert.ok(robot.getObjectByName('mining-drill'));}finally{disposeObject(robot);}
+});
+
+test('server restart preserves discoveries, robot checkpoints and cores without repeating grants',async()=>{
+  mkdirSync('tmp',{recursive:true});const filename=resolve('tmp','colony-'+randomUUID()+'.sqlite');let time=Date.now(),h;
+  try{
+    h=await harness({store:openStore(filename),colonyClock:()=>time,colonyRandom:()=>0});const u=await h.register('colony_restart');
+    const village={items:[{id:'persistent-robot',type:'miningRobot',x:4,z:4,rotation:0}]};h.runtime.store.run('UPDATE users SET village=? WHERE id=?',JSON.stringify(village),u.id);h.runtime.colony.syncRobots(u.id,village);completed(h,[u]);
+    time+=60000;const before=(await h.request('/me/colony',u)).body;assert.equal(before.robots[0].collected,1);await h.close();h=null;
+    time+=60000;h=await harness({store:openStore(filename),colonyClock:()=>time,colonyRandom:()=>0});const after=(await h.request('/me/colony',u)).body;
+    assert.equal(after.discovery.id,before.discovery.id);assert.equal(after.robots[0].collected,2);assert.equal(after.inventory.find(i=>i.itemId==='STAR_CORE').quantity,4);
+    assert.equal((await h.request('/me/colony',u)).body.robots[0].collected,2);
+  }finally{await h?.close();for(const suffix of ['','-wal','-shm'])rmSync(filename+suffix,{force:true});}
 });
