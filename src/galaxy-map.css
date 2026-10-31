@@ -24,8 +24,8 @@
 .galaxy-backdrop:after{background:linear-gradient(180deg,#07112c38,#08132e24 45%,#080f2b50)}
 .galaxy-orbits{opacity:.28}
 .galaxy-camera{position:absolute;inset:0;transform-origin:50% 50%;transition:transform .12s ease-out;touch-action:pan-y}
-.galaxy-camera.is-rotating{transition:none;user-select:none}
-.galaxy-camera.is-rotating,.galaxy-camera.is-rotating *{cursor:grabbing!important}
+.galaxy-camera.is-panning{transition:none;user-select:none}
+.galaxy-camera.is-panning,.galaxy-camera.is-panning *{cursor:grabbing!important}
 .galaxy-view-controls{position:absolute;left:28px;bottom:56px;display:flex;align-items:center;gap:5px;padding:5px;background:#111d40d9;border:1px solid #91afe63b;border-radius:16px;backdrop-filter:blur(12px)}
 .galaxy-view-controls button{border:0;border-radius:11px;background:transparent;width:34px;height:34px;display:grid;place-items:center}
 .galaxy-view-controls button:hover{background:#577ce235}.galaxy-view-controls button:disabled{opacity:.35;cursor:default}

@@ -1,8 +1,6 @@
-import {Vector2} from 'three';
-import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
-import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {Vector2,Color,WebGLRenderTarget,MeshBasicMaterial,AdditiveBlending} from 'three';
 import {OutlinePass} from 'three/addons/postprocessing/OutlinePass.js';
-import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+import {FullScreenQuad} from 'three/addons/postprocessing/Pass.js';
 import {lifeDefinitions} from '../shared/lifeLayout.mjs';
 
 export function selectedFacility(facilities,action){
@@ -11,29 +9,36 @@ export function selectedFacility(facilities,action){
   return root?.visible?root:null;
 }
 
-// Allocate render targets only after a facility is selected. OutlinePass uses
-// the complete object silhouette, keeping internal mesh edges out of the halo.
+// Render the original scene exactly as usual, then add only the silhouette.
+// Running the entire frame through OutputPass tone-maps an sRGB background that
+// Three.js deliberately excludes from tone mapping in its direct render path.
 export function createFacilityOutline(renderer,scene,camera,{glow=0}={}){
-  let composer,outline,renderPass,outputPass,width=0,height=0,pixelRatio=0;
-  const size=new Vector2();
+  let outline,edges,overlay,material,width=0,height=0;
+  const size=new Vector2(),clearColor=new Color();
   return {
     render(selected){
-      if(!selected){renderer.render(scene,camera);return;}
-      if(!composer){
-        composer=new EffectComposer(renderer);
-        renderPass=new RenderPass(scene,camera);composer.addPass(renderPass);
+      renderer.render(scene,camera);
+      if(!selected)return;
+      if(!outline){
         outline=new OutlinePass(new Vector2(1,1),scene,camera);
         outline.visibleEdgeColor.set('#ffffff');outline.hiddenEdgeColor.set('#ffffff');
         outline.edgeStrength=5;outline.edgeThickness=2;outline.edgeGlow=glow;outline.pulsePeriod=0;
-        composer.addPass(outline);outputPass=new OutputPass();composer.addPass(outputPass);
+        edges=new WebGLRenderTarget(1,1,{depthBuffer:false});
+        material=new MeshBasicMaterial({map:edges.texture,transparent:true,blending:AdditiveBlending,depthTest:false,depthWrite:false,toneMapped:false});
+        overlay=new FullScreenQuad(material);
       }
       renderer.getSize(size);
-      const ratio=renderer.getPixelRatio();
-      if(size.x!==width||size.y!==height||ratio!==pixelRatio){
-        width=size.x;height=size.y;pixelRatio=ratio;composer.setPixelRatio(ratio);composer.setSize(width,height);
+      const ratio=renderer.getPixelRatio(),w=Math.max(1,Math.floor(size.x*ratio)),h=Math.max(1,Math.floor(size.y*ratio));
+      if(w!==width||h!==height){
+        width=w;height=h;outline.setSize(width,height);edges.setSize(width,height);
       }
-      outline.selectedObjects=[selected];composer.render();
+      const target=renderer.getRenderTarget(),autoClear=renderer.autoClear,alpha=renderer.getClearAlpha();renderer.getClearColor(clearColor);
+      try{
+        renderer.autoClear=false;renderer.setRenderTarget(edges);renderer.setClearColor(0,0);renderer.clear();
+        outline.selectedObjects=[selected];outline.render(renderer,null,edges,0,false);
+        renderer.setRenderTarget(target);overlay.render(renderer);
+      }finally{renderer.setRenderTarget(target);renderer.setClearColor(clearColor,alpha);renderer.autoClear=autoClear;}
     },
-    dispose(){renderPass?.dispose();outline?.dispose();outputPass?.dispose();composer?.dispose();},
+    dispose(){outline?.dispose();edges?.dispose();material?.dispose();overlay?.dispose();},
   };
 }

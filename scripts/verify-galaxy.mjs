@@ -25,9 +25,9 @@ try{
  await page.mouse.wheel(0,400);await page.waitForFunction(()=>Math.abs(+document.querySelector('.galaxy-camera').dataset.zoom-1)<.01);
  const headerBefore=await page.locator('.galaxy-header').boundingBox(),skyBefore=await page.locator('.galaxy-sky').boundingBox();
  await page.mouse.down({button:'right'});await page.mouse.move(930,645,{steps:8});await page.mouse.up({button:'right'});
- assert.ok(+await camera.getAttribute('data-rotation')>20);assert.ok(+await camera.getAttribute('data-tilt')<0);assert.equal(await page.locator('.galaxy-open').count(),1,'right drag must not visit a star');
- assert.deepEqual(await page.locator('.galaxy-header').boundingBox(),headerBefore,'camera controls leave the HUD fixed');assert.deepEqual(await page.locator('.galaxy-sky').boundingBox(),skyBefore,'the distant sky fills the viewport while rotating');await page.screenshot({path:'artifacts/galaxy/rotated.png'});
- await page.getByRole('button',{name:'은하 지도 시점 초기화',exact:true}).click();assert.equal(await camera.getAttribute('data-rotation'),'0.00');
+ assert.equal(await camera.getAttribute('data-pan-x'),'130.00');assert.equal(await camera.getAttribute('data-pan-y'),'45.00');assert.equal(await page.locator('.galaxy-open').count(),1,'right drag must not visit a star');
+ assert.deepEqual(await page.locator('.galaxy-header').boundingBox(),headerBefore,'camera controls leave the HUD fixed');assert.deepEqual(await page.locator('.galaxy-sky').boundingBox(),skyBefore,'the distant sky fills the viewport while panning');await page.screenshot({path:'artifacts/galaxy/panned.png'});
+ await page.getByRole('button',{name:'은하 지도 시점 초기화',exact:true}).click();assert.equal(await camera.getAttribute('data-pan-x'),'0.00');
  for(let i=0;i<8;i++)await page.getByRole('button',{name:'은하 지도 확대',exact:true}).evaluate(button=>button.click());assert.equal(await camera.getAttribute('data-zoom'),'2.400');
  for(let i=0;i<12;i++)await page.getByRole('button',{name:'은하 지도 축소',exact:true}).evaluate(button=>button.click());assert.equal(await camera.getAttribute('data-zoom'),'0.600');
  await page.mouse.move(5,400);await page.mouse.wheel(0,-200);await page.waitForFunction(()=>+document.querySelector('.galaxy-camera').dataset.zoom>.6);
@@ -46,5 +46,5 @@ try{
  await page.getByRole('button',{name:'은하 지도',exact:true}).click();await page.getByRole('alert').filter({hasText:'일시적인 지도 연결 오류'}).waitFor();await page.unroute('**/api/galaxy');await page.getByRole('button',{name:'다시 불러오기',exact:true}).click();await page.locator('.galaxy-constellation').first().waitFor();
  const fiona=data.find(u=>u.nickname==='피오나');h.runtime.store.run('UPDATE users SET settings=? WHERE id=?',JSON.stringify({allowVisitors:false}),fiona.id);
  await page.getByRole('button',{name:/^피오나의 별자리/}).click();await page.locator('.galaxy-open .galaxy-error').waitFor();await page.getByRole('button',{name:/^yoo의 별자리/}).click();await page.getByRole('dialog',{name:'은하 지도',exact:true}).waitFor({state:'hidden'});await page.getByRole('heading',{name:'yoo의 광장별',exact:true}).waitFor();
- assert.deepEqual(errors,[]);console.log('Galaxy browser verification passed: wheel/button/keyboard zoom with limits, right drag rotation, fixed HUD, central plaza twinkle, actual star counts, hover, search, filters, NPC plaza travel, mobile, retry and Escape; no runtime errors.');
+ assert.deepEqual(errors,[]);console.log('Galaxy browser verification passed: wheel/button/keyboard zoom with limits, right drag planar panning, fixed HUD, central plaza twinkle, actual star counts, hover, search, filters, NPC plaza travel, mobile, retry and Escape; no runtime errors.');
 }finally{await browser?.close();await h.close();}

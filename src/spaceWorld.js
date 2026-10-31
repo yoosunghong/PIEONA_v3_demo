@@ -2,8 +2,8 @@ import * as THREE from 'three';
 import {DEFAULT_PLATFORM_COLOR} from '../shared/platform.mjs';
 import {normalizeVillageTheme} from '../shared/world.mjs';
 
-export const SPACE_BACKDROP='/images/space/milky-way.png';
-export const spaceBackdropPath=theme=>normalizeVillageTheme(theme)==='sunset'?'/images/space/solar-dusk-v2.png':theme==='cafe'?'/images/space/aurora.png':theme==='twilight'?'/images/space/blue-nebula-soft.png':SPACE_BACKDROP;
+export const SPACE_BACKDROP='/images/space/milky-way-quiet-v1.png';
+export const spaceBackdropPath=theme=>normalizeVillageTheme(theme)==='sunset'?'/images/space/solar-dusk-quiet-v1.png':theme==='cafe'?'/images/space/aurora-quiet-v1.png':theme==='twilight'?'/images/space/blue-nebula-soft.png':SPACE_BACKDROP;
 export function setPlatformColor(root,color=DEFAULT_PLATFORM_COLOR){root.getObjectByName('platform-surface')?.material.color.set(color);}
 // One floating diorama silhouette is shared by the plaza, farm and star atlas.
 export function createDioramaPlatform({radius=8,color=DEFAULT_PLATFORM_COLOR}={}){

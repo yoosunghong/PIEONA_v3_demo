@@ -26,11 +26,11 @@
 | 리소스 | 제작 방식 | 적용 |
 | --- | --- | --- |
 | `public/images/space/blue-nebula-soft.png` | 사용자 첨부 이미지에서 UI와 디오라마를 제거하고 빈 우주 배경을 새로 생성 | 황혼 |
-| `public/images/space/solar-dusk-v2.png` | 2026-10-30 사용자 첨부 이미지 #3 원본 | 태양 노을 |
-| `public/images/space/milky-way.png` | 2026-10-30 사용자 첨부 이미지 #1 원본 | 은하수 |
-| `public/images/space/aurora.png` | 2026-10-30 사용자 첨부 이미지 #2 원본 | 오로라 |
+| `public/images/space/solar-dusk-quiet-v1.png` | 2026-11-01 생성: 작은 원경 태양과 차분한 노을 | 태양 노을 |
+| `public/images/space/milky-way-quiet-v1.png` | 2026-11-01 생성: 여백이 넓은 잔잔한 은하수 | 은하수 |
+| `public/images/space/aurora-quiet-v1.png` | 2026-11-01 생성: 은은한 청록 오로라 | 오로라 |
 
-은하수·오로라·태양 노을은 첨부 원본을 변형 없이 사용한다.
+은하수·오로라·태양 노을은 차분한 신규 배경으로 교체했다. 황혼은 기존 리소스를 유지하며, 이전 첨부 원본 파일도 보존한다. 생성 프롬프트와 NPC·색감 검증은 [NPC 별 안내](npc-worlds.md)를 참고한다.
 
 ## 숲 기능 종료와 데이터 보존
 

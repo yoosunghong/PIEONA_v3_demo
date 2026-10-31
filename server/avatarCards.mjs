@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {id,now,experienceOf,settingsOf,visibleMemories} from './store.mjs';
 import {generateAnswer,aiMode} from './ai.mjs';
 import {CARD_QUESTS,cardTier} from '../shared/avatarCards.mjs';
+import {galaxyNpc} from '../shared/galaxy.mjs';
 
 const fail=(status,message)=>{throw Object.assign(new Error(message),{status});};
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -68,6 +69,7 @@ export function installAvatarCards({app,store,auth,checkTarget,userById,ensureSl
   }
   function unlock(uid,sid){const state=quests(uid);if(!state.available)fail(403,'퀘스트를 완료하면 새로운 아바타 카드를 얻을 수 있어요.');const reward=store.one("SELECT quest_id FROM avatar_quest_rewards WHERE owner_id=? AND slot_id IS NULL ORDER BY created_at,quest_id LIMIT 1",uid);store.run('UPDATE avatar_quest_rewards SET slot_id=? WHERE owner_id=? AND quest_id=? AND slot_id IS NULL',sid,uid,reward.quest_id);}
   function greeting(user,viewer){
+    const npc=galaxyNpc(user.id);if(npc)return npc.greeting;
     const tags=localAnalysis(evidence(user,viewer)).tags;
     return `${tags[0]==='알아가는 중'?'새로운 이야기를 기다리는':tags[0]} ${user.nickname}의 마을이야! ${user.id!==viewer?'주인 대신 내가 반겨줄게. ':''}편하게 둘러보고 이야기해 줘!`;
   }
