@@ -40,6 +40,7 @@ import {preferenceQuestions} from '../shared/avatarCards.mjs';
 import {installAvatarCards} from './avatarCards.mjs';
 import {installWordGames} from './wordGames.mjs';
 import {installVillagePolls} from './villagePolls.mjs';
+import {initializeGalaxy} from './galaxy.mjs';
 
 const scrypt = promisify(scryptCallback);
 const hashToken = value => createHash('sha256').update(value).digest('hex');
@@ -53,6 +54,7 @@ export {questions};
 export function createApp(options = {}) {
   const logAction=createActionLogger(options.logWriter||(options.testing?()=>{}:undefined));
   const store = options.store || openStore(process.env.DATABASE_PATH);
+  initializeGalaxy(store);
   const app = express(); const server = createServer(app);
   const origins = new Set([options.publicOrigin || process.env.PUBLIC_ORIGIN || 'https://play.illova.app', 'http://127.0.0.1:3000', 'http://localhost:3000', 'http://127.0.0.1:5173', 'http://localhost:5173']);
   const io = new Server(server, { maxHttpBufferSize: 16384, allowRequest: (req, done) => done(null, !req.headers.origin || origins.has(req.headers.origin)) });
@@ -258,6 +260,10 @@ export function createApp(options = {}) {
     emitWorld(); res.json({ user:profile(userById(user.id),user.id) });
   });
   app.get('/api/users', auth, (req,res) => { const users=store.all('SELECT * FROM users ORDER BY created_at'); res.json({ users:users.filter(u=>!isBlocked(store,req.user.id,u.id)).map(u=>profile(u,req.user.id)) }); });
+  app.get('/api/galaxy',auth,(req,res)=>{
+    const users=store.all('SELECT * FROM users ORDER BY id').filter(u=>!isBlocked(store,req.user.id,u.id)).map(u=>profile(u,req.user.id));
+    res.json({users:users.filter(u=>u.isNpc||u.id===req.user.id||u.level>=3).map(u=>({...u,starNames:store.all('SELECT name FROM owned_stars WHERE owner_id=? ORDER BY star_id',u.id).map(s=>s.name)}))});
+  });
   app.get('/api/users/:id', auth, (req,res) => { const target=checkTarget(req,req.params.id); res.json({user:profile(target,req.user.id), memories:visibleMemories(store,target.id,req.user.id).map(m=>({id:m.id,content:m.content,category:m.category,visibility:m.visibility}))}); });
   // Entry contents and author identities never travel through village profiles or socket events.
   const guestbookLimiter=rateLimit({windowMs:60_000,limit:options.testing?500:20,keyGenerator:req=>req.user.id,standardHeaders:'draft-8',legacyHeaders:false,message:{error:'글을 너무 빠르게 남기고 있어요. 잠시 후 다시 시도해 주세요.'}});
@@ -467,7 +473,7 @@ export function createApp(options = {}) {
   // Avatar slots still carry legacy tendencies, so schema ownership outlives the feature.
   store.db.exec(`CREATE TABLE IF NOT EXISTS exploration_progress(owner_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,state TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS outdoor_profiles(owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,slot TEXT NOT NULL,profile TEXT NOT NULL,PRIMARY KEY(owner_id,slot));`);
-  app.get('/api/me/stars',auth,(req,res)=>res.json({stars:playerStars}));
+  app.get('/api/me/stars',auth,(req,res)=>res.json({stars:store.all('SELECT star_id,name FROM owned_stars WHERE owner_id=? ORDER BY CASE star_id WHEN \'plaza\' THEN 0 WHEN \'fishing\' THEN 1 WHEN \'farm\' THEN 2 ELSE 3 END,star_id',req.user.id).map(s=>playerStars.find(star=>star.id===s.star_id)||{id:s.star_id,name:s.name})}));
   const avatars=installAvatarCards({app,store,auth,checkTarget,userById,ensureSlot,profile,emitUpdate,options});
   const wordGames=installWordGames({app,io,store,auth,checkTarget,userById,playerAppearance:user=>profile(user,user.id).appearance,villageVisitors,emitWorld,emitVillage,isBusy:busy,clock:options.socialClock});
   const polls=installVillagePolls({app,io,store,auth,limiter:aiLimiter,checkTarget,userById,ensureSlot,villageVisitors,emitWorld,avatars,personaScripts,generate:options.generatePollAnswer,clock:options.socialClock});
@@ -727,7 +733,7 @@ export function createApp(options = {}) {
         emitVillage(current.villageId);ack?.({ok:true,starId});
       }catch(error){ack?.({ok:false,error:error.message});}
     });
-    socket.on('village:join',(data,ack)=>{
+    const joinVillage=(data,ack)=>{
       try {
         if(!sessionUser(socket.request.headers))throw new Error('로그인이 필요해요.');
         const villageId=z.string().uuid().parse(data?.villageId),target=userById(villageId);
@@ -747,6 +753,19 @@ export function createApp(options = {}) {
         const greeting=uid!==villageId?{id:id(),villageId,userId:villageId,role:'assistant',speaker:target.nickname,text:members.has(villageId)?avatars.greeting(target,uid).replace('주인 대신 내가 반겨줄게. ',''):avatars.greeting(target,uid),expiresAt:Date.now()+45000}:null;
         emitVillage(villageId);ack?.({ok:true,villageId,members:villageMembers(villageId),garden:life.gardenSnapshot(villageId),greeting});
       }catch{ack?.({ok:false});}
+    };
+    socket.on('village:join',joinVillage);
+    socket.on('galaxy:travel',(data,ack)=>{
+      try{
+        if(!sessionUser(socket.request.headers))throw new Error('로그인이 필요해요.');
+        const villageId=z.string().uuid().parse(data?.targetId),target=checkTarget({user:userById(uid)},villageId),visible=profile(target,uid);
+        if(villageId!==uid&&!visible.isNpc&&!(visible.level>=3))throw new Error('레벨 3 이상의 이웃 별로 이동할 수 있어요.');
+        if(busy(uid)&&!life.busy(uid))throw new Error('진행 중인 게임을 마친 뒤 이동해 주세요.');
+        life.stop(uid);
+        const member=villageVisitors.get(villageId)?.get(uid);
+        if(member)Object.assign(member,{starId:'plaza',x:0,z:3,rotation:0,seatId:null,moving:false,jumpStarted:0,activityState:'Idle'});
+        joinVillage({villageId,starId:'plaza'},result=>{if(result.ok)emitVillage(villageId);ack?.(result);});
+      }catch(error){ack?.({ok:false,error:error.message});}
     });
     socket.on('village:leave',ack=>{leaveVillage(socket);if(typeof ack==='function')ack({ok:true});});
     socket.on('village:move',data=>{

@@ -1,4 +1,5 @@
 import {normalizeVillageTheme} from '../shared/world.mjs';
+import {galaxyNpc} from '../shared/galaxy.mjs';
 import {platformColor} from '../shared/platform.mjs';
 import {defaultPetAppearance,petAppearance} from '../shared/pets.mjs';
 import {dragonMounted,dragonMountColor} from '../shared/dragonMount.mjs';
@@ -106,6 +107,15 @@ export function openStore(filename = './data/pieona.sqlite') {
       WHERE NOT EXISTS (SELECT 1 FROM data_migrations WHERE id='restore-avatar-levels-v1') GROUP BY owner_id,avatar_slot;
     INSERT OR IGNORE INTO data_migrations VALUES ('restore-avatar-levels-v1');
     COMMIT;`);
+  db.exec(`CREATE TABLE IF NOT EXISTS owned_stars(owner_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,star_id TEXT NOT NULL,name TEXT NOT NULL,PRIMARY KEY(owner_id,star_id));
+    INSERT OR IGNORE INTO owned_stars SELECT id,'plaza','광장별' FROM users;
+    INSERT OR IGNORE INTO owned_stars SELECT id,'fishing','낚시별' FROM users;
+    INSERT OR IGNORE INTO owned_stars SELECT id,'farm','농장별' FROM users;
+    CREATE TRIGGER IF NOT EXISTS grant_initial_stars AFTER INSERT ON users BEGIN
+      INSERT INTO owned_stars VALUES(NEW.id,'plaza','광장별');
+      INSERT INTO owned_stars VALUES(NEW.id,'fishing','낚시별');
+      INSERT INTO owned_stars VALUES(NEW.id,'farm','농장별');
+    END;`);
   let transactionDepth=0,savepointId=0;
   return {
     db,
@@ -155,6 +165,8 @@ export function publicUser(store, user, viewerId, online = new Set()) {
   const memorySignature=createHash('sha256').update(JSON.stringify(permitted.map(m=>[m.id,m.content,m.updated_at,m.visibility]))).digest('hex');
   const memoryRead=own?null:store.one('SELECT signature FROM friend_memory_reads WHERE viewer_id=? AND owner_id=?',viewerId,user.id);
   const result = {
+    isNpc:!!galaxyNpc(user.id),
+    starCount:store.one('SELECT COUNT(*) AS count FROM owned_stars WHERE owner_id=?',user.id).count,
     id: user.id, nickname: own ? user.nickname : user.nickname || '이름을 기다리는 새싹', intro: user.intro, theme: user.theme,
     ...(own?{rewards}:{}),
     avatarAppearance: {...defaultPetAppearance,hat:'none',accessory:'none',color:'#88b5d7',...(user.avatar_appearance==='{}'?JSON.parse(user.appearance):JSON.parse(user.avatar_appearance))},
