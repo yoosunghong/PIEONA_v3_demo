@@ -128,6 +128,7 @@ export function dressAvatar(avatar,appearance={}){
     else{avatar.add(group);group.position.y=height/Math.max(scale.y,.001);group.scale.setScalar(1/Math.max(scale.y,.001));}
   }
   if(look.hat!=='none'){
+    if(look.hat==='birthday'){const pink=new THREE.MeshStandardMaterial({color:'#ff88b2',roughness:.55});const cream=new THREE.MeshStandardMaterial({color:'#fff4cc',roughness:.6});mesh(new THREE.ConeGeometry(.34,.72,24),pink,0,.49,0);mesh(new THREE.SphereGeometry(.09,12,8),gold,0,.89,0);for(let i=0;i<6;i++){const a=i*Math.PI/3;mesh(new THREE.SphereGeometry(.045,8,6),cream,Math.cos(a)*.24,.3,Math.sin(a)*.24);}}
     if(look.hat==='beret'){const beret=mesh(new THREE.SphereGeometry(.43,20,12),color,0,.25,0);beret.scale.set(1,.4,1);beret.rotation.z=.2;mesh(new THREE.CylinderGeometry(.04,.04,.1,8),gold,.08,.43,0);}
     if(look.hat==='crown'){mesh(new THREE.CylinderGeometry(.34,.3,.15,24,true),gold,0,.23,0);for(let i=0;i<5;i++){const a=i*Math.PI*2/5;mesh(new THREE.ConeGeometry(.1,.25,4),gold,Math.cos(a)*.3,.42,Math.sin(a)*.3);}}
     if(look.hat==='sprout'){mesh(new THREE.CylinderGeometry(.025,.025,.3,8),color,0,.32,0);for(const sign of [-1,1]){const leaf=mesh(new THREE.SphereGeometry(.18,12,8),color,sign*.12,.46,0);leaf.scale.set(1,.35,.5);leaf.rotation.z=sign*.4;}}

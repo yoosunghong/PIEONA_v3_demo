@@ -1,0 +1,6 @@
+.birthday-celebration{position:absolute;inset:0;z-index:25;overflow:hidden;pointer-events:none}
+.birthday-message{position:absolute;top:14%;left:50%;transform:translateX(-50%);white-space:nowrap;padding:14px 24px;border:2px solid #fff;border-radius:30px;background:#fff4f8eF;color:#c64b7d;font-weight:800;font-size:clamp(16px,2vw,25px);box-shadow:0 8px 30px #ba64853b;animation:birthday-message 6.5s both}
+.birthday-celebration i{position:absolute;top:-8%;left:var(--x);width:9px;height:17px;border-radius:2px;background:var(--color);animation:birthday-fall var(--duration) var(--delay) ease-in both}
+@keyframes birthday-fall{0%{transform:translateY(-5vh) rotate(0);opacity:1}100%{transform:translateY(115vh) rotate(var(--turn));opacity:0}}
+@keyframes birthday-message{0%{opacity:0;transform:translate(-50%,15px) scale(.9)}10%,80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.birthday-celebration i{animation-duration:.01ms}.birthday-message{animation:none}}
