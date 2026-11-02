@@ -65,7 +65,8 @@ export function createApp(options = {}) {
   const online = new Map(); const locks = new Set(); const villageVisitors = new Map();
   app.set('trust proxy', 'loopback');
   app.use(helmet({ contentSecurityPolicy: { directives: { defaultSrc: ["'self'"], scriptSrc: ["'self'"], styleSrc: ["'self'", "'unsafe-inline'"], imgSrc: ["'self'", 'blob:', 'data:'], connectSrc: ["'self'", 'ws:', 'wss:'], workerSrc: ["'self'", 'blob:'], upgradeInsecureRequests: null } }, crossOriginEmbedderPolicy: false }));
-  app.use('/api/me/world',express.json({limit:'1mb'}));
+  app.use('/api/me/world',express.json({limit:'4mb'}));
+  app.use('/api/villages/:id/chalkboard',express.json({limit:'4mb'}));
   app.use(express.json({ limit: '20kb' }));
   app.use('/api', (req, res, next) => { res.set('Cache-Control','no-store'); if (!['GET','HEAD','OPTIONS'].includes(req.method) && req.headers.origin && !origins.has(req.headers.origin)) return res.status(403).json({ error: '허용되지 않은 요청 출처입니다.' }); next(); });
   app.use('/api', rateLimit({ windowMs: 60_000, limit: options.testing ? 5000 : 240, standardHeaders: 'draft-8', legacyHeaders: false, message: { error: '요청이 많아요. 잠시 후 다시 시도해 주세요.' } }));
@@ -278,7 +279,7 @@ export function createApp(options = {}) {
   const readChalkboard=ownerId=>{const row=store.one('SELECT strokes,revision FROM chalkboards WHERE owner_id=?',ownerId);return row?{strokes:JSON.parse(row.strokes),revision:row.revision}:{strokes:[],revision:0};};
   app.get('/api/villages/:id/chalkboard',auth,(req,res)=>{const target=checkTarget(req,req.params.id);res.json(readChalkboard(target.id));});
   app.post('/api/villages/:id/chalkboard',auth,guestbookLimiter,(req,res)=>{
-    const target=checkTarget(req,req.params.id),data=z.object({strokes:z.array(chalkStroke).min(1).max(100),revision:z.number().int().min(0),requestId:z.string().uuid()}).strict().parse(req.body);
+    const target=checkTarget(req,req.params.id),data=z.object({strokes:z.array(chalkStroke).min(1).max(500),revision:z.number().int().min(0),requestId:z.string().uuid()}).strict().parse(req.body);
     const previous=store.one('SELECT 1 FROM chalkboard_requests WHERE owner_id=? AND request_id=? AND author_id=?',target.id,data.requestId,req.user.id);
     if(previous)return res.json(readChalkboard(target.id));
     const board=readChalkboard(target.id);

@@ -3,3 +3,7 @@ export function isWinterBirthday(nickname, date = new Date()) {
   const value = type => Number(parts.find(part => part.type === type)?.value);
   return nickname === '겨울이' && value('month') === 11 && value('day') === 3;
 }
+
+export function isBirthdayVillageVisible(nickname, mode, mapOpen, date = new Date()) {
+  return !mapOpen && (mode === 'village' || mode === 'chat') && isWinterBirthday(nickname, date);
+}

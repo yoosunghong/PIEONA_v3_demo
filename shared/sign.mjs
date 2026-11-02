@@ -8,8 +8,8 @@ export function rgbaSignColor(r,g,b,a){
   return '#'+[r,g,b,Math.round(a*255)].map(value=>value.toString(16).padStart(2,'0')).join('');
 }
 export const signShapes=['planks','arrow','hanging'];
-export const MAX_SIGN_STROKES=300;
-export const MAX_SIGN_POINTS=16000;
+export const MAX_SIGN_STROKES=1500;
+export const MAX_SIGN_POINTS=80000;
 export const defaultSign={x:-2,z:-3.6,rotation:0,shape:'planks',strokes:[]};
 export function villageSign(village){
   if(village?.sign)return {...defaultSign,...village.sign};

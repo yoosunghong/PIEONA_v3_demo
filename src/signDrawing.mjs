@@ -1,5 +1,6 @@
 // The drawing is stored as bounded vector strokes, never executable SVG or uploaded HTML.
 const inkLayers=new WeakMap();
+const signCaches=new WeakMap();
 export function boardPath(ctx,shape){
   ctx.beginPath();
   if(shape==='arrow'){
@@ -26,8 +27,15 @@ export function paintStroke(ctx,stroke){
   if(!rest.length){ctx.beginPath();ctx.arc(first[0]*800,first[1]*800,stroke.size/2,0,Math.PI*2);ctx.fill();return;}
   ctx.beginPath();ctx.moveTo(first[0]*800,first[1]*800);for(const point of rest)ctx.lineTo(point[0]*800,point[1]*800);ctx.stroke();
 }
-export function renderSign(canvas,sign){
-  const ctx=canvas.getContext('2d');if(canvas.width!==800)canvas.width=800;if(canvas.height!==800)canvas.height=800;ctx.clearRect(0,0,800,800);
+export function renderSign(canvas,sign,active=null){
+  const ctx=canvas.getContext('2d');
+  const cache=signCaches.get(canvas);
+  if(cache&&cache.shape===sign.shape&&cache.strokes===sign.strokes){
+    ctx.clearRect(0,0,800,800);ctx.drawImage(cache.background,0,0);
+    const pen=cache.working.getContext('2d');pen.clearRect(0,0,800,800);pen.globalCompositeOperation='source-over';pen.drawImage(cache.ink,0,0);
+    if(active){pen.save();boardPath(pen,sign.shape);pen.clip();paintStroke(pen,active);pen.restore();}
+    ctx.drawImage(cache.working,0,0);return;
+  }if(canvas.width!==800)canvas.width=800;if(canvas.height!==800)canvas.height=800;ctx.clearRect(0,0,800,800);
   const hanging=sign.shape==='hanging';
   const post=ctx.createLinearGradient(342,0,444,0);post.addColorStop(0,'#a76d45');post.addColorStop(.2,'#dc9f64');post.addColorStop(.55,'#bc7f4e');post.addColorStop(.8,'#e2aa70');post.addColorStop(1,'#a16b48');ctx.fillStyle=post;
   ctx.beginPath();ctx.roundRect(346,62,108,738,17);ctx.fill();
@@ -40,7 +48,13 @@ export function renderSign(canvas,sign){
   if(sign.shape!=='arrow')for(const y of [315,475]){ctx.strokeStyle='#bc88663d';ctx.lineWidth=6;ctx.beginPath();ctx.moveTo(35,y+12);ctx.quadraticCurveTo(420,y+5,770,y-7);ctx.stroke();ctx.strokeStyle='#fff5dc88';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(45,y+16);ctx.lineTo(765,y-3);ctx.stroke();}
   ctx.restore();boardPath(ctx,sign.shape);ctx.strokeStyle='#fce5c3';ctx.lineWidth=5;ctx.stroke();
   for(const [x,y] of [[84,188],[716,188],[84,613],[716,613]]){if(sign.shape==='arrow')continue;ctx.fillStyle='#ca977c99';ctx.beginPath();ctx.ellipse(x,y,8,10,-.2,0,Math.PI*2);ctx.fill();}
+  const background=document.createElement('canvas');background.width=800;background.height=800;background.getContext('2d').drawImage(canvas,0,0);
   let ink=inkLayers.get(canvas);if(!ink){ink=document.createElement('canvas');ink.width=800;ink.height=800;inkLayers.set(canvas,ink);}const pen=ink.getContext('2d');pen.clearRect(0,0,800,800);
   pen.globalCompositeOperation='source-over';
-  pen.save();boardPath(pen,sign.shape);pen.clip();for(const stroke of sign.strokes||[])paintStroke(pen,stroke);pen.restore();ctx.drawImage(ink,0,0);
+  pen.save();boardPath(pen,sign.shape);pen.clip();for(const stroke of sign.strokes||[])paintStroke(pen,stroke);pen.restore();
+  const savedInk=document.createElement('canvas');savedInk.width=800;savedInk.height=800;savedInk.getContext('2d').drawImage(ink,0,0);
+  const working=document.createElement('canvas');working.width=800;working.height=800;
+  signCaches.set(canvas,{shape:sign.shape,strokes:sign.strokes,background,ink:savedInk,working});
+  if(active){pen.save();boardPath(pen,sign.shape);pen.clip();paintStroke(pen,active);pen.restore();}
+  ctx.drawImage(ink,0,0);
 }

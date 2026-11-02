@@ -7,7 +7,7 @@ import {io} from 'socket.io-client';
 import * as THREE from 'three';
 import {createApp} from '../server/app.mjs';
 import {openStore} from '../server/store.mjs';
-import {defaultSign,villageSign,signCameraView,signPlacementItem,SIGN_ID,MAX_SIGN_POINTS} from '../shared/sign.mjs';
+import {defaultSign,villageSign,signCameraView,signPlacementItem,SIGN_ID,MAX_SIGN_POINTS,MAX_SIGN_STROKES} from '../shared/sign.mjs';
 import {canPlaceDecoration,editorHistory} from '../src/villageEditorState.mjs';
 import {cameraPose,startCameraTransition,advanceCameraTransition} from '../src/sceneCamera.mjs';
 import {insideBoard} from '../src/signDrawing.mjs';
@@ -69,14 +69,14 @@ test('drawing, placement, theme and furniture updates merge without discarding e
 });
 test('malformed, excessive or executable drawing data is rejected',async()=>{
   for(const stroke of [{...ink(),color:'url(evil)'},{...ink(),size:99},{...ink(),points:[[Infinity,.5]]},{...ink(),points:[[1.1,.5]]},{...ink(),points:[]},{...ink(),script:'alert(1)'}])assert.equal((await request('/me/world',owner,{village:{sign:{strokes:[stroke]}}})).status,400);
-  for(const sign of [{shape:'evil'},{rotation:.5},{x:100},{strokes:Array.from({length:301},ink)},{strokes:Array.from({length:9},()=>({...ink(),points:Array.from({length:2000},()=>[.5,.5])}))}])assert.equal((await request('/me/world',owner,{village:{sign}})).status,400);
+  for(const sign of [{shape:'evil'},{rotation:.5},{x:100},{strokes:Array.from({length:MAX_SIGN_STROKES+1},ink)},{strokes:Array.from({length:MAX_SIGN_POINTS/2000+1},()=>({...ink(),points:Array.from({length:2000},()=>[.5,.5])}))}])assert.equal((await request('/me/world',owner,{village:{sign}})).status,400);
 });
 test('a bounded drawing larger than 20kb saves and notifies connected visitors',async()=>{
   const socket=io(url,{extraHeaders:{Cookie:visitor.cookie},transports:['websocket'],forceNew:true});
   try{
     await new Promise((resolve,reject)=>{socket.once('connect',resolve);socket.once('connect_error',reject);});
     const changed=new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new Error('Missing world update')),2000);socket.once('world:changed',()=>{clearTimeout(timer);resolve();});});
-    const strokes=Array.from({length:8},()=>({...ink(),points:Array.from({length:2000},(_,i)=>[.25+i*.0001,.5])}));
+    const strokes=Array.from({length:MAX_SIGN_POINTS/2000},()=>({...ink(),points:Array.from({length:2000},(_,i)=>[.25+i*.0001,.5])}));
     assert.equal(strokes.reduce((sum,s)=>sum+s.points.length,0),MAX_SIGN_POINTS);assert.ok(JSON.stringify(strokes).length>20000);
     assert.equal((await request('/me/world',owner,{village:{sign:{strokes}}})).status,200);await changed;
     assert.deepEqual((await request('/users/'+owner.id,visitor)).body.user.village.sign.strokes,strokes);

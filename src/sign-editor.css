@@ -65,3 +65,5 @@
 .sign-palette .sign-custom-toggle{width:100%;height:34px;gap:8px;margin-top:8px;border-radius:8px;font-size:12px;font-weight:700;background:#e4ebf6}
 .sign-custom-toggle svg{transition:transform .15s}.sign-custom-toggle[aria-expanded=true] svg{transform:rotate(180deg)}
 .sign-palette-empty{grid-column:1/-1;margin:0;font-size:12px;line-height:1.7;color:#54739a}
+
+.sign-brush-cursor{transform:translate(-50%,-50%);border:1px solid currentColor;border-radius:50%;background:#ffffff38;box-shadow:0 0 0 1px #fff9;box-sizing:border-box}

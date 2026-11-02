@@ -59,3 +59,16 @@ test('owner and visitors append shared drawings without overwriting, retries ded
     assert.equal((await h.request(path,visitor)).status,403);
   }finally{await h.close();}
 });
+
+
+test('chalkboard accepts a large drawing batch above the old request and stroke limits',async()=>{
+  const h=await harness();try{
+    const owner=await h.register('chalk_large');
+    const path=`/villages/${owner.id}/chalkboard`;
+    const strokes=Array.from({length:120},()=>({tool:'draw',color:'#fffaf4',size:5,points:Array.from({length:20},(_,i)=>[i/20,.5])}));
+    assert.ok(JSON.stringify(strokes).length>20000);
+    const result=await h.request(path,owner,{strokes,revision:0,requestId:crypto.randomUUID()});
+    assert.equal(result.status,200);
+    assert.deepEqual((await h.request(path,owner)).body.strokes,strokes);
+  }finally{await h.close();}
+});

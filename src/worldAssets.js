@@ -128,6 +128,18 @@ export function dressAvatar(avatar,appearance={}){
     else{avatar.add(group);group.position.y=height/Math.max(scale.y,.001);group.scale.setScalar(1/Math.max(scale.y,.001));}
   }
   if(look.hat!=='none'){
+    if(look.hat==='coffee'){
+      const cup=new THREE.MeshStandardMaterial({color:'#a76a43',roughness:.35,transparent:true,opacity:.92});
+      const coffee=new THREE.MeshStandardMaterial({color:'#503020',roughness:.3});
+      const lid=new THREE.MeshStandardMaterial({color:'#eaf4f1',roughness:.3,transparent:true,opacity:.85});
+      const ice=new THREE.MeshStandardMaterial({color:'#dceff0',roughness:.2,transparent:true,opacity:.8});
+      const straw=new THREE.MeshStandardMaterial({color:'#478b77',roughness:.5});
+      mesh(new THREE.CylinderGeometry(.38,.27,.75,24),cup,0,.55,0);
+      mesh(new THREE.CylinderGeometry(.35,.29,.56,24),coffee,0,.51,0);
+      mesh(new THREE.CylinderGeometry(.4,.4,.06,24),lid,0,.95,0);
+      for(const [x,z,r] of [[-.16,-.09,.25],[.13,.04,-.3],[-.02,.17,.5]]){const cube=mesh(new THREE.BoxGeometry(.16,.13,.16),ice,x,.89,z);cube.rotation.y=r;}
+      const tube=mesh(new THREE.CylinderGeometry(.035,.035,.48,12),straw,.12,1.18,0);tube.rotation.z=-.16;
+    }
     if(look.hat==='birthday'){const pink=new THREE.MeshStandardMaterial({color:'#ff88b2',roughness:.55});const cream=new THREE.MeshStandardMaterial({color:'#fff4cc',roughness:.6});mesh(new THREE.ConeGeometry(.34,.72,24),pink,0,.49,0);mesh(new THREE.SphereGeometry(.09,12,8),gold,0,.89,0);for(let i=0;i<6;i++){const a=i*Math.PI/3;mesh(new THREE.SphereGeometry(.045,8,6),cream,Math.cos(a)*.24,.3,Math.sin(a)*.24);}}
     if(look.hat==='beret'){const beret=mesh(new THREE.SphereGeometry(.43,20,12),color,0,.25,0);beret.scale.set(1,.4,1);beret.rotation.z=.2;mesh(new THREE.CylinderGeometry(.04,.04,.1,8),gold,.08,.43,0);}
     if(look.hat==='crown'){mesh(new THREE.CylinderGeometry(.34,.3,.15,24,true),gold,0,.23,0);for(let i=0;i<5;i++){const a=i*Math.PI*2/5;mesh(new THREE.ConeGeometry(.1,.25,4),gold,Math.cos(a)*.3,.42,Math.sin(a)*.3);}}
